@@ -5,3 +5,5 @@ Jinja2
 WeasyPrint
 numpy
 supabase
+plotly
+libglib2.0-0
