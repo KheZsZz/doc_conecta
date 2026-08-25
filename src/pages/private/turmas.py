@@ -4,6 +4,7 @@ from datetime import date, datetime
 from src.config.database import supabase
 from src.utils.import_helper import processar_planilha_alunos
 from src.utils.atestado import gerar_atestado_pdf_de_arquivo
+from src.utils.certificado import gerar_certificados_pdf
 from weasyprint import HTML
 
 str_lit.title("📅 Abertura e Gestão de Turmas")
@@ -267,56 +268,78 @@ def modal_importar_planilha(tid, titulo_turma, data_turma):
 # 4. MODAL / POPUP DE EMISSÃO DE DOCUMENTOS
 # ==========================================
 @str_lit.dialog("📄 Emitir Documentação da Turma", width="medium")
-def modal_emitir_documentacao(tid, titulo_turma, client_id):
+def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
     str_lit.write(f"**Turma:** {titulo_turma}")
     str_lit.markdown("Selecione o documento desejado para emissão:")
     str_lit.markdown("---")
-    
+
     tipo_documento = str_lit.selectbox(
         "Tipo de Documento",
         [
-            "Atestado de Brigada (Empresa)", 
-            "Lista de Presença", 
+            "Atestado de Brigada (Empresa)",
+            "Lista de Presença",
             "Certificados Individuais"
         ]
     )
-    
+
     str_lit.markdown("---")
-    
+
     if tipo_documento == "Atestado de Brigada (Empresa)":
         str_lit.info("ℹ️ O atestado usará o template configurado e aplicará dinamicamente as colunas e a carga horária de cada matrícula.")
-        
+
         if str_lit.button("🚀 Processar e Gerar Atestado", type="primary", use_container_width=True):
             try:
                 with str_lit.spinner("Buscando dados e gerando atestado..."):
+
+                    # --- Dados da turma ---
                     turma_res = supabase.table("turmas").select("*").eq("id", tid).single().execute()
-                    curso_res = supabase.table("cursos").select("*").eq("id", turma_res.data.get("curso_id")).single().execute() if turma_res and turma_res.data else None
-                    turma_data = turma_res.data if turma_res else {}
-                    
+                    turma_data = turma_res.data if turma_res and turma_res.data else {}
+
+                    ct_id_resolvido = ct_id or turma_data.get("ct_id")
+
+                    # --- Dados do Curso ---
+                    curso_id = turma_data.get("curso_id")
+                    curso_res = (
+                        supabase.table("cursos").select("*").eq("id", curso_id).single().execute()
+                        if curso_id else None
+                    )
+
+                    # --- Data formatada ---
                     data_turma_raw = turma_data.get("data_treinamento", "")
                     cidade_data_formatada = formatar_data_extenso(data_turma_raw)
-                    
+
+                    # --- Dados da Empresa contratante ---
                     empresa_data = {}
                     if client_id:
                         cli_res = supabase.table("clients").select("*").eq("id", client_id).single().execute()
                         if cli_res and cli_res.data:
                             empresa_data = cli_res.data
-                            
+
+                    # --- Dados do CT ---
+                    ct_data = None
+                    if ct_id_resolvido:
+                        ct_res = supabase.table("cts").select("*").eq("id", ct_id_resolvido).single().execute()
+                        if ct_res and ct_res.data:
+                            ct_data = ct_res.data
+
+                    # --- Dados do Instrutor ---
                     instrutor_data = {}
                     instrutor_id = turma_data.get("instrutor_id")
                     if instrutor_id:
                         inst_res = supabase.table("instrutores").select("*").eq("id", instrutor_id).single().execute()
                         if inst_res and inst_res.data:
                             instrutor_data = inst_res.data
-                            
-                    mat_res = supabase.table("matriculas").select("data_treinamento, carga_horaria, alunos(name, rg, cpf, data_nasc)").eq("turma_id", tid).execute()
-                    
+
+                    # --- Matrículas / Alunos ---
+                    mat_res = supabase.table("matriculas").select(
+                        "data_treinamento, carga_horaria, alunos(name, rg, cpf, data_nasc)"
+                    ).eq("turma_id", tid).execute()
+
                     alunos_lista = []
                     if mat_res and mat_res.data:
                         for m in mat_res.data:
                             aluno_info = m.get("alunos") or {}
                             carga_aluno = m.get("carga_horaria") or "08 Horas"
-                            
                             alunos_lista.append({
                                 "nome": aluno_info.get("name", ""),
                                 "rg": aluno_info.get("rg", ""),
@@ -325,7 +348,7 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id):
                                 "data_matricula": m.get("data_treinamento", ""),
                                 "horas": carga_aluno
                             })
-                    
+
                     normativa_curso = ""
                     if curso_res and curso_res.data:
                         normativa_curso = curso_res.data.get("normativa", "")
@@ -333,21 +356,24 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id):
                     dados_turma_config = {
                         "normativa": normativa_curso,
                         "cidade_data": cidade_data_formatada,
-                        "logo_treinnar": "", 
                         "logo_conecta": ""
                     }
-                    
+
                     html_gerado = gerar_atestado_pdf_de_arquivo(
                         dados_turma=dados_turma_config,
                         alunos_matriculas=alunos_lista,
                         instrutor=instrutor_data,
-                        empresa=empresa_data
+                        empresa=empresa_data,
+                        ct=ct_data
                     )
-                    
+
                     pdf_bytes = HTML(string=html_gerado).write_pdf()
-                    
+
+                    # Atualiza o status de emissão da documentação
+                    supabase.table("turmas").update({"documento_emitido": True}).eq("id", tid).execute()
+                    supabase.table("matriculas").update({"doc_emitida": True}).eq("turma_id", tid).execute()
+
                     str_lit.success("✅ Atestado em PDF gerado com sucesso!")
-                    
                     str_lit.download_button(
                         label="📥 Baixar Atestado (PDF)",
                         data=pdf_bytes,
@@ -355,19 +381,127 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id):
                         mime="application/pdf",
                         use_container_width=True
                     )
-                    
+
             except Exception as e:
                 str_lit.error(f"❌ Erro ao gerar atestado: {e}")
-                
+
     elif tipo_documento == "Lista de Presença":
         str_lit.write("📋 Opções para a Lista de Presença da turma.")
         if str_lit.button("Gerar Lista", type="primary", use_container_width=True):
             str_lit.info("Módulo de lista de presença em andamento.")
-            
+
     elif tipo_documento == "Certificados Individuais":
-        str_lit.write("🎓 Opções para os certificados dos alunos.")
-        if str_lit.button("Gerar Certificados", type="primary", use_container_width=True):
-            str_lit.info("Módulo de certificados em andamento.")
+        str_lit.write("🎓 Gera um PDF com um certificado por página (paisagem A4) para todos os alunos da turma.")
+
+        col_nivel, col_resp = str_lit.columns(2)
+        with col_nivel:
+            nivel_cert = str_lit.selectbox(
+                "Nível do Treinamento",
+                ["Formação", "Reciclagem", "Avançado"],
+                key=f"nivel_cert_{tid}"
+            )
+        with col_resp:
+            resp_tecnico = str_lit.text_input(
+                "Responsável Técnico (nome, opcional)",
+                value="Cristiano Reis",
+                key=f"resp_tec_{tid}"
+            )
+        cpf_resp = str_lit.text_input(
+            "CPF do Responsável Técnico",
+            value="214.135.358-01",
+            key=f"cpf_resp_{tid}"
+        )
+
+        str_lit.markdown("---")
+
+        if str_lit.button("🎓 Gerar Certificados (PDF)", type="primary", use_container_width=True, key=f"btn_cert_{tid}"):
+            try:
+                with str_lit.spinner("Buscando dados e gerando certificados..."):
+
+                    # Dados da turma
+                    turma_res = supabase.table("turmas").select("*").eq("id", tid).single().execute()
+                    turma_data = turma_res.data if turma_res and turma_res.data else {}
+
+                    # Curso / normativa
+                    curso_id = turma_data.get("curso_id")
+                    normativa_cert = ""
+                    if curso_id:
+                        curso_res = supabase.table("cursos").select("normativa").eq("id", curso_id).single().execute()
+                        if curso_res and curso_res.data:
+                            normativa_cert = curso_res.data.get("normativa", "")
+
+                    # Data formatada
+                    cidade_data_cert = formatar_data_extenso(turma_data.get("data_treinamento", ""))
+
+                    # Instrutor
+                    instrutor_data = {}
+                    instrutor_id = turma_data.get("instrutor_id")
+                    if instrutor_id:
+                        inst_res = supabase.table("instrutores").select("*").eq("id", instrutor_id).single().execute()
+                        if inst_res and inst_res.data:
+                            instrutor_data = inst_res.data
+
+                    # Empresa contratante
+                    empresa_data = None
+                    if client_id:
+                        cli_res = supabase.table("clients").select("*").eq("id", client_id).single().execute()
+                        if cli_res and cli_res.data:
+                            empresa_data = cli_res.data
+
+                    # Matrículas / alunos
+                    mat_res = supabase.table("matriculas").select(
+                        "data_treinamento, carga_horaria, alunos(name, rg, cpf, data_nasc)"
+                    ).eq("turma_id", tid).execute()
+
+                    alunos_lista = []
+                    if mat_res and mat_res.data:
+                        for m in mat_res.data:
+                            aluno_info = m.get("alunos") or {}
+                            alunos_lista.append({
+                                "name": aluno_info.get("name", ""),
+                                "cpf": aluno_info.get("cpf", ""),
+                                "rg": aluno_info.get("rg", ""),
+                                "data_nasc": aluno_info.get("data_nasc", ""),
+                                "horas": m.get("carga_horaria") or "8 Horas",
+                            })
+
+                    if not alunos_lista:
+                        str_lit.warning("⚠️ Nenhum aluno matriculado nesta turma.")
+                        str_lit.stop()
+
+                    turma_cert = {
+                        "modalidade": turma_data.get("modalidade", "Presencial"),
+                        "nivel": nivel_cert,
+                        "carga_horaria": "8 Horas",
+                        "resp_tecnico": resp_tecnico.strip() if resp_tecnico else "",
+                        "cpf_resp_tecnico": cpf_resp.strip() if cpf_resp else "",
+                    }
+
+                    pdf_bytes = gerar_certificados_pdf(
+                        alunos_matriculas=alunos_lista,
+                        turma=turma_cert,
+                        instrutor=instrutor_data,
+                        empresa=empresa_data,
+                        normativa=normativa_cert,
+                        cidade_data=cidade_data_cert,
+                    )
+
+                    # Atualiza o status de emissão da documentação
+                    supabase.table("turmas").update({"documento_emitido": True}).eq("id", tid).execute()
+                    supabase.table("matriculas").update({"doc_emitida": True}).eq("turma_id", tid).execute()
+
+                    str_lit.success(f"✅ {len(alunos_lista)} certificado(s) gerado(s) com sucesso!")
+                    str_lit.download_button(
+                        label="📥 Baixar Certificados (PDF)",
+                        data=pdf_bytes,
+                        file_name=f"certificados_{titulo_turma.replace(' ', '_')}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                        key=f"dl_cert_{tid}"
+                    )
+
+            except Exception as e:
+                str_lit.error(f"❌ Erro ao gerar certificados: {e}")
 
 # ==========================================
 # ABA 1: LISTAGEM DE TURMAS (EM LINHAS/CARDS)
@@ -429,7 +563,7 @@ with tab_listar:
                                     
                             with b3:
                                 if str_lit.button("✅", key=f"emit_{tid}", help="Emitir documentações"):
-                                    modal_emitir_documentacao(tid, titulo, client_id)
+                                    modal_emitir_documentacao(tid, titulo, client_id, ct_id)
                                     
                             with b4:
                                 if str_lit.button("📥", key=f"imp_{tid}", help="Importar planilha de alunos"):

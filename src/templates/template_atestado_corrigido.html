@@ -68,7 +68,7 @@
             font-weight: bold;
         }
 
-        /* Tabela de Alunos com suporte a quebras de página */
+        /* Tabela de Alunos */
         .tabela-container {
             margin-bottom: 15px;
             width: 100%;
@@ -106,7 +106,6 @@
         table.tabela-alunos td:first-child {
             text-align: left;
         }
-        
         table.tabela-alunos td:nth-child(2),
         table.tabela-alunos td:nth-child(3),
         table.tabela-alunos td:nth-child(4),
@@ -114,7 +113,7 @@
             white-space: nowrap;
         }
 
-        /* Norma IT 17 */
+        /* Norma */
         .norma {
             text-align: justify;
             font-size: 11pt;
@@ -154,7 +153,7 @@
             font-size: 11pt;
         }
 
-        /* Rodapé Fixo */
+        /* Rodapé Fixo — agora dinâmico via CT */
         .rodape {
             position: fixed;
             bottom: 0;
@@ -171,29 +170,30 @@
             color: #000000;
             background-color: #ffffff;
         }
+        .rodape-logo {
+            flex: 0 0 auto;
+            margin-right: 10px;
+        }
+        .rodape-logo img {
+            max-height: 35px;
+            max-width: 110px;
+            object-fit: contain;
+        }
         .rodape-info {
             flex: 1;
             text-align: center;
             line-height: 1.2;
         }
-        .rodape p {
+        .rodape-info p {
             font-size: 7.5pt;
             margin: 1px 0;
-        }
-        .logo-right {
-            flex: 0 0 auto;
-            margin-left: 10px;
-        }
-        .logo-right img {
-            max-height: 30px;
-            max-width: 100px;
         }
     </style>
 </head>
 <body>
     <div class="container">
 
-        <!-- Header com Logo Dinâmica do CT -->
+        <!-- Header: logo dinâmica do CT -->
         <div class="header">
             <div class="logo-left">
                 {% if LOGO_CT %}
@@ -210,7 +210,7 @@
             Atesto para os devidos fins, que as pessoas abaixo relacionadas participaram com bom aproveitamento do treinamento de <strong>Brigada de Incêndio - Prevenção e Combate a Incêndio e Primeiros Socorros</strong>, e estão aptas ao manuseio dos equipamentos de prevenção e combate a incêndio da edificação.
         </div>
 
-        <!-- Dados da Empresa -->
+        <!-- Dados da Empresa contratante -->
         <div class="bloco-empresa">
             <p><strong>Empresa:</strong> {{ EMPRESA }}</p>
             <p><strong>Endereço:</strong> {{ ENDERECO }}</p>
@@ -258,14 +258,10 @@
         </div>
 
         <!-- Norma -->
-        <div class="norma">
-            {{ NORMA }}
-        </div>
+        <div class="norma">{{ NORMA }}</div>
 
         <!-- Data -->
-        <div class="data">
-            {{ CIDADE_DATA }}
-        </div>
+        <div class="data">{{ CIDADE_DATA }}</div>
 
         <!-- Assinatura -->
         <div class="bloco-assinatura">
@@ -277,21 +273,34 @@
             <div class="doc-instrutor">CBO: {{ DOC_INSTRUTOR }}</div>
         </div>
 
-        <!-- Rodapé Fixo -->
+        <!-- Rodapé dinâmico baseado no CT da turma -->
         <div class="rodape">
             <div class="rodape-info">
-                <p><strong>TREINNAR SERVIÇOS E EQUIPAMENTOS CONTRA INCENDIO LTDA </strong></p>
-                <p><strong>CNPJ/MF n° 02.837.835/0001-26 </strong></p>
-                <p>End. Correspondência: Rua Caramuru, n° 515 - Vila Conceção, Diadema, São Paulo/SP - 09911-510 </p>
-                <p>End. CT: Rua Dolomita, n° 1346 - Bairro Mikail II, Guarulhos - São Paulo/SP - 07145-020</p>
-                <p>Telefone: +55 (11) 3382-8100</p>
-            </div>  
-            <div class="logo-right">
-                {% if LOGO_CONECTA %}
-                <img src="{{ LOGO_CONECTA }}" alt="Conecta Logo">
+                {% if CT_NOME %}
+                <p><strong>{{ CT_NOME }}</strong></p>
+                {% endif %}
+                {% if CT_CNPJ %}
+                <p><strong>CNPJ/MF n° {{ CT_CNPJ }}</strong></p>
+                {% endif %}
+                {% if CT_ENDERECO %}
+                <p>{{ CT_ENDERECO }}</p>
+                {% endif %}
+                {% if CT_TELEFONE %}
+                <p>Telefone: {{ CT_TELEFONE }}</p>
                 {% endif %}
             </div>
+            <!-- {% if LOGO_CT %}
+            <div class="rodape-logo">
+                <img src="{{ LOGO_CT }}" alt="Logo CT">
+            </div>
+            {% endif %} -->
+            {% if LOGO_CONECTA %}
+            <div class="rodape-logo" style="margin-left:10px; margin-right:0;">
+                <img src="{{ LOGO_CONECTA }}" alt="Logo Conecta">
+            </div>
+            {% endif %}
         </div>
+
     </div>
 </body>
 </html>
