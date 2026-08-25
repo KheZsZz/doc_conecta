@@ -30,6 +30,7 @@ cursos_page = st.Page("src/pages/private/cursos.py", title="Cursos", icon="📚"
 instrutores_page = st.Page("src/pages/private/instrutores.py", title="Instrutores", icon="👨‍🏫")
 cts_page = st.Page("src/pages/private/cts.py", title="CTS", icon="📝")
 alunos_page = st.Page("src/pages/private/alunos.py", title="Alunos", icon="👨‍🎓")
+mac_page = st.Page("src/pages/private/mac.py", title="MAC", icon="💻")
 
 # Roteamento
 if pagina_atual == "checkin":
@@ -41,6 +42,7 @@ else:
         "Principal": [home_page],
         "Operacional": [clients_page, cursos_page, turmas_page, instrutores_page, cts_page],
         "cadastro": [signup_page, alunos_page]
+        "especificos": [mac_page]
     })
     
     with st.sidebar:
