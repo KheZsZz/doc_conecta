@@ -41,7 +41,7 @@ else:
     pg = st.navigation({
         "Principal": [home_page],
         "Operacional": [clients_page, cursos_page, turmas_page, instrutores_page, cts_page],
-        "cadastro": [signup_page, alunos_page]
+        "cadastro": [signup_page, alunos_page],
         "especificos": [mac_page]
     })
     
