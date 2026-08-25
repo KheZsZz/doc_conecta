@@ -3,7 +3,11 @@ from src.config.database import supabase
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
+
+# Adiciona a raiz do projeto ao path do Python
+root_dir = Path(__file__).resolve().parent
+if str(root_dir) not in sys.path:
+    sys.path.append(str(root_dir))
 
 st.set_page_config(page_title="CRM - Emissão de Documentos", page_icon="🔥", layout="wide")
 

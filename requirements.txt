@@ -6,4 +6,7 @@ WeasyPrint
 numpy
 supabase
 plotly
-libglib2.0-0
+libpango-1.0-0
+libharfbuzz0b
+libpangoft2-1.0-0
+libffi-dev
