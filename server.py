@@ -42,7 +42,7 @@ else:
         "Principal": [home_page],
         "Operacional": [clients_page, cursos_page, turmas_page, instrutores_page, cts_page],
         "cadastro": [signup_page, alunos_page],
-        "especificos": [mac_page]
+        "especificos": [mc_page]
     })
     
     with st.sidebar:
