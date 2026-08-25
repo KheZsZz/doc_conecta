@@ -30,7 +30,7 @@ cursos_page = st.Page("src/pages/private/cursos.py", title="Cursos", icon="📚"
 instrutores_page = st.Page("src/pages/private/instrutores.py", title="Instrutores", icon="👨‍🏫")
 cts_page = st.Page("src/pages/private/cts.py", title="CTS", icon="📝")
 alunos_page = st.Page("src/pages/private/alunos.py", title="Alunos", icon="👨‍🎓")
-mac_page = st.Page("src/pages/private/mac.py", title="MAC", icon="💻")
+mc_page = st.Page("src/pages/private/mcDonalds.py", title="mcDonalds", icon="💻")
 
 # Roteamento
 if pagina_atual == "checkin":
