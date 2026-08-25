@@ -6,3 +6,4 @@ WeasyPrint
 numpy
 supabase
 plotly
+pypdf
