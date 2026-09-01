@@ -1,5 +1,19 @@
 import os
+from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
+
+def formatar_data_br(data_str):
+    """Converte string de data (ex: YYYY-MM-DD) para o padrão brasileiro DD/MM/YYYY."""
+    if not data_str:
+        return ""
+    data_str_limpa = str(data_str).strip()
+    for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S"):
+        try:
+            dt = datetime.strptime(data_str_limpa[:10], fmt.split()[0])
+            return dt.strftime("%d/%m/%Y")
+        except ValueError:
+            continue
+    return data_str_limpa  # Retorna o original se não conseguir converter
 
 def gerar_atestado_pdf_de_arquivo(dados_turma, alunos_matriculas, instrutor, empresa, ct=None, caminho_pasta_templates="src/templates"):
     env = Environment(loader=FileSystemLoader(caminho_pasta_templates))
@@ -17,12 +31,12 @@ def gerar_atestado_pdf_de_arquivo(dados_turma, alunos_matriculas, instrutor, emp
             "nome": aluno.get("nome", "Sem Nome"),
             "rg": aluno.get("rg", ""),
             "cpf": aluno.get("cpf", ""),
-            "data_nasc": aluno.get("data_nasc", ""),
+            "data_nasc": formatar_data_br(aluno.get("data_nasc", "")),
             "Treinamento": aluno.get("Treinamento", "Intermediário"),
             "horas": aluno.get("horas", "4H")
         }
         if mostrar_coluna_data:
-            item["data_matricula"] = aluno.get("data_matricula", "")
+            item["data_matricula"] = formatar_data_br(aluno.get("data_matricula", ""))
         alunos_processados.append(item)
 
     # Resolução do CT
@@ -39,7 +53,7 @@ def gerar_atestado_pdf_de_arquivo(dados_turma, alunos_matriculas, instrutor, emp
         ct_telefone = empresa.get("phone") or ""
         ct_logo = ""
 
-    # Fatiamento em páginas de no máximo 30 alunos
+    # Fatiamento em páginas de no máximo 20 alunos
     TAMANHO_PAGINA = 20
     if not alunos_processados:
         paginas_alunos = [[]]
