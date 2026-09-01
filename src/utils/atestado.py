@@ -62,7 +62,7 @@ def gerar_atestado_pdf_de_arquivo(dados_turma, alunos_matriculas, instrutor, emp
         CIDADE_DATA=dados_turma.get("cidade_data"),
         ASSINATURA_IMG=instrutor.get("assinatura"),
         NOME_INSTRUTOR=instrutor.get("name"),
-        DOC_INSTRUTOR=instrutor.get("cbo") or instrutor.get("cpf"),
+        DOC_INSTRUTOR=instrutor.get("cpf"),
         mostrar_coluna_rg=mostrar_coluna_rg,
         mostrar_coluna_nasc=mostrar_coluna_nasc,
         mostrar_coluna_data=mostrar_coluna_data,
