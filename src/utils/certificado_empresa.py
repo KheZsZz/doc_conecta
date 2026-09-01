@@ -15,7 +15,7 @@ def formatar_data_br(data_str):
             continue
     return data_str_limpa
 
-def gerar_certificado_html(aluno, dados_turma, instrutor, empresa, resp_tecnico=None, caminho_pasta_templates="src/templates", nome_template="template_certificado.html"):
+def gerar_certificado_empresa_pdf(aluno, dados_turma, instrutor, empresa, resp_tecnico=None, caminho_pasta_templates="src/templates", nome_template="template_certificado.html"):
     env = Environment(loader=FileSystemLoader(caminho_pasta_templates))
     template = env.get_template(nome_template)
 

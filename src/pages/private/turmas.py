@@ -4,7 +4,8 @@ from datetime import date, datetime
 from src.config.database import supabase
 from src.utils.import_helper import processar_planilha_alunos
 from src.utils.atestado import gerar_atestado_pdf_de_arquivo
-from src.utils.certificado import gerar_certificados_pdf, gerar_certificado_empresa_pdf
+from src.utils.certificado import gerar_certificados_pdf
+from src.utils.certificado_empresa import gerar_certificado_empresa_pdf
 from weasyprint import HTML
 
 str_lit.title("📅 Abertura e Gestão de Turmas")
