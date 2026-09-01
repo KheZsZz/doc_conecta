@@ -18,6 +18,7 @@ def gerar_atestado_pdf_de_arquivo(dados_turma, alunos_matriculas, instrutor, emp
             "rg": aluno.get("rg", ""),
             "cpf": aluno.get("cpf", ""),
             "data_nasc": aluno.get("data_nasc", ""),
+            "Treinamento": aluno.get("Treinamento", "Intermediário"),
             "horas": aluno.get("horas", "4H")
         }
         if mostrar_coluna_data:
