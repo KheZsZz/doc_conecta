@@ -86,7 +86,7 @@ def gerar_certificado_html(
         RG_CPF=rg_cpf_str,
         EMPRESA=empresa.get("name", "") if empresa else "",
         ENDERECO_EMPRESA=empresa.get("full_address", "") if empresa else "",
-        NIVEL=turma.get("nivel", "Formação"),
+        NIVEL=turma.get("nivel", "Intermediário"),
         MODALIDADE=turma.get("modalidade", "Presencial"),
         CARGA_HORARIA=turma.get("carga_horaria", "8 Horas"),
         NORMATIVA=normativa,
