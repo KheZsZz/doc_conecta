@@ -28,12 +28,12 @@ def formatar_data_extenso(data_str):
         return f"Itapecerica da Serra, {datetime.now().strftime('%d de %B de %Y')}"
 
 # ==========================================
-# 1. MODAL / POPUP DE VISUALIZAÇÃO E EDIÇÃO DE ALUNOS
+# 1. MODAL / POPUP DE VISUALIZAÇÃO, EDIÇÃO E EXCLUSÃO DE ALUNOS
 # ==========================================
 @str_lit.dialog("👥 Alunos Matriculados na Turma", width="large")
 def modal_visualizar_alunos(turma_id, titulo_turma):
     str_lit.write(f"**Turma:** {titulo_turma}")
-    str_lit.markdown("💡 *Edite o **Nome**, o **CPF** ou a **Carga Horária** diretamente na tabela abaixo e clique em Salvar Alterações.*")
+    str_lit.markdown("💡 *Edite o **Nome**, o **CPF** ou a **Carga Horária** diretamente na tabela abaixo e clique em Salvar Alterações. Marque **Excluir?** e clique em Excluir Selecionados para remover um aluno da turma.*")
     str_lit.markdown("---")
     
     try:
@@ -59,7 +59,8 @@ def modal_visualizar_alunos(turma_id, titulo_turma):
                     "CPF": cpf_fmt,
                     "Empresa Vínculo": empresa.get("name", "Particular / Aberta"),
                     "Carga Horária": m.get("carga_horaria", "08 Horas"),
-                    "Data Matrícula/Treino": m.get("data_treinamento", "")
+                    "Data Matrícula/Treino": m.get("data_treinamento", ""),
+                    "Excluir?": False
                 })
                 
             df_exibicao = pd.DataFrame(dados_tabela)
@@ -74,7 +75,11 @@ def modal_visualizar_alunos(turma_id, titulo_turma):
                     "Data Matrícula/Treino": str_lit.column_config.TextColumn(disabled=True),
                     "Nome do Aluno": str_lit.column_config.TextColumn(required=True),
                     "CPF": str_lit.column_config.TextColumn(required=True),
-                    "Carga Horária": str_lit.column_config.TextColumn(required=True)
+                    "Carga Horária": str_lit.column_config.TextColumn(required=True),
+                    "Excluir?": str_lit.column_config.CheckboxColumn(
+                        help="Marque para remover este aluno desta turma",
+                        default=False
+                    )
                 },
                 disabled=["Nº", "Empresa Vínculo", "Data Matrícula/Treino"],
                 hide_index=True,
@@ -84,7 +89,12 @@ def modal_visualizar_alunos(turma_id, titulo_turma):
             
             str_lit.info(f"Total de alunos nesta turma: **{len(dados_tabela)}**")
             
-            col1, col2 = str_lit.columns(2)
+            selecionados_para_excluir = edited_df[edited_df["Excluir?"] == True]
+            if len(selecionados_para_excluir) > 0:
+                nomes_selecionados = ", ".join(selecionados_para_excluir["Nome do Aluno"].tolist())
+                str_lit.warning(f"⚠️ Marcado(s) para exclusão: **{nomes_selecionados}**")
+            
+            col1, col2, col3 = str_lit.columns(3)
             with col1:
                 if str_lit.button("💾 Salvar Alterações", type="primary", use_container_width=True):
                     alteracoes = 0
@@ -117,8 +127,33 @@ def modal_visualizar_alunos(turma_id, titulo_turma):
                         str_lit.rerun()
                     else:
                         str_lit.warning("⚠️ Nenhuma alteração foi detectada.")
-                        
+
             with col2:
+                if str_lit.button("🗑️ Excluir Selecionados", use_container_width=True):
+                    linhas_marcadas = edited_df[edited_df["Excluir?"] == True]
+                    
+                    if len(linhas_marcadas) == 0:
+                        str_lit.warning("⚠️ Nenhum aluno marcado para exclusão.")
+                    else:
+                        excluidos = 0
+                        erros = []
+                        for _, row in linhas_marcadas.iterrows():
+                            matricula_id = row["matricula_id"]
+                            nome_aluno = row["Nome do Aluno"]
+                            try:
+                                supabase.table("matriculas").delete().eq("id", matricula_id).execute()
+                                excluidos += 1
+                            except Exception as err:
+                                erros.append(f"{nome_aluno}: {err}")
+                        
+                        if excluidos > 0:
+                            str_lit.success(f"✅ {excluidos} aluno(s) removido(s) da turma com sucesso!")
+                        if erros:
+                            str_lit.error("❌ Erro ao excluir: " + " | ".join(erros))
+                        
+                        str_lit.rerun()
+                        
+            with col3:
                 if str_lit.button("❌ Fechar", use_container_width=True):
                     str_lit.rerun()
         else:
