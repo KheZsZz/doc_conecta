@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Certificado - {{ NOME_ALUNO }}</title>
+    <title>Certificado - {{ EMPRESA }}</title>
     <style>
         @page {
             size: A4 landscape;
@@ -45,7 +45,6 @@
             width: 100%;
             height: 100%;
             z-index: 1;
-            /* Área de texto começa após a barra lateral (~110px) */
             padding-left: 150px;
             padding-right: 30px;
             padding-top: 150px;
@@ -55,16 +54,14 @@
             justify-content: flex-start;
         }
 
-        /* Título */
         .titulo {
-            font-size: 38pt;
+            font-size: 34pt;
             font-weight: bold;
             color: #1a2a5e;
             margin-bottom: 10px;
             letter-spacing: 1px;
         }
 
-        /* Subtítulo do treinamento */
         .subtitulo-treino {
             font-size: 10pt;
             color: #333;
@@ -72,7 +69,6 @@
             line-height: 1.4;
         }
 
-        /* Linha separadora fina */
         .linha {
             width: 100%;
             height: 1px;
@@ -80,7 +76,6 @@
             margin-bottom: 16px;
         }
 
-        /* Bloco principal de texto */
         .texto-certificado {
             font-size: 10pt;
             color: #222;
@@ -92,8 +87,12 @@
             font-size: 11pt;
             color: #1a2a5e;
         }
+        .texto-certificado .normativa-extra {
+            display: block;
+            margin-top: 8px;
+            font-style: italic;
+        }
 
-        /* Campos estruturados */
         .campos {
             display: flex;
             flex-direction: column;
@@ -112,14 +111,12 @@
             color: #1a2a5e;
         }
 
-        /* Data */
         .data {
             font-size: 9.5pt;
             color: #333;
             margin-bottom: 18px;
         }
 
-        /* Bloco de assinaturas */
         .assinaturas {
             display: flex;
             justify-content: flex-start;
@@ -156,12 +153,12 @@
 </head>
 <body>
     <div class="pagina">
-        <!-- Fundo: imagem do template Conecta/Ecofire -->
+        <!-- Fundo -->
         <img class="fundo" src="{{ IMAGEM_FUNDO }}" alt="Fundo Certificado">
 
         <!-- Conteúdo textual -->
         <div class="conteudo">
-            <!-- <div class="titulo">Certificado</div> -->
+            <div class="titulo">Certificado</div>
 
             <div class="subtitulo-treino">
                 Treinamento de Brigada de Incêndio — Prevenção, Combate a Incêndio e Primeiros Socorros
@@ -173,14 +170,18 @@
                 <p>Empresa: <strong>{{ EMPRESA }}</strong></p>
                 <p>Endereço: <strong>{{ ENDERECO_EMPRESA }}</strong></p>
                 <p>CNPJ: <strong>{{ CNPJ_EMPRESA }}</strong></p>
-                
-                <br>
-                <br>    
 
-                <p>Certificamos que o aluno acima identificado realizou com aproveitamento o treinamento de
+                <br>
+                <br>
+
+                <p>Certificamos que a empresa acima identificada, através de seus colaboradores{% if TOTAL_COLABORADORES %} ({{ TOTAL_COLABORADORES }} participante(s)){% endif %}, realizou com aproveitamento o treinamento de
                 <strong>"Brigada de Incêndio — Prevenção e Combate a Incêndio e Primeiros Socorros"</strong>,
                 de acordo com as normas <strong>NBR 14277</strong> da ABNT e <strong>IT-17</strong>
                 do Corpo de Bombeiros, com o conteúdo programático da tabela B.2 da IT-17.</p>
+
+                {% if NORMATIVA %}
+                <span class="normativa-extra">Normativa do curso: {{ NORMATIVA }}</span>
+                {% endif %}
             </div>
 
             <br>
@@ -218,14 +219,6 @@
                     {% if CPF_INSTRUTOR %}
                     <div class="assinatura-doc">CPF: {{ CPF_INSTRUTOR }}</div>
                     {% endif %}
-                </div>
-
-                <!-- Aluno -->
-                <div class="assinatura-bloco">
-                    <div style="height: 36px;"></div>
-                    <div class="assinatura-linha"></div>
-                    <div class="assinatura-nome">{{ NOME_ALUNO }}</div>
-                    <div class="assinatura-cargo">Aluno</div>
                 </div>
 
                 <!-- Responsável Técnico (se informado) -->
