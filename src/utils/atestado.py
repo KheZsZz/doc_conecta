@@ -1,4 +1,5 @@
 import os
+import base64
 from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
 
@@ -14,6 +15,39 @@ def formatar_data_br(data_str):
         except ValueError:
             continue
     return data_str_limpa  # Retorna o original se não conseguir converter
+
+
+def _imagem_para_data_uri(caminho: str) -> str:
+    """Converte uma imagem local para data URI base64 (evita problemas de path no WeasyPrint)."""
+    ext = os.path.splitext(caminho)[1].lower().lstrip(".")
+    mime = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "gif": "gif", "webp": "webp"}.get(ext, "png")
+    with open(caminho, "rb") as f:
+        b64 = base64.b64encode(f.read()).decode()
+    return f"data:image/{mime};base64,{b64}"
+
+
+def _resolver_imagem(caminho_ou_url: str) -> str:
+    """
+    Resolve uma referência de imagem (assinatura, logo, etc.) vinda do banco para algo
+    que o WeasyPrint consegue renderizar quando o HTML é montado como string em memória:
+      - URL http(s) (ex: Supabase Storage) -> usada diretamente
+      - caminho local existente -> convertido para data URI base64
+      - qualquer outro caso (arquivo local ausente, vazio, etc.) -> string vazia
+    """
+    if not caminho_ou_url:
+        return ""
+    caminho_ou_url = str(caminho_ou_url).strip()
+    if caminho_ou_url.startswith(("http://", "https://", "data:")):
+        return caminho_ou_url
+    if os.path.exists(caminho_ou_url):
+        try:
+            return _imagem_para_data_uri(caminho_ou_url)
+        except Exception:
+            return ""
+    # Caminho local salvo no banco não existe mais no filesystem atual (ex: app reiniciado
+    # em ambiente com storage efêmero) — não há como recuperar a imagem aqui.
+    return ""
+
 
 def gerar_atestado_pdf_de_arquivo(dados_turma, alunos_matriculas, instrutor, empresa, ct=None, caminho_pasta_templates="src/templates"):
     env = Environment(loader=FileSystemLoader(caminho_pasta_templates))
@@ -53,6 +87,11 @@ def gerar_atestado_pdf_de_arquivo(dados_turma, alunos_matriculas, instrutor, emp
         ct_telefone = empresa.get("phone") or ""
         ct_logo = ""
 
+    # Imagens: logo do CT e assinatura do instrutor precisam virar URL absoluta ou data URI,
+    # pois o HTML é renderizado a partir de string (sem base_url) via HTML(string=...).write_pdf()
+    ct_logo_resolvida = _resolver_imagem(ct_logo)
+    assinatura_resolvida = _resolver_imagem(instrutor.get("assinatura"))
+
     # Fatiamento em páginas de no máximo 20 alunos
     TAMANHO_PAGINA = 20
     if not alunos_processados:
@@ -64,7 +103,7 @@ def gerar_atestado_pdf_de_arquivo(dados_turma, alunos_matriculas, instrutor, emp
         ]
 
     html_renderizado = template.render(
-        LOGO_CT=ct_logo,
+        LOGO_CT=ct_logo_resolvida,
         LOGO_CONECTA="https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/logo_conecta.png",
         EMPRESA=empresa.get("name"),
         ENDERECO=empresa.get("full_address"),
@@ -75,13 +114,13 @@ def gerar_atestado_pdf_de_arquivo(dados_turma, alunos_matriculas, instrutor, emp
         CT_TELEFONE=ct_telefone,
         NORMA=dados_turma.get("normativa"),
         CIDADE_DATA=dados_turma.get("cidade_data"),
-        ASSINATURA_IMG=instrutor.get("assinatura"),
+        ASSINATURA_IMG=assinatura_resolvida,
         NOME_INSTRUTOR=instrutor.get("name"),
         DOC_INSTRUTOR=instrutor.get("cpf"),
         mostrar_coluna_rg=mostrar_coluna_rg,
         mostrar_coluna_nasc=mostrar_coluna_nasc,
         mostrar_coluna_data=mostrar_coluna_data,
-        
+
         # Aqui enviamos a lista dividida por páginas
         paginas=paginas_alunos
     )

@@ -1,13 +1,40 @@
 import streamlit as st
-import os
+import uuid
 from src.config.database import supabase
 
 st.title("👨‍🏫 Gestão de Instrutores")
 st.markdown("Cadastre os instrutores e gerencie suas informações profissionais, status e assinaturas.")
 
-# Cria a pasta de assinaturas caso não exista
-PASTA_ASSINATURAS = "assets/assinaturas"
-os.makedirs(PASTA_ASSINATURAS, exist_ok=True)
+# ==========================================
+# FUNÇÃO AUXILIAR: UPLOAD DA ASSINATURA PRO BUCKET
+# ==========================================
+def fazer_upload_assinatura(arquivo_upload, cpf: str):
+    """
+    Faz upload da imagem de assinatura para o bucket público 'assinaturas' do Supabase Storage
+    e retorna a URL pública. Isso garante que a assinatura sobreviva a reinícios/redeploys
+    do app (diferente de salvar em disco local) e que o WeasyPrint consiga carregá-la
+    normalmente ao gerar o PDF (HTML montado como string, sem acesso a caminhos locais).
+    """
+    if arquivo_upload is None:
+        return None
+    try:
+        extensao = arquivo_upload.name.split('.')[-1]
+        nome_arquivo = f"assinatura_{cpf}_{uuid.uuid4().hex}.{extensao}"
+
+        file_bytes = arquivo_upload.getvalue()
+
+        supabase.storage.from_("assinaturas").upload(
+            file=file_bytes,
+            path=nome_arquivo,
+            file_options={"content-type": arquivo_upload.type}
+        )
+
+        url_publica = supabase.storage.from_("assinaturas").get_public_url(nome_arquivo)
+        return url_publica
+
+    except Exception as e:
+        st.error(f"❌ Erro ao fazer upload da assinatura: {e}")
+        return None
 
 tab_listar, tab_cadastrar = st.tabs(["📋 Instrutores Cadastrados", "➕ Novo Instrutor"])
 
@@ -30,7 +57,7 @@ def modal_editar_instrutor(instrutor_id, nome_atual, cpf_atual, email_atual, pho
         st.markdown("---")
         st.write("✍️ **Assinatura do Instrutor**")
         if assinatura_atual:
-            st.caption(f"Arquivo atual cadastrado: `{assinatura_atual}`")
+            st.image(assinatura_atual, width=180, caption="Assinatura atual")
             
         arquivo_assinatura = st.file_uploader("Enviar nova imagem de assinatura (PNG/JPG)", type=["png", "jpg", "jpeg"], key=f"up_edit_{instrutor_id}")
             
@@ -45,15 +72,11 @@ def modal_editar_instrutor(instrutor_id, nome_atual, cpf_atual, email_atual, pho
                 try:
                     caminho_assinatura_final = assinatura_atual
                     
-                    # Se um novo arquivo foi enviado, salva na pasta local
+                    # Se um novo arquivo foi enviado, faz upload pro bucket e usa a URL pública
                     if arquivo_assinatura is not None:
-                        nome_arquivo = f"assinatura_{novo_cpf}_{arquivo_assinatura.name}"
-                        caminho_completo = os.path.join(PASTA_ASSINATURAS, nome_arquivo)
-                        
-                        with open(caminho_completo, "wb") as f:
-                            f.write(arquivo_assinatura.getbuffer())
-                        
-                        caminho_assinatura_final = caminho_completo
+                        url_nova = fazer_upload_assinatura(arquivo_assinatura, novo_cpf.strip())
+                        if url_nova:
+                            caminho_assinatura_final = url_nova
 
                     payload = {
                         "name": novo_nome.strip(),
@@ -110,7 +133,7 @@ with tab_listar:
                             st.caption(" | ".join(detalhes))
                             
                         if assinatura:
-                            st.caption(f"✍️ **Assinatura:** `{assinatura}`")
+                            st.caption("✍️ **Assinatura:** cadastrada")
                         else:
                             st.caption(f"⚠️ *Sem assinatura cadastrada*")
                         
@@ -154,16 +177,10 @@ with tab_cadastrar:
                 st.warning("⚠️ Nome e CPF são campos obrigatórios.")
             else:
                 try:
-                    caminho_assinatura_salva = None
+                    url_assinatura_salva = None
                     
                     if arquivo_assinatura_novo is not None:
-                        nome_arquivo = f"assinatura_{cpf_instrutor.strip()}_{arquivo_assinatura_novo.name}"
-                        caminho_completo = os.path.join(PASTA_ASSINATURAS, nome_arquivo)
-                        
-                        with open(caminho_completo, "wb") as f:
-                            f.write(arquivo_assinatura_novo.getbuffer())
-                            
-                        caminho_assinatura_salva = caminho_completo
+                        url_assinatura_salva = fazer_upload_assinatura(arquivo_assinatura_novo, cpf_instrutor.strip())
 
                     novo_payload = {
                         "name": nome_instrutor.strip(),
@@ -171,7 +188,7 @@ with tab_cadastrar:
                         "email": email_instrutor.strip() if email_instrutor else None,
                         "phone": phone_instrutor.strip() if phone_instrutor else None,
                         "cbo": cbo_instrutor.strip() if cbo_instrutor else None,
-                        "assinatura": caminho_assinatura_salva,
+                        "assinatura": url_assinatura_salva,
                         "is_active": status_instrutor
                     }
                     supabase.table("instrutores").insert(novo_payload).execute()
