@@ -259,6 +259,9 @@
                         {% if mostrar_coluna_data %}
                         <td>{{ aluno.data_matricula }}</td>
                         {% endif %}
+                        {%if aluno.Treinamento %}
+                        <td>{{ aluno.Treinamento }}</td>
+                        {% endif %}
                         <td>{{ aluno.horas }}</td>
                     </tr>
                     {% endfor %}
