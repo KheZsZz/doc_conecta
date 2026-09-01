@@ -39,7 +39,7 @@ def gerar_atestado_pdf_de_arquivo(dados_turma, alunos_matriculas, instrutor, emp
         ct_logo = ""
 
     # Fatiamento em páginas de no máximo 30 alunos
-    TAMANHO_PAGINA = 30
+    TAMANHO_PAGINA = 20
     if not alunos_processados:
         paginas_alunos = [[]]
     else:
