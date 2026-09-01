@@ -2,306 +2,253 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Atestado de Brigada</title>
+    <title>Atestado de Treinamento</title>
     <style>
+        /* Configurações básicas da página para o gerador de PDF */
         @page {
-            size: A4 portrait;
-            margin: 10mm 10mm 5mm 10mm; 
+            size: A4;
+            margin: 0; /* Margem controlada pelo CSS abaixo */
         }
-        * {
+        
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            color: #333;
             margin: 0;
             padding: 0;
+            background-color: #fff;
+        }
+
+        /* Container principal: Cada div com esta classe representará UMA PÁGINA do PDF */
+        .pagina-atestado {
+            width: 100%;
+            min-height: 297mm; /* Altura exata de uma folha A4 */
+            padding: 15mm 20mm;
             box-sizing: border-box;
-        }
-        body {
-            font-family: 'Calibri', 'Arial', sans-serif;
-            color: #000000;
-            font-size: 12pt;
-            line-height: 1;
-            background: white;
-        }
-        .container {
-            width: 100%;
-            padding-bottom: 25px; 
-        }
-
-        /* Header com Logos */
-        .header {
+            
+            /* Regras de Quebra de Página (essencial para PDFs) */
+            page-break-after: always;
+            break-after: page;
+            
+            /* Usando flexbox para empurrar assinatura e rodapé para o final, independente do tamanho da tabela */
             display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 10px;
-            gap: 15px;
-        }
-        .logo-left img {
-            max-height: 55px;
-            max-width: 200px;
-            object-fit: contain;
+            flex-direction: column;
+            position: relative;
         }
 
-        /* Título */
-        .titulo {
-            text-align: center;
-            font-size: 16pt;
-            font-weight: bold;
-            letter-spacing: 2px;
-            margin-bottom: 15px;
-            margin-top: 5px;
+        /* Remove a página em branco extra no final do documento */
+        .pagina-atestado:last-child {
+            page-break-after: auto;
+            break-after: auto;
         }
 
-        /* Declaração */
-        .declaracao {
-            text-align: justify;
-            font-size: 11pt;
-            margin-bottom: 12px;
-            line-height: 1.5;
-        }
-
-        /* Bloco Empresa */
-        .bloco-empresa {
-            margin-bottom: 12px;
-            font-size: 11pt;
-        }
-        .bloco-empresa p {
-            margin: 0;
-            padding: 2px 0;
-            font-weight: bold;
-        }
-
-        /* Tabela de Alunos */
-        .tabela-container {
-            margin-bottom: 15px;
-            width: 100%;
-        }
-        table.tabela-alunos {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 8pt;
-            border: 1px solid #000000;
-        }
-        thead {
-            display: table-header-group;
-        }
-        tr {
-            page-break-inside: avoid;
-            break-inside: avoid;
-        }
-        table.tabela-alunos th,
-        table.tabela-alunos td {
-            border: 1px solid #000000;
-            padding: 4px 5px;
-            text-align: left;
-            font-weight: normal;
-            font-size: 8pt;
-            word-break: break-word;
-        }
-        table.tabela-alunos th {
-            font-weight: bold;
-            background-color: #ffffff;
-            text-align: center;
-        }
-        table.tabela-alunos td {
-            text-align: center;
-        }
-        table.tabela-alunos td:first-child {
-            text-align: left;
-        }
-        table.tabela-alunos td:nth-child(2),
-        table.tabela-alunos td:nth-child(3),
-        table.tabela-alunos td:nth-child(4),
-        table.tabela-alunos td:nth-child(5) {
-            white-space: nowrap;
-        }
-
-        /* Norma */
-        .norma {
-            text-align: justify;
-            font-size: 11pt;
-            margin-bottom: 15px;
-            font-style: italic;
-        }
-
-        /* Data */
-        .data {
-            text-align: right;
-            font-size: 11pt;
-            font-weight: bold;
-            margin-bottom: 20px;
-        }
-
-        /* Bloco Assinatura */
-        .bloco-assinatura {
-            text-align: center;
-            margin-bottom: 25px;
-            page-break-inside: avoid;
-            break-inside: avoid;
-        }
-        .assinatura-img {
-            max-height: 40px;
-            margin-bottom: 5px;
-        }
-        .nome-instrutor {
-            font-weight: bold;
-            font-size: 11pt;
-            margin-bottom: 2px;
-        }
-        .cargo-instrutor {
-            font-size: 11pt;
-            margin-bottom: 2px;
-        }
-        .doc-instrutor {
-            font-size: 11pt;
-        }
-
-        /* Rodapé Fixo — agora dinâmico via CT */
-        .rodape {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            border-top: 2px solid #000000;
-            border-bottom: 2px solid #000000;
-            padding-top: 5px;
-            padding-bottom: 5px;
-            font-size: 9pt;
+        /* === CABEÇALHO === */
+        .cabecalho {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            color: #000000;
-            background-color: #ffffff;
+            border-bottom: 2px solid #000;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
         }
-        .rodape-logo {
-            flex: 0 0 auto;
-            margin-right: 10px;
+        .logo-container {
+            width: 130px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        .rodape-logo img {
-            max-height: 35px;
-            max-width: 110px;
+        .logo {
+            max-width: 100%;
+            max-height: 60px;
             object-fit: contain;
         }
-        .rodape-info {
-            flex: 1;
+        .dados-empresa {
             text-align: center;
-            line-height: 1.2;
+            flex-grow: 1;
+            padding: 0 20px;
         }
-        .rodape-info p {
-            font-size: 7.5pt;
-            margin: 1px 0;
+        .dados-empresa h2 {
+            margin: 0 0 5px 0;
+            font-size: 16px;
+            text-transform: uppercase;
+        }
+        .dados-empresa p {
+            margin: 2px 0;
+            font-size: 12px;
+        }
+
+        /* === CORPO / TEXTOS === */
+        .titulo-atestado {
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+        }
+        .texto-declaracao {
+            text-align: justify;
+            font-size: 14px;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        /* === TABELA DE ALUNOS === */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            margin-bottom: 10px;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 6px 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        tr:nth-child(even) {
+            background-color: #fcfcfc;
+        }
+
+        /* === ÁREA DA ASSINATURA === */
+        .espacador {
+            flex-grow: 1; /* Preenche o espaço vazio se a tabela tiver poucos nomes */
+        }
+        .cidade-data {
+            text-align: right;
+            font-size: 14px;
+            margin: 20px 0;
+        }
+        .area-assinatura {
+            text-align: center;
+            margin-top: 10px;
+        }
+        .assinatura-img {
+            max-height: 70px;
+            margin-bottom: -10px;
+        }
+        .linha-assinatura {
+            width: 350px;
+            border-top: 1px solid #000;
+            margin: 0 auto 5px auto;
+        }
+        .dados-instrutor {
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        /* === RODAPÉ === */
+        .rodape {
+            margin-top: 20px;
+            border-top: 1px solid #ccc;
+            padding-top: 10px;
+            text-align: center;
+            font-size: 10px;
+            color: #555;
+            line-height: 1.4;
         }
     </style>
 </head>
 <body>
-    {% for pagina in paginas %}
-    <div class="container">
-        <!-- Header: logo dinâmica do CT -->
-        <div class="header">
-            <div class="logo-left">
+
+    <!-- O LOOP PRINCIPAL QUE GERA AS PÁGINAS -->
+    {% for grupo_alunos in paginas %}
+    <div class="pagina-atestado">
+        
+        <!-- Cabeçalho (Empresa contratante e Logos) -->
+        <div class="cabecalho">
+            <div class="logo-container">
+                {% if LOGO_CONECTA %}
+                <img src="{{ LOGO_CONECTA }}" class="logo" alt="Logo Conecta">
+                {% endif %}
+            </div>
+            
+            <div class="dados-empresa">
+                <h2>{{ EMPRESA }}</h2>
+                <p>CNPJ: {{ CNPJ }}</p>
+                <p>{{ ENDERECO }}</p>
+            </div>
+            
+            <div class="logo-container">
                 {% if LOGO_CT %}
-                <img src="{{ LOGO_CT }}" alt="Logo Centro de Treinamento">
+                <img src="{{ LOGO_CT }}" class="logo" alt="Logo Centro de Treinamento">
                 {% endif %}
             </div>
         </div>
 
-        <!-- Título -->
-        <div class="titulo">ATESTADO DE BRIGADA</div>
-
-        <!-- Declaração -->
-        <div class="declaracao">
-            Atesto para os devidos fins, que as pessoas abaixo relacionadas participaram com bom aproveitamento do treinamento de <strong>Brigada de Incêndio - Prevenção e Combate a Incêndio e Primeiros Socorros</strong>, e estão aptas ao manuseio dos equipamentos de prevenção e combate a incêndio da edificação.
+        <!-- Título e Texto do Atestado -->
+        <div class="titulo-atestado">
+            Atestado de Conclusão de Treinamento
         </div>
 
-        <!-- Dados da Empresa contratante -->
-        <div class="bloco-empresa">
-            <p><strong>Empresa:</strong> {{ EMPRESA }}</p>
-            <p><strong>Endereço:</strong> {{ ENDERECO }}</p>
-            <p><strong>CNPJ:</strong> {{ CNPJ }}</p>
+        <div class="texto-declaracao">
+            Atestamos para os devidos fins que os colaboradores listados abaixo, vinculados à empresa 
+            <strong>{{ EMPRESA }}</strong>, concluíram com êxito o treinamento referente à norma <strong>{{ NORMA }}</strong>, 
+            cumprindo a carga horária exigida e obtendo o aproveitamento necessário nos conhecimentos teóricos e práticos abordados.
         </div>
 
-        <!-- Tabela de Alunos -->
-        <div class="tabela-container">
-            <table class="tabela-alunos">
-                <thead>
-                    <tr>
-                        <th><strong>NOME</strong></th>
-                        {% if mostrar_coluna_rg %}
-                        <th><strong>RG</strong></th>
-                        {% endif %}
-                        <th><strong>CPF</strong></th>
-                        {% if mostrar_coluna_nasc %}
-                        <th><strong>DATA NASC.</strong></th>
-                        {% endif %}
-                        {% if mostrar_coluna_data %}
-                        <th><strong>DATA CONCLUSÃO</strong></th>
-                        {% endif %}
-                        <th><strong>HORAS</strong></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for aluno in alunos %}
-                    <tr>
-                        <td>{{ aluno.nome }}</td>
-                        {% if mostrar_coluna_rg %}
-                        <td>{{ aluno.rg }}</td>
-                        {% endif %}
-                        <td>{{ aluno.cpf }}</td>
-                        {% if mostrar_coluna_nasc %}
-                        <td>{{ aluno.data_nasc }}</td>
-                        {% endif %}
-                        {% if mostrar_coluna_data %}
-                        <td>{{ aluno.data_matricula }}</td>
-                        {% endif %}
-                        <td>{{ aluno.horas }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <!-- Tabela (Limitada a 30 alunos pelo script Python) -->
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 35%;">Nome do Colaborador</th>
+                    {% if mostrar_coluna_rg %}<th>RG</th>{% endif %}
+                    <th>CPF</th>
+                    {% if mostrar_coluna_nasc %}<th>Data Nasc.</th>{% endif %}
+                    {% if mostrar_coluna_data %}<th>Data Matr.</th>{% endif %}
+                    <th>C.H.</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for aluno in grupo_alunos %}
+                <tr>
+                    <td>{{ aluno.nome }}</td>
+                    {% if mostrar_coluna_rg %}<td>{{ aluno.rg }}</td>{% endif %}
+                    <td>{{ aluno.cpf }}</td>
+                    {% if mostrar_coluna_nasc %}<td>{{ aluno.data_nasc }}</td>{% endif %}
+                    {% if mostrar_coluna_data %}<td>{{ aluno.data_matricula }}</td>{% endif %}
+                    <td>{{ aluno.horas }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Espaçador flexível: empurra a assinatura para o final da folha independentemente de a tabela ter 5 ou 30 nomes -->
+        <div class="espacador"></div>
+
+        <!-- Data e Local -->
+        <div class="cidade-data">
+            {{ CIDADE_DATA }}
         </div>
 
-        <!-- Norma -->
-        <div class="norma">{{ NORMA }}</div>
-
-        <!-- Data -->
-        <div class="data">{{ CIDADE_DATA }}</div>
-
-        <!-- Assinatura -->
-        <div class="bloco-assinatura">
+        <!-- Assinatura do Instrutor -->
+        <div class="area-assinatura">
             {% if ASSINATURA_IMG %}
-            <img src="{{ ASSINATURA_IMG }}" class="assinatura-img" alt="Assinatura">
+            <img src="{{ ASSINATURA_IMG }}" class="assinatura-img" alt="Assinatura do Instrutor">
+            {% else %}
+            <!-- Espaço reservado caso não tenha a imagem de assinatura -->
+            <div style="height: 70px;"></div>
             {% endif %}
-            <div class="nome-instrutor">{{ NOME_INSTRUTOR }}</div>
-            <div class="cargo-instrutor">Instrutor/Resp. Técnico.</div>
-            <div class="doc-instrutor">CBO: {{ DOC_INSTRUTOR }}</div>
+            
+            <div class="linha-assinatura"></div>
+            
+            <div class="dados-instrutor">
+                <strong>{{ NOME_INSTRUTOR }}</strong><br>
+                Instrutor(a) — Documento/Registro: {{ DOC_INSTRUTOR }}
+            </div>
         </div>
 
-        <!-- Rodapé dinâmico baseado no CT da turma -->
+        <!-- Rodapé (Dados do Centro de Treinamento) -->
         <div class="rodape">
-            <div class="rodape-info">
-                {% if CT_NOME %}
-                <p><strong>{{ CT_NOME }}</strong></p>
-                {% endif %}
-                {% if CT_CNPJ %}
-                <p><strong>CNPJ/MF n° {{ CT_CNPJ }}</strong></p>
-                {% endif %}
-                {% if CT_ENDERECO %}
-                <p>{{ CT_ENDERECO }}</p>
-                {% endif %}
-                {% if CT_TELEFONE %}
-                <p>Telefone: {{ CT_TELEFONE }}</p>
-                {% endif %}
-            </div>
-            <!-- {% if LOGO_CT %}
-            <div class="rodape-logo">
-                <img src="{{ LOGO_CT }}" alt="Logo CT">
-            </div>
-            {% endif %} -->
-            {% if LOGO_CONECTA %}
-            <div class="rodape-logo" style="margin-left:10px; margin-right:0;">
-                <img src="{{ LOGO_CONECTA }}" alt="Logo Conecta">
-            </div>
-            {% endif %}
+            <strong>Realização: {{ CT_NOME }}</strong> | CNPJ: {{ CT_CNPJ }}<br>
+            {{ CT_ENDERECO }} | Contato: {{ CT_TELEFONE }}
         </div>
-
+        
     </div>
     {% endfor %}
+
 </body>
 </html>
