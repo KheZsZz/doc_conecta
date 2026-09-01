@@ -397,7 +397,7 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
         with col_nivel:
             nivel_cert = str_lit.selectbox(
                 "Nível do Treinamento",
-                ["Formação", "Reciclagem", "Avançado"],
+                ["Intermediário", "Básico", "Avançado", ""],
                 key=f"nivel_cert_{tid}"
             )
         with col_resp:
