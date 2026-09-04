@@ -84,6 +84,7 @@ def gerar_certificado_html(
         IMAGEM_FUNDO=imagem_fundo,
         NOME_ALUNO=aluno.get("name", ""),
         RG_CPF=rg_cpf_str,
+        DATA_NASCIMENTO=aluno.get("data_nasc", ""),
         EMPRESA=empresa.get("name", "") if empresa else "",
         ENDERECO_EMPRESA=empresa.get("full_address", "") if empresa else "",
         NIVEL=turma.get("nivel", "Intermediário"),

@@ -172,6 +172,9 @@
             <div class="texto-certificado">
                 <p>Nome do aluno: <strong>{{ NOME_ALUNO }}</strong></p>
                 <p>RG/CPF: <strong>{% if RG_CPF %} — {{ RG_CPF }}{% endif %}</strong></p>
+                {%if DATA_NASCIMENTO%}
+                <p>Data de Nascimento: <strong>{{ DATA_NASCIMENTO }}</strong></p>
+                {% endif %}
                 {% if EMPRESA %}
                 <p>Empresa: <strong>{{ EMPRESA }}</strong></p>
                 <p>{% if ENDERECO_EMPRESA %}Endereço: <strong>{{ ENDERECO_EMPRESA }}{% endif %}</strong></p>
