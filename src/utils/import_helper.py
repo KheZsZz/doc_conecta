@@ -12,7 +12,6 @@ def processar_planilha_alunos(arquivo_excel, data_padrao_turma: str):
     else:
         df_alunos = pd.read_excel(arquivo_excel, dtype=str)
         
-    # Padroniza os nomes das colunas da planilha (minúsculas e sem espaços)
     df_alunos.columns = [str(c).strip().lower() for c in df_alunos.columns]
     
     col_nome = next((c for c in df_alunos.columns if 'nome' in c), None)
@@ -26,52 +25,53 @@ def processar_planilha_alunos(arquivo_excel, data_padrao_turma: str):
     alunos_processados = []
     
     for _, row in df_alunos.iterrows():
-        # 1. Nome: Maiúsculo e sem espaços nas pontas
+        # 1. Nome
         nome_aluno = str(row.get(col_nome, "")).strip().upper()
         if not nome_aluno or nome_aluno == 'NAN':
             continue
             
-        # 2. CPF: Apenas números (remove pontos, traços, espaços, etc.)
+        # 2. CPF
         cpf_raw = str(row.get(col_cpf, ""))
         cpf_aluno = "".join(filter(str.isdigit, cpf_raw))
         if not cpf_aluno:
             continue
             
-        # 3. Data do Treinamento: Formatada para o padrão do banco (YYYY-MM-DD)
+        # 3. Data do Treinamento
         data_aluno_str = str(row.get(col_data, "")).strip() if col_data else ""
         if not data_aluno_str or data_aluno_str.lower() == 'nan':
-            data_aluno_final = data_padrao_turma
+            data_treinamento_final = data_padrao_turma
         else:
             try:
-                parsed_date = pd.to_datetime(data_aluno_str, errors='coerce')
+                # CORREÇÃO 1: dayfirst=True para interpretar DD/MM/YYYY corretamente
+                parsed_date = pd.to_datetime(data_aluno_str, errors='coerce', dayfirst=True)
                 if pd.notnull(parsed_date):
-                    data_aluno_final = parsed_date.strftime('%Y-%m-%d')
+                    data_treinamento_final = parsed_date.strftime('%Y-%m-%d')
                 else:
-                    data_aluno_final = data_aluno_str
+                    data_treinamento_final = data_aluno_str
             except:
-                data_aluno_final = data_aluno_str
+                data_treinamento_final = data_aluno_str
 
-
-
+        # 4. Data de Nascimento
         data_nasc_aluno = str(row.get(col_data_nasc, "")).strip() if col_data_nasc else ""
         if not data_nasc_aluno or data_nasc_aluno.lower() == 'nan':
-            data_aluno_final = data_padrao_turma
+            data_nasc_final = None  # Idealmente null para nascimento se não houver
         else:
             try:
-                parsed_date = pd.to_datetime(data_nasc_aluno, errors='coerce')
-                if pd.notnull(parsed_date):
-                    data_aluno_final = parsed_date.strftime('%Y-%m-%d')
+                # CORREÇÃO 2: Variável própria 'data_nasc_final' (não sobrescreve a data de treinamento)
+                parsed_date_nasc = pd.to_datetime(data_nasc_aluno, errors='coerce', dayfirst=True)
+                if pd.notnull(parsed_date_nasc):
+                    data_nasc_final = parsed_date_nasc.strftime('%Y-%m-%d')
                 else:
-                    data_aluno_final = data_nasc_aluno
+                    data_nasc_final = data_nasc_aluno
             except:
-                data_aluno_final = data_nasc_aluno
+                data_nasc_final = data_nasc_aluno
         
-                
+        # CORREÇÃO 3: O dicionário agora chama as variáveis finais processadas    
         alunos_processados.append({
             "name": nome_aluno,
             "cpf": cpf_aluno,
-            "data_treinamento": data_aluno_final,
-            "data_nasc": str(row.get(col_data_nasc, "")).strip() if col_data_nasc else ""
+            "data_treinamento": data_treinamento_final,
+            "data_nasc": data_nasc_final 
         })
         
     return alunos_processados
