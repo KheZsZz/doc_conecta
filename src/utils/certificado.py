@@ -5,8 +5,9 @@ from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML, CSS
 from datetime import datetime
 
-# Caminho padrão da imagem de fundo do certificado
+# Caminhos padrão das imagens de fundo do certificado
 _FUNDO_DEFAULT = "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/certificados.png"
+FUNDO_CONECTA = "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/certificado_conecta_fundo.png"
 
 
 def _imagem_para_data_uri(caminho: str) -> str:
@@ -34,18 +35,26 @@ def gerar_certificado_html(
     Parâmetros
     ----------
     aluno       : dict com keys: name, cpf, rg (opcional), data_nasc (opcional)
-    turma       : dict com keys: modalidade, carga_horaria (da matrícula), nivel (opcional)
+    turma       : dict com keys: modalidade, carga_horaria (da matrícula), nivel (opcional), ct (opcional)
     instrutor   : dict com keys: name, cpf, cbo, assinatura (path)
     empresa     : dict com keys: name, full_address (opcional)
     normativa   : string da normativa do curso
     cidade_data : string formatada da data (ex: "Itapecerica da Serra, 18 de julho de 2025")
-    caminho_fundo: path para a imagem PNG de fundo ou URL (usa _FUNDO_DEFAULT por padrão)
+    caminho_fundo: path para a imagem PNG de fundo ou URL
     """
     env = Environment(loader=FileSystemLoader(caminho_pasta_templates))
     template = env.get_template("template_certificado.html")
 
+    # --- Definição do Fundo com base no CT da turma ---
+    if not caminho_fundo:
+        ct_turma = str(turma.get("ct", "")).strip().lower()
+        if ct_turma == "conecta":
+            caminho_fundo = FUNDO_CONECTA
+        else:
+            caminho_fundo = _FUNDO_DEFAULT
+
     # --- Imagem de fundo como data URI ou URL remota ---
-    fundo_path = caminho_fundo or _FUNDO_DEFAULT
+    fundo_path = caminho_fundo
     
     if fundo_path.startswith(("http://", "https://")):
         imagem_fundo = fundo_path
