@@ -168,35 +168,34 @@
             </div>
 
             <div class="linha"></div>
-                <div class="texto-certificado">
-                    <p>Nome do aluno: <strong>{{ NOME_ALUNO }}</strong></p>
-                    
-                    {% if RG_CPF %}
-                    <p>RG/CPF: <strong>{{ RG_CPF }}</strong></p>
-                    {% endif %}
 
-                    {% if DATA_NASCIMENTO %}
-                    <p>Data de Nascimento: <strong>{{ DATA_NASCIMENTO }}</strong></p>
-                    {% endif %}
+            <div class="texto-certificado">
+                <p>Nome do aluno: <strong>{{ NOME_ALUNO }}</strong></p>
+                
+                {% if RG_CPF %}
+                <p>RG/CPF: <strong>{{ RG_CPF }}</strong></p>
+                {% endif %}
 
-                    {% if EMPRESA %}
-                    <p>Empresa: <strong>{{ EMPRESA }}</strong></p>
-                    {% endif %}
+                {% if DATA_NASCIMENTO %}
+                <p>Data de Nascimento: <strong>{{ DATA_NASCIMENTO }}</strong></p>
+                {% endif %}
 
-                    {% if ENDERECO_EMPRESA %}
-                    <p>Endereço: <strong>{{ ENDERECO_EMPRESA }}</strong></p>
-                    {% endif %}
-                    
-                    <br>
-                    <br>    
+                {% if EMPRESA %}
+                <p>Empresa: <strong>{{ EMPRESA }}</strong></p>
+                {% endif %}
 
-                    <p>Certificamos que o aluno acima identificado realizou com aproveitamento o treinamento de
-                    <strong>"Brigada de Incêndio — Prevenção e Combate a Incêndio e Primeiros Socorros"</strong>,
-                    de acordo com as normas <strong>NBR 14277</strong> da ABNT e <strong>IT-17</strong>
-                    do Corpo de Bombeiros, com o conteúdo programático da tabela B.2 da IT-17.</p>
-                </div>
+                {% if ENDERECO_EMPRESA %}
+                <p>Endereço: <strong>{{ ENDERECO_EMPRESA }}</strong></p>
+                {% endif %}
+                
+                <br>
+                <br>    
 
-            {% endif %}
+                <p>Certificamos que o aluno acima identificado realizou com aproveitamento o treinamento de
+                <strong>"Brigada de Incêndio — Prevenção e Combate a Incêndio e Primeiros Socorros"</strong>,
+                de acordo com as normas <strong>NBR 14277</strong> da ABNT e <strong>IT-17</strong>
+                do Corpo de Bombeiros, com o conteúdo programático da tabela B.2 da IT-17.</p>
+            </div>
 
             <br>
             <br>
