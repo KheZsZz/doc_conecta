@@ -33,11 +33,12 @@ def formatar_data_extenso(data_str):
 @str_lit.dialog("👥 Alunos Matriculados na Turma", width="large")
 def modal_visualizar_alunos(turma_id, titulo_turma):
     str_lit.write(f"**Turma:** {titulo_turma}")
-    str_lit.markdown("💡 *Edite o **Nome**, o **CPF** ou a **Carga Horária** diretamente na tabela abaixo e clique em Salvar Alterações.*")
+    str_lit.markdown("💡 *Edite o **Nome**, o **CPF**, a **Data de Nascimento** ou a **Carga Horária** diretamente na tabela abaixo e clique em Salvar Alterações.*")
     str_lit.markdown("---")
     
     try:
-        res_mat = supabase.table("matriculas").select("id, data_treinamento, carga_horaria, alunos(id, name, cpf), clients(name, cnpj)").eq("turma_id", turma_id).execute()
+        # CORREÇÃO 1: Adicionado data_nasc no select da tabela alunos
+        res_mat = supabase.table("matriculas").select("id, data_treinamento, carga_horaria, alunos(id, name, cpf, data_nasc), clients(name, cnpj)").eq("turma_id", turma_id).execute()
         
         if res_mat and res_mat.data:
             dados_tabela = []
@@ -60,7 +61,8 @@ def modal_visualizar_alunos(turma_id, titulo_turma):
                     "Empresa Vínculo": empresa.get("name", "Particular / Aberta"),
                     "Carga Horária": m.get("carga_horaria", "08 Horas"),
                     "Data Matrícula/Treino": m.get("data_treinamento", ""),
-                    "Data de Nascimento": m.get("data_nasc", "")
+                    # CORREÇÃO 2: Puxar do dicionário 'aluno' e garantir fallback string vazia
+                    "Data de Nascimento": aluno.get("data_nasc") or ""
                 })
                 
             df_exibicao = pd.DataFrame(dados_tabela)
@@ -76,7 +78,7 @@ def modal_visualizar_alunos(turma_id, titulo_turma):
                     "Nome do Aluno": str_lit.column_config.TextColumn(required=True),
                     "CPF": str_lit.column_config.TextColumn(required=True),
                     "Carga Horária": str_lit.column_config.TextColumn(required=True),
-                    "Data de Nascimento": str_lit.column_config.TextColumn(required=True)
+                    "Data de Nascimento": str_lit.column_config.TextColumn(required=False)
                 },
                 disabled=["Nº", "Empresa Vínculo", "Data Matrícula/Treino"],
                 hide_index=True,
@@ -93,9 +95,10 @@ def modal_visualizar_alunos(turma_id, titulo_turma):
                     for index, row in edited_df.iterrows():
                         orig_row = df_exibicao.iloc[index]
                         
+                        # CORREÇÃO 3: Comparação exata dos nomes da coluna "Data de Nascimento"
                         if (row["Nome do Aluno"] != orig_row["Nome do Aluno"] or 
                             row["CPF"] != orig_row["CPF"] or 
-                            row["data_nasc"] != orig_row["Data de Nascimento"] or
+                            row["Data de Nascimento"] != orig_row["Data de Nascimento"] or
                             row["Carga Horária"] != orig_row["Carga Horária"]):
                             
                             aluno_id = row["aluno_id"]
@@ -103,7 +106,9 @@ def modal_visualizar_alunos(turma_id, titulo_turma):
                             nome_novo = row["Nome do Aluno"]
                             cpf_novo = str(row["CPF"]).replace(".", "").replace("-", "").strip()
                             carga_nova = row["Carga Horária"]
-                            data_nasc_nova = row["Data de Nascimento"]
+                            
+                            # CORREÇÃO 4: Impedir envio de string vazia para o banco (Postgres prefere Null/None para datas)
+                            data_nasc_nova = row["Data de Nascimento"] if str(row["Data de Nascimento"]).strip() else None
 
                             supabase.table("alunos").update({
                                 "name": nome_novo,
@@ -240,6 +245,10 @@ def modal_importar_planilha(tid, titulo_turma, data_turma):
                         cpf_aluno = aluno["cpf"]
                         data_aluno_final = aluno["data_treinamento"]
                         data_nasc_aluno = aluno["data_nasc"]
+                        
+                        # CORREÇÃO 5: Proteção extra para garantir que se vier lixo ou em branco da planilha vire None
+                        if not data_nasc_aluno or str(data_nasc_aluno).strip().lower() in ['nan', 'none', '']:
+                            data_nasc_aluno = None
                         
                         aluno_existente = supabase.table("alunos").select("id").eq("cpf", cpf_aluno).execute()
                         
