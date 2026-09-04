@@ -543,6 +543,7 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                                 "name": aluno_info.get("name", ""),
                                 "cpf": aluno_info.get("cpf", ""),
                                 "rg": aluno_info.get("rg", ""),
+                                "data_nasc": aluno_info.get("data_nasc", ""),
                                 "horas": m.get("carga_horaria") or "8 Horas",
                             })
 
