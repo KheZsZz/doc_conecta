@@ -131,7 +131,7 @@
             min-width: 140px;
         }
         .assinatura-img {
-            max-height: 32px;
+            max-height: 128px;
             margin-bottom: 4px;
         }
         .assinatura-linha {
@@ -203,26 +203,19 @@
             <div class="campos">
                 <div class="campo-item">
                     <p class="campo-label">Nível:</p>
-                    <span>{{ NIVEL }}</span>
-                        
+                    <span>{{ NIVEL }}</span>     
                 </div>
                 <div class="campo-item">
                     <p class="campo-label">Modalidade:</p>
                     <span>{{ MODALIDADE }}</span>
-                    <br>
                 </div>
                 <div class="campo-item">
                     <span class="campo-label">Carga Horária:</span>
                     <span>{{ CARGA_HORARIA }}</span>
-                    <br>
                 </div>
-                <!-- {% if NORMATIVA %}
-                <div class="campo-item">
-                    <span class="campo-label">Normativa:</span>
-                    <span>{{ NORMATIVA }}</span>
-                </div>
-                {% endif %} -->
             </div>
+
+            <br>
 
             <div class="data">{{ CIDADE_DATA }}</div>
 
