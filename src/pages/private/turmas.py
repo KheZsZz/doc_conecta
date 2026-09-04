@@ -4,7 +4,7 @@ from datetime import date, datetime
 from src.config.database import supabase
 from src.utils.import_helper import processar_planilha_alunos
 from src.utils.atestado import gerar_atestado_pdf_de_arquivo
-from src.utils.certificado import gerar_certificados_pdf
+from src.utils.certificado import gerar_certificados_pdf, gerar_certificados_pdf_zip
 from src.utils.certificado_empresa import gerar_certificado_empresa_pdf
 from weasyprint import HTML
 
@@ -494,7 +494,7 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                 str_lit.error(f"❌ Erro ao gerar certificado da empresa: {e}")
 
     elif tipo_documento == "Certificados Individuais (Alunos)":
-        str_lit.write("🎓 Gera um PDF com um certificado por página (paisagem A4) para todos os alunos da turma.")
+        str_lit.write("🎓 Gera um ZIP contendo um PDF individual para cada aluno, nomeado com o nome do aluno.")
 
         col_nivel, col_resp = str_lit.columns(2)
         with col_nivel:
@@ -505,9 +505,9 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
 
         str_lit.markdown("---")
 
-        if str_lit.button("🎓 Gerar Certificados (PDF)", type="primary", use_container_width=True, key=f"btn_cert_{tid}"):
+        if str_lit.button("🎓 Gerar Certificados (ZIP)", type="primary", use_container_width=True, key=f"btn_cert_{tid}"):
             try:
-                with str_lit.spinner("Gerando certificados..."):
+                with str_lit.spinner("Gerando certificados em ZIP..."):
                     turma_res = supabase.table("turmas").select("*").eq("id", tid).single().execute()
                     turma_data = turma_res.data if turma_res and turma_res.data else {}
 
@@ -559,7 +559,8 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                         "cpf_resp_tecnico": cpf_resp.strip() if cpf_resp else "",
                     }
 
-                    pdf_bytes = gerar_certificados_pdf(
+                    # Usa a nova função que gera ZIP em vez de PDF único
+                    zip_bytes = gerar_certificados_pdf_zip(
                         alunos_matriculas=alunos_lista,
                         turma=turma_cert,
                         instrutor=instrutor_data,
@@ -571,8 +572,8 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                     supabase.table("turmas").update({"documento_emitido": True}).eq("id", tid).execute()
                     supabase.table("matriculas").update({"doc_emitida": True}).eq("turma_id", tid).execute()
 
-                    str_lit.success(f"✅ {len(alunos_lista)} certificado(s) gerado(s) com sucesso!")
-                    str_lit.download_button("📥 Baixar Certificados (PDF)", data=pdf_bytes, file_name=f"certificados_{titulo_turma.replace(' ', '_')}.pdf", mime="application/pdf", use_container_width=True, key=f"dl_cert_{tid}")
+                    str_lit.success(f"✅ {len(alunos_lista)} certificado(s) gerado(s) em ZIP com sucesso!")
+                    str_lit.download_button("📥 Baixar Certificados (ZIP)", data=zip_bytes, file_name=f"certificados_{titulo_turma.replace(' ', '_')}.zip", mime="application/zip", use_container_width=True, key=f"dl_cert_{tid}")
 
             except Exception as e:
                 str_lit.error(f"❌ Erro ao gerar certificados: {e}")

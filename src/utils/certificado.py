@@ -1,6 +1,7 @@
 import os
 import base64
 import io
+import zipfile
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML, CSS
 from datetime import datetime
@@ -180,3 +181,66 @@ def gerar_certificados_pdf(
     output = io.BytesIO()
     writer.write(output)
     return output.getvalue()
+
+
+def gerar_certificados_pdf_zip(
+    alunos_matriculas: list[dict],
+    turma: dict,
+    instrutor: dict,
+    empresa: dict | None = None,
+    normativa: str = "",
+    cidade_data: str = "",
+    caminho_fundo: str | None = None,
+    caminho_pasta_templates: str = "src/templates",
+) -> bytes:
+    """
+    Gera um ZIP contendo um PDF individual para cada aluno, nomeado com o nome do aluno.
+
+    alunos_matriculas: lista de dicts com keys:
+        name, cpf, rg (opt), data_nasc (opt), horas (carga horária individual)
+    
+    Retorna: bytes do arquivo ZIP
+    """
+    if not alunos_matriculas:
+        raise ValueError("Nenhum aluno para gerar certificado.")
+
+    zip_buffer = io.BytesIO()
+    
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        for aluno in alunos_matriculas:
+            # Carga horária individual por matrícula
+            turma_aluno = {**turma, "carga_horaria": aluno.get("horas", turma.get("carga_horaria", "8 Horas"))}
+            
+            # Gera HTML do certificado
+            html_certificado = gerar_certificado_html(
+                aluno=aluno,
+                turma=turma_aluno,
+                instrutor=instrutor,
+                empresa=empresa,
+                normativa=normativa,
+                cidade_data=cidade_data,
+                caminho_fundo=caminho_fundo,
+                caminho_pasta_templates=caminho_pasta_templates,
+            )
+            
+            # Converte HTML para PDF
+            pdf_bytes = HTML(string=html_certificado).write_pdf(
+                stylesheets=[
+                    CSS(string="@page { size: A4 landscape; margin: 0; }")
+                ]
+            )
+            
+            # Sanitiza o nome do aluno para usar como nome de arquivo
+            nome_aluno = aluno.get("name", "aluno").strip()
+            # Remove caracteres especiais, mantém apenas letras, números, espaços e hífens
+            nome_sanitizado = "".join(c if c.isalnum() or c in (' ', '-', '_') else '' for c in nome_aluno)
+            nome_sanitizado = nome_sanitizado.strip().replace(' ', '_')
+            
+            # Define o nome do arquivo PDF
+            nome_arquivo_pdf = f"Certificado_{nome_sanitizado}.pdf"
+            
+            # Adiciona o PDF ao ZIP
+            zip_file.writestr(nome_arquivo_pdf, pdf_bytes)
+    
+    zip_buffer.seek(0)
+    return zip_buffer.getvalue()
