@@ -18,6 +18,7 @@ def processar_planilha_alunos(arquivo_excel, data_padrao_turma: str):
     col_nome = next((c for c in df_alunos.columns if 'nome' in c), None)
     col_data = next((c for c in df_alunos.columns if 'data' in c or 'treinamento' in c), None)
     col_cpf = next((c for c in df_alunos.columns if 'cpf' in c), None)
+    col_data_nasc = next((c for c in df_alunos.columns if 'nascimento' in c or 'data de nascimento' in c), None)
     
     if not col_nome or not col_cpf:
         raise ValueError("A planilha precisa conter obrigatoriamente colunas para 'Nome' e 'CPF'.")
@@ -53,7 +54,8 @@ def processar_planilha_alunos(arquivo_excel, data_padrao_turma: str):
         alunos_processados.append({
             "name": nome_aluno,
             "cpf": cpf_aluno,
-            "data_treinamento": data_aluno_final
+            "data_treinamento": data_aluno_final,
+            "data_nasc": str(row.get(col_data_nasc, "")).strip() if col_data_nasc else ""
         })
         
     return alunos_processados

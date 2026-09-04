@@ -59,7 +59,8 @@ def modal_visualizar_alunos(turma_id, titulo_turma):
                     "CPF": cpf_fmt,
                     "Empresa Vínculo": empresa.get("name", "Particular / Aberta"),
                     "Carga Horária": m.get("carga_horaria", "08 Horas"),
-                    "Data Matrícula/Treino": m.get("data_treinamento", "")
+                    "Data Matrícula/Treino": m.get("data_treinamento", ""),
+                    "Data de Nascimento": m.get("data_nasc", "")
                 })
                 
             df_exibicao = pd.DataFrame(dados_tabela)
@@ -74,7 +75,8 @@ def modal_visualizar_alunos(turma_id, titulo_turma):
                     "Data Matrícula/Treino": str_lit.column_config.TextColumn(disabled=True),
                     "Nome do Aluno": str_lit.column_config.TextColumn(required=True),
                     "CPF": str_lit.column_config.TextColumn(required=True),
-                    "Carga Horária": str_lit.column_config.TextColumn(required=True)
+                    "Carga Horária": str_lit.column_config.TextColumn(required=True),
+                    "Data de Nascimento": str_lit.column_config.TextColumn(required=True)
                 },
                 disabled=["Nº", "Empresa Vínculo", "Data Matrícula/Treino"],
                 hide_index=True,
@@ -93,6 +95,7 @@ def modal_visualizar_alunos(turma_id, titulo_turma):
                         
                         if (row["Nome do Aluno"] != orig_row["Nome do Aluno"] or 
                             row["CPF"] != orig_row["CPF"] or 
+                            row["data_nasc"] != orig_row["Data de Nascimento"] or
                             row["Carga Horária"] != orig_row["Carga Horária"]):
                             
                             aluno_id = row["aluno_id"]
@@ -100,10 +103,12 @@ def modal_visualizar_alunos(turma_id, titulo_turma):
                             nome_novo = row["Nome do Aluno"]
                             cpf_novo = str(row["CPF"]).replace(".", "").replace("-", "").strip()
                             carga_nova = row["Carga Horária"]
-                            
+                            data_nasc_nova = row["Data de Nascimento"]
+
                             supabase.table("alunos").update({
                                 "name": nome_novo,
-                                "cpf": cpf_novo
+                                "cpf": cpf_novo,
+                                "data_nasc": data_nasc_nova
                             }).eq("id", aluno_id).execute()
                             
                             supabase.table("matriculas").update({
@@ -234,14 +239,15 @@ def modal_importar_planilha(tid, titulo_turma, data_turma):
                         nome_aluno = aluno["name"]
                         cpf_aluno = aluno["cpf"]
                         data_aluno_final = aluno["data_treinamento"]
+                        data_nasc_aluno = aluno["data_nasc"]
                         
                         aluno_existente = supabase.table("alunos").select("id").eq("cpf", cpf_aluno).execute()
                         
                         if aluno_existente and aluno_existente.data:
                             aluno_id = aluno_existente.data[0].get("id")
-                            supabase.table("alunos").update({"name": nome_aluno}).eq("id", aluno_id).execute()
+                            supabase.table("alunos").update({"name": nome_aluno, "data_nasc": data_nasc_aluno}).eq("id", aluno_id).execute()
                         else:
-                            novo_aluno_payload = {"name": nome_aluno, "cpf": cpf_aluno}
+                            novo_aluno_payload = {"name": nome_aluno, "cpf": cpf_aluno, "data_nasc": data_nasc_aluno}
                             res_novo_aluno = supabase.table("alunos").insert(novo_aluno_payload).execute()
                             if res_novo_aluno and res_novo_aluno.data:
                                 aluno_id = res_novo_aluno.data[0].get("id")
