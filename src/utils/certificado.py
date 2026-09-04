@@ -51,7 +51,7 @@ def gerar_certificado_html(
     if not caminho_fundo:
         ct_turma = str(turma.get("ct", "")).strip().lower()
         if ct_turma == "conecta — cnpj: 43474245000163":
-            caminho_fundo = FUNDO_CONECTA
+            caminho_fundo = _FUNDO_CONECTA
         else:
             caminho_fundo = _FUNDO_DEFAULT
 
