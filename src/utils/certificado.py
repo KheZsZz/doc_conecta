@@ -143,7 +143,7 @@ def gerar_certificados_pdf(
     for aluno in alunos_matriculas:
         # Carga horária pode ser individual por matrícula
         turma_aluno = {**turma, "carga_horaria": aluno.get("horas", turma.get("carga_horaria", "8 Horas"))}
-
+        print(turma_aluno)
         html_pagina = gerar_certificado_html(
             aluno=aluno,
             turma=turma_aluno,
