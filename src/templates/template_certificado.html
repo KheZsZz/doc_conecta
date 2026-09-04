@@ -187,17 +187,13 @@
                 {% if ENDERECO_EMPRESA %}
                 <p>Endereço: <strong>{{ ENDERECO_EMPRESA }}</strong></p>
                 {% endif %}
-                
                 <br>
-                <br>    
-
                 <p>Certificamos que o aluno acima identificado realizou com aproveitamento o treinamento de
                 <strong>"Brigada de Incêndio — Prevenção e Combate a Incêndio e Primeiros Socorros"</strong>,
                 de acordo com as normas <strong>NBR 14277</strong> da ABNT e <strong>IT-17</strong>
                 do Corpo de Bombeiros, com o conteúdo programático da tabela B.2 da IT-17.</p>
             </div>
 
-            <br>
             <br>
 
             <div class="campos">
@@ -210,7 +206,7 @@
                     <span>{{ MODALIDADE }}</span>
                 </div>
                 <div class="campo-item">
-                    <span class="campo-label">Carga Horária:</span>
+                    <p class="campo-label">Carga Horária:</p>
                     <span>{{ CARGA_HORARIA }}</span>
                 </div>
             </div>
@@ -224,7 +220,7 @@
                     {% if ASSINATURA_INSTRUTOR %}
                     <img src="{{ ASSINATURA_INSTRUTOR }}" class="assinatura-img" alt="Assinatura Instrutor">
                     {% else %}
-                    <div style="height: 36px;"></div>
+                    <div style="height: 42px;"></div>
                     {% endif %}
                     <div class="assinatura-linha"></div>
                     <div class="assinatura-nome">{{ NOME_INSTRUTOR }}</div>
