@@ -3,6 +3,7 @@ import base64
 import io
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML, CSS
+from datetime import datetime
 
 # Caminho padrão da imagem de fundo do certificado
 _FUNDO_DEFAULT = "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/certificados.png"
@@ -32,7 +33,7 @@ def gerar_certificado_html(
 
     Parâmetros
     ----------
-    aluno       : dict com keys: name, cpf, rg (opcional)
+    aluno       : dict com keys: name, cpf, rg (opcional), data_nasc (opcional)
     turma       : dict com keys: modalidade, carga_horaria (da matrícula), nivel (opcional)
     instrutor   : dict com keys: name, cpf, cbo, assinatura (path)
     empresa     : dict com keys: name, full_address (opcional)
@@ -80,11 +81,21 @@ def gerar_certificado_html(
         if len(cpf_inst) == 11 else cpf_inst
     )
 
+    # --- Formatação da Data de Nascimento (DD/MM/YYYY) ---
+    data_nasc_raw = aluno.get("data_nasc") or aluno.get("data_nascimento") or aluno.get("birth_date") or ""
+    data_nasc_fmt = ""
+    if data_nasc_raw:
+        try:
+            dt = datetime.strptime(str(data_nasc_raw).split("T")[0], "%Y-%m-%d")
+            data_nasc_fmt = dt.strftime("%d/%m/%Y")
+        except Exception:
+            data_nasc_fmt = str(data_nasc_raw)
+
     html = template.render(
         IMAGEM_FUNDO=imagem_fundo,
         NOME_ALUNO=aluno.get("name", ""),
         RG_CPF=rg_cpf_str,
-        DATA_NASCIMENTO=aluno.get("data_nasc") or aluno.get("data_nascimento") or aluno.get("birth_date") or "",
+        DATA_NASCIMENTO=data_nasc_fmt,
         EMPRESA=empresa.get("name", "") if empresa else "",
         ENDERECO_EMPRESA=empresa.get("full_address", "") if empresa else "",
         NIVEL=turma.get("nivel", "Intermediário"),
@@ -140,7 +151,6 @@ def gerar_certificados_pdf(
         raise ValueError("Nenhum aluno para gerar certificado.")
 
     # WeasyPrint: cada HTML vira um documento, depois mesclamos via pypdf
-    # Estratégia: gerar cada um e concatenar com pypdf
     from pypdf import PdfWriter
 
     writer = PdfWriter()
