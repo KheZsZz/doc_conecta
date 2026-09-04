@@ -6,8 +6,10 @@ from weasyprint import HTML, CSS
 from datetime import datetime
 
 # Caminhos padrão das imagens de fundo do certificado
-_FUNDO_DEFAULT = "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/certificados.png"
-FUNDO_CONECTA = "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/certificado_conecta_fundo.png"
+
+_FUNDO_CONECTA = "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/certificados.png";
+
+_FUNDO_DEFAULT = "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/certificado_conecta_fundo.png"
 
 
 def _imagem_para_data_uri(caminho: str) -> str:
