@@ -40,7 +40,7 @@ def processar_planilha_alunos(arquivo_excel, data_padrao_turma: str):
         # 3. Data do Treinamento: Formatada para o padrão do banco (YYYY-MM-DD)
         data_aluno_str = str(row.get(col_data, "")).strip() if col_data else ""
         if not data_aluno_str or data_aluno_str.lower() == 'nan':
-            data_aluno_final = data_aluno_str
+            data_aluno_final = data_padrao_turma
         else:
             try:
                 parsed_date = pd.to_datetime(data_aluno_str, errors='coerce')
@@ -50,6 +50,8 @@ def processar_planilha_alunos(arquivo_excel, data_padrao_turma: str):
                     data_aluno_final = data_aluno_str
             except:
                 data_aluno_final = data_aluno_str
+
+
 
         data_nasc_aluno = str(row.get(col_data_nasc, "")).strip() if col_data_nasc else ""
         if not data_nasc_aluno or data_nasc_aluno.lower() == 'nan':
