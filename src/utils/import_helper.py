@@ -52,17 +52,17 @@ def processar_planilha_alunos(arquivo_excel, data_padrao_turma: str):
                 data_aluno_final = data_aluno_str
 
         data_nasc_aluno = str(row.get(col_data_nasc, "")).strip() if col_data_nasc else ""
-            if not data_nasc_aluno or data_nasc_aluno.lower() == 'nan':
+        if not data_nasc_aluno or data_nasc_aluno.lower() == 'nan':
                     data_aluno_final = data_padrao_turma
-            else:
-                    try:
-                        parsed_date = pd.to_datetime(data_nasc_aluno, errors='coerce')
-                        if pd.notnull(parsed_date):
-                            data_aluno_final = parsed_date.strftime('%Y-%m-%d')
-                        else:
-                            data_aluno_final = data_nasc_aluno
-                    except:
-                        data_aluno_final = data_nasc_aluno
+        else:
+            try:
+                parsed_date = pd.to_datetime(data_nasc_aluno, errors='coerce')
+                if pd.notnull(parsed_date):
+                    data_aluno_final = parsed_date.strftime('%Y-%m-%d')
+                else:
+                    data_aluno_final = data_nasc_aluno
+            except:
+                data_aluno_final = data_nasc_aluno
         
                 
         alunos_processados.append({
