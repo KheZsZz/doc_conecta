@@ -4,37 +4,39 @@ import pandas as pd
 from src.config.database import supabase
 
 str_lit.title("🏢 Centros de Treinamento (CTs)")
-str_lit.markdown("Gerencie os locais físicos de treinamento e suas respectivas logomarcas.")
+str_lit.markdown("Gerencie os locais físicos de treinamento e suas respectivas logomarcas e fundos de certificado.")
 
 tab_listar, tab_cadastrar = str_lit.tabs(["📋 Listar CTs", "➕ Cadastrar CT"])
 
 # ==========================================
-# FUNÇÃO AUXILIAR: UPLOAD DE LOGO PRO BUCKET
+# FUNÇÃO AUXILIAR: UPLOAD DE ARQUIVO PRO BUCKET
 # ==========================================
-def fazer_upload_logo(arquivo_upload):
+def fazer_upload_arquivo(arquivo_upload, bucket_name: str, prefixo: str):
+    """
+    Faz upload de um arquivo para um bucket público do Supabase Storage
+    e retorna a URL pública.
+    
+    bucket_name: nome do bucket (ex: "logos", "certificados_fundos")
+    prefixo: prefixo para o arquivo (ex: "ct_logo", "ct_fundo")
+    """
     if arquivo_upload is not None:
         try:
-            # Pega a extensão original do arquivo
             extensao = arquivo_upload.name.split('.')[-1]
-            # Gera um nome único para não sobrescrever arquivos no bucket
-            nome_arquivo = f"ct_logo_{uuid.uuid4().hex}.{extensao}"
-            
-            # Converte o arquivo do Streamlit para bytes
+            nome_arquivo = f"{prefixo}_{uuid.uuid4().hex}.{extensao}"
+
             file_bytes = arquivo_upload.getvalue()
-            
-            # Faz o upload pro bucket "logos"
-            supabase.storage.from_("logos").upload(
+
+            supabase.storage.from_(bucket_name).upload(
                 file=file_bytes,
                 path=nome_arquivo,
                 file_options={"content-type": arquivo_upload.type}
             )
-            
-            # Retorna a URL pública da imagem recém-upada
-            url_publica = supabase.storage.from_("logos").get_public_url(nome_arquivo)
+
+            url_publica = supabase.storage.from_(bucket_name).get_public_url(nome_arquivo)
             return url_publica
-            
+
         except Exception as e:
-            str_lit.error(f"❌ Erro ao fazer upload da imagem: {e}")
+            str_lit.error(f"❌ Erro ao fazer upload do arquivo: {e}")
             return None
     return None
 
@@ -42,7 +44,7 @@ def fazer_upload_logo(arquivo_upload):
 # MODAL / POPUP DE EDIÇÃO DE CT
 # ==========================================
 @str_lit.dialog("✏️ Editar Centro de Treinamento", width="medium")
-def modal_editar_ct(ct_id, name_atual, full_name_atual, cnpj_atual, phone_atual, address_atual, logo_atual):
+def modal_editar_ct(ct_id, name_atual, full_name_atual, cnpj_atual, phone_atual, address_atual, logo_atual, fundo_cert_atual):
     with str_lit.form(f"form_editar_ct_{ct_id}"):
         novo_name = str_lit.text_input("Nome Fantasia / Apelido do CT*", value=name_atual)
         novo_full_name = str_lit.text_input("Razão Social (Nome Completo)", value=full_name_atual)
@@ -56,13 +58,22 @@ def modal_editar_ct(ct_id, name_atual, full_name_atual, cnpj_atual, phone_atual,
         novo_address = str_lit.text_area("Endereço Completo", value=address_atual)
         
         str_lit.markdown("---")
-        str_lit.markdown("**Atualizar Logomarca (Opcional)**")
+        str_lit.markdown("**🏷️ Logomarca do CT (Opcional)**")
         if logo_atual:
             str_lit.image(logo_atual, width=150, caption="Logo atual")
             
-        nova_logo = str_lit.file_uploader("Substituir logomarca (PNG, JPG)", type=["png", "jpg", "jpeg"], key=f"up_edit_{ct_id}")
+        nova_logo = str_lit.file_uploader("Substituir logomarca (PNG, JPG)", type=["png", "jpg", "jpeg"], key=f"up_edit_logo_{ct_id}")
         
-        if str_lit.form_submit_button("💾 Salvar Alterações", type="primary", use_container_width=True):
+        str_lit.markdown("---")
+        str_lit.markdown("**🖼️ Fundo de Certificado (Opcional)**")
+        if fundo_cert_atual:
+            str_lit.image(fundo_cert_atual, width=150, caption="Fundo atual")
+            
+        novo_fundo_cert = str_lit.file_uploader("Substituir fundo de certificado (PNG, JPG)", type=["png", "jpg", "jpeg"], key=f"up_edit_fundo_{ct_id}")
+        
+        salvar = str_lit.form_submit_button("💾 Salvar Alterações", type="primary", use_container_width=True)
+        
+        if salvar:
             if not novo_name:
                 str_lit.warning("O Nome Fantasia é obrigatório.")
             else:
@@ -75,11 +86,17 @@ def modal_editar_ct(ct_id, name_atual, full_name_atual, cnpj_atual, phone_atual,
                         "full_address": novo_address.strip() if novo_address else None
                     }
                     
-                    # Se o usuário mandou uma nova imagem, faz o upload e adiciona a URL no payload
+                    # Se o usuário mandou uma nova logo, faz o upload
                     if nova_logo is not None:
-                        url_nova = fazer_upload_logo(nova_logo)
-                        if url_nova:
-                            payload["logo_url"] = url_nova
+                        url_nova_logo = fazer_upload_arquivo(nova_logo, "logos", "ct_logo")
+                        if url_nova_logo:
+                            payload["logo_url"] = url_nova_logo
+                    
+                    # Se o usuário mandou um novo fundo de certificado
+                    if novo_fundo_cert is not None:
+                        url_novo_fundo = fazer_upload_arquivo(novo_fundo_cert, "certificados_fundos", "ct_fundo")
+                        if url_novo_fundo:
+                            payload["fundo_certificado_url"] = url_novo_fundo
                             
                     supabase.table("cts").update(payload).eq("id", ct_id).execute()
                     str_lit.success("✅ CT atualizado com sucesso!")
@@ -114,6 +131,9 @@ with tab_listar:
                         str_lit.markdown(f"📍 **Endereço:** {ct.get('full_address', 'Não informado')}")
                         str_lit.markdown(f"📞 **Telefone:** {ct.get('phone', 'Não informado')}")
                         
+                        fundo_status = "✅ Configurado" if ct.get("fundo_certificado_url") else "⚠️ Não configurado"
+                        str_lit.markdown(f"🖼️ **Fundo de Certificado:** {fundo_status}")
+                        
                     with col_acao:
                         str_lit.markdown("<div style='height: 25px;'></div>", unsafe_allow_html=True)
                         if str_lit.button("✏️ Editar", key=f"edit_ct_{ct.get('id')}", use_container_width=True):
@@ -124,7 +144,8 @@ with tab_listar:
                                 cnpj_atual=ct.get("cnpj", ""),
                                 phone_atual=ct.get("phone", ""),
                                 address_atual=ct.get("full_address", ""),
-                                logo_atual=ct.get("logo_url", "")
+                                logo_atual=ct.get("logo_url", ""),
+                                fundo_cert_atual=ct.get("fundo_certificado_url", "")
                             )
         else:
             str_lit.info("Nenhum Centro de Treinamento cadastrado ainda.")
@@ -152,8 +173,13 @@ with tab_cadastrar:
         full_address = str_lit.text_area("Endereço Completo")
         
         str_lit.markdown("---")
-        str_lit.markdown("**Logomarca do CT**")
-        logo_file = str_lit.file_uploader("Selecione a imagem (PNG, JPG)", type=["png", "jpg", "jpeg"])
+        str_lit.markdown("**🏷️ Logomarca do CT**")
+        logo_file = str_lit.file_uploader("Selecione a imagem da logomarca (PNG, JPG)", type=["png", "jpg", "jpeg"], key="up_novo_logo")
+        
+        str_lit.markdown("---")
+        str_lit.markdown("**🖼️ Fundo de Certificado**")
+        str_lit.info("💡 O fundo do certificado será automaticamente aplicado a todos os certificados (individuais e da empresa) emitidos para este CT.")
+        fundo_file = str_lit.file_uploader("Selecione a imagem do fundo de certificado (PNG, JPG)", type=["png", "jpg", "jpeg"], key="up_novo_fundo")
         
         submit_novo_ct = str_lit.form_submit_button("🚀 Cadastrar CT", type="primary", use_container_width=True)
         
@@ -162,12 +188,17 @@ with tab_cadastrar:
                 str_lit.warning("⚠️ O Nome Fantasia é obrigatório para cadastrar o CT.")
             else:
                 try:
-                    with str_lit.spinner("Salvando CT e fazendo upload da logo..."):
+                    with str_lit.spinner("Salvando CT e fazendo upload das imagens..."):
                         url_logo = None
+                        url_fundo = None
                         
-                        # Se escolheu uma logo, dispara a função de upload pro bucket
+                        # Upload da logomarca
                         if logo_file is not None:
-                            url_logo = fazer_upload_logo(logo_file)
+                            url_logo = fazer_upload_arquivo(logo_file, "logos", "ct_logo")
+                        
+                        # Upload do fundo de certificado
+                        if fundo_file is not None:
+                            url_fundo = fazer_upload_arquivo(fundo_file, "certificados_fundos", "ct_fundo")
                             
                         novo_ct = {
                             "name": name.strip(),
@@ -175,7 +206,8 @@ with tab_cadastrar:
                             "cnpj": cnpj.strip() if cnpj else None,
                             "phone": phone.strip() if phone else None,
                             "full_address": full_address.strip() if full_address else None,
-                            "logo_url": url_logo
+                            "logo_url": url_logo,
+                            "fundo_certificado_url": url_fundo
                         }
                         
                         # Insere no banco

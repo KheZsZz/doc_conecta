@@ -3,7 +3,7 @@ import base64
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML, CSS
 
-# Imagem de fundo padrão (mesmo fundo usado nos certificados individuais)
+# Imagem de fundo padrão (fallback)
 _FUNDO_DEFAULT = "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/certificado_conecta_fundo.png"
 _ASSINATURA_RESP_TECNICO_DEFAULT = "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/assinaturas/assinatura_responsavel_tecnico.png"
 
@@ -24,7 +24,10 @@ def _resolver_imagem(caminho):
     if caminho.startswith(("http://", "https://", "data:")):
         return caminho
     if os.path.exists(caminho):
-        return _imagem_para_data_uri(caminho)
+        try:
+            return _imagem_para_data_uri(caminho)
+        except Exception:
+            return ""
     return ""
 
 
@@ -39,6 +42,7 @@ def gerar_certificado_empresa_pdf(
     turma: dict,
     instrutor: dict,
     empresa: dict,
+    ct: dict | None = None,
     alunos: list = None,
     normativa: str = "",
     cidade_data: str = "",
@@ -56,16 +60,31 @@ def gerar_certificado_empresa_pdf(
                   resp_tecnico (nome, opcional), cpf_resp_tecnico (opcional)
     instrutor   : dict com keys: name, cpf, assinatura (path ou URL)
     empresa     : dict com keys: name, full_address, cnpj
+    ct          : dict com keys: fundo_certificado_url (opcional)
     alunos      : lista de matrículas da turma (usada apenas para exibir a
                   quantidade de colaboradores treinados — nenhum dado
                   individual é exposto no certificado)
     normativa   : texto opcional da normativa do curso
     cidade_data : string já formatada (ex: "Itapecerica da Serra, 18 de julho de 2025")
+    caminho_fundo : path para fundo customizado (sobrescreve fundo do CT)
     """
     env = Environment(loader=FileSystemLoader(caminho_pasta_templates))
     template = env.get_template(nome_template)
 
-    imagem_fundo = _resolver_imagem(caminho_fundo or _FUNDO_DEFAULT)
+    # --- Definição do Fundo: prioridade é caminho_fundo > CT > fallback padrão ---
+    fundo_path = ""
+    
+    if caminho_fundo:
+        fundo_path = caminho_fundo
+    elif ct and ct.get("fundo_certificado_url"):
+        fundo_path = ct.get("fundo_certificado_url")
+    else:
+        fundo_path = _FUNDO_DEFAULT
+    
+    imagem_fundo = _resolver_imagem(fundo_path)
+    if not imagem_fundo:
+        imagem_fundo = _FUNDO_DEFAULT
+
     assinatura_instrutor = _resolver_imagem(instrutor.get("assinatura", ""))
 
     cpf_instrutor_fmt = formatar_cpf(instrutor.get("cpf", ""))

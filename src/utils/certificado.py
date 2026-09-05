@@ -6,10 +6,7 @@ from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML, CSS
 from datetime import datetime
 
-# Caminhos padrão das imagens de fundo do certificado
-
-_FUNDO_CONECTA = "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/certificados.png";
-
+# Caminhos padrão das imagens de fundo do certificado (fallback)
 _FUNDO_DEFAULT = "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/certificado_conecta_fundo.png"
 
 
@@ -22,11 +19,33 @@ def _imagem_para_data_uri(caminho: str) -> str:
     return f"data:image/{mime};base64,{b64}"
 
 
+def _resolver_imagem(caminho_ou_url: str) -> str:
+    """
+    Resolve uma referência de imagem (assinatura, logo, fundo, etc.) vinda do banco para algo
+    que o WeasyPrint consegue renderizar quando o HTML é montado como string em memória:
+      - URL http(s) (ex: Supabase Storage) -> usada diretamente
+      - caminho local existente -> convertido para data URI base64
+      - qualquer outro caso (arquivo local ausente, vazio, etc.) -> string vazia
+    """
+    if not caminho_ou_url:
+        return ""
+    caminho_ou_url = str(caminho_ou_url).strip()
+    if caminho_ou_url.startswith(("http://", "https://", "data:")):
+        return caminho_ou_url
+    if os.path.exists(caminho_ou_url):
+        try:
+            return _imagem_para_data_uri(caminho_ou_url)
+        except Exception:
+            return ""
+    return ""
+
+
 def gerar_certificado_html(
     aluno: dict,
     turma: dict,
     instrutor: dict,
     empresa: dict | None = None,
+    ct: dict | None = None,
     normativa: str = "",
     cidade_data: str = "",
     caminho_fundo: str | None = None,
@@ -38,42 +57,43 @@ def gerar_certificado_html(
     Parâmetros
     ----------
     aluno       : dict com keys: name, cpf, rg (opcional), data_nasc (opcional)
-    turma       : dict com keys: modalidade, carga_horaria (da matrícula), nivel (opcional), ct (opcional)
+    turma       : dict com keys: modalidade, carga_horaria (da matrícula), nivel (opcional)
     instrutor   : dict com keys: name, cpf, cbo, assinatura (path)
     empresa     : dict com keys: name, full_address (opcional)
+    ct          : dict com keys: fundo_certificado_url (opcional)
     normativa   : string da normativa do curso
     cidade_data : string formatada da data (ex: "Itapecerica da Serra, 18 de julho de 2025")
-    caminho_fundo: path para a imagem PNG de fundo ou URL
+    caminho_fundo: path para a imagem PNG de fundo ou URL (sobrescreve o fundo do CT)
     """
     env = Environment(loader=FileSystemLoader(caminho_pasta_templates))
     template = env.get_template("template_certificado.html")
 
-    # --- Definição do Fundo com base no CT da turma ---
-    if not caminho_fundo:
-        ct_turma = str(turma.get("ct", "")).strip().lower()
-        if ct_turma == "conecta — cnpj: 43474245000163":
-            caminho_fundo = _FUNDO_CONECTA
-        else:
-            caminho_fundo = _FUNDO_DEFAULT
+    # --- Definição do Fundo: prioridade é CT > caminho_fundo > fallback padrão ---
+    fundo_path = ""
+    
+    if caminho_fundo:
+        # Se foi passado um caminho/URL específico, usa esse
+        fundo_path = caminho_fundo
+    elif ct and ct.get("fundo_certificado_url"):
+        # Caso contrário, usa o fundo do CT se disponível
+        fundo_path = ct.get("fundo_certificado_url")
+    else:
+        # Fallback para fundo padrão
+        fundo_path = _FUNDO_DEFAULT
 
     # --- Imagem de fundo como data URI ou URL remota ---
-    fundo_path = caminho_fundo
-    
     if fundo_path.startswith(("http://", "https://")):
         imagem_fundo = fundo_path
     elif os.path.exists(fundo_path):
         imagem_fundo = _imagem_para_data_uri(fundo_path)
     else:
-        imagem_fundo = ""
+        imagem_fundo = _FUNDO_DEFAULT  # Fallback se nada funcionar
 
     # --- Assinatura do instrutor ---
     assinatura_instrutor = ""
     assinatura_path = instrutor.get("assinatura", "")
     if assinatura_path:
-        if assinatura_path.startswith(("http://", "https://")):
-            assinatura_instrutor = assinatura_path
-        elif os.path.exists(assinatura_path):
-            assinatura_instrutor = _imagem_para_data_uri(assinatura_path)
+        assinatura_instrutor = _resolver_imagem(assinatura_path)
 
     # --- RG/CPF do aluno formatado ---
     cpf = aluno.get("cpf", "")
@@ -130,6 +150,7 @@ def gerar_certificados_pdf(
     turma: dict,
     instrutor: dict,
     empresa: dict | None = None,
+    ct: dict | None = None,
     normativa: str = "",
     cidade_data: str = "",
     caminho_fundo: str | None = None,
@@ -140,18 +161,20 @@ def gerar_certificados_pdf(
 
     alunos_matriculas: lista de dicts com keys:
         name, cpf, rg (opt), data_nasc (opt), horas (carga horária individual)
+    ct: dict com dados do CT (fundo_certificado_url, etc)
     """
     paginas_html = []
 
     for aluno in alunos_matriculas:
         # Carga horária pode ser individual por matrícula
         turma_aluno = {**turma, "carga_horaria": aluno.get("horas", turma.get("carga_horaria", "8 Horas"))}
-        print(turma_aluno)
+        
         html_pagina = gerar_certificado_html(
             aluno=aluno,
             turma=turma_aluno,
             instrutor=instrutor,
             empresa=empresa,
+            ct=ct,
             normativa=normativa,
             cidade_data=cidade_data,
             caminho_fundo=caminho_fundo,
@@ -163,7 +186,7 @@ def gerar_certificados_pdf(
         raise ValueError("Nenhum aluno para gerar certificado.")
 
     # WeasyPrint: cada HTML vira um documento, depois mesclamos via pypdf
-    from pypdf import PdfWriter
+    from pypdf import PdfWriter, PdfReader
 
     writer = PdfWriter()
 
@@ -173,7 +196,6 @@ def gerar_certificados_pdf(
                 CSS(string="@page { size: A4 landscape; margin: 0; }")
             ]
         )
-        from pypdf import PdfReader
         reader = PdfReader(io.BytesIO(pdf_bytes_individual))
         for page in reader.pages:
             writer.add_page(page)
@@ -188,6 +210,7 @@ def gerar_certificados_pdf_zip(
     turma: dict,
     instrutor: dict,
     empresa: dict | None = None,
+    ct: dict | None = None,
     normativa: str = "",
     cidade_data: str = "",
     caminho_fundo: str | None = None,
@@ -198,6 +221,7 @@ def gerar_certificados_pdf_zip(
 
     alunos_matriculas: lista de dicts com keys:
         name, cpf, rg (opt), data_nasc (opt), horas (carga horária individual)
+    ct: dict com dados do CT (fundo_certificado_url, etc)
     
     Retorna: bytes do arquivo ZIP
     """
@@ -217,6 +241,7 @@ def gerar_certificados_pdf_zip(
                 turma=turma_aluno,
                 instrutor=instrutor,
                 empresa=empresa,
+                ct=ct,
                 normativa=normativa,
                 cidade_data=cidade_data,
                 caminho_fundo=caminho_fundo,
