@@ -102,9 +102,9 @@ def gerar_certificado_empresa_pdf(
         ENDERECO_EMPRESA=empresa.get("full_address", ""),
         CNPJ_EMPRESA=empresa.get("cnpj", ""),
 
-        NIVEL=turma.get("nivel", "Intermediário"),
-        MODALIDADE=turma.get("modalidade", "Presencial"),
-        CARGA_HORARIA=turma.get("carga_horaria", "8 Horas"),
+        NIVEL=turma.get("nivel", "Avançado"),
+        MODALIDADE=turma.get("modalidade", "Incompany - CT"),
+        CARGA_HORARIA=turma.get("carga_horaria", "24 Horas"),
         NORMATIVA=normativa,
         TOTAL_COLABORADORES=total_colaboradores,
         CIDADE_DATA=cidade_data,
