@@ -103,7 +103,7 @@ def gerar_atestado_pdf_de_arquivo(dados_turma, alunos_matriculas, instrutor, emp
         CT_ENDERECO=ct_endereco,
         CT_TELEFONE=ct_telefone,
         NORMA=dados_turma.get("normativa"),
-        CIDADE_DATA=dados_turma.get("cidade_data"),
+        CIDADE_DATA= 'Guarulhos, 10 de Setembro de 2026'
         ASSINATURA_IMG=assinatura_resolvida,
         NOME_INSTRUTOR=instrutor.get("name"),
         DOC_INSTRUTOR=instrutor.get("cpf"),
