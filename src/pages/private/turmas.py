@@ -124,7 +124,6 @@ def modal_visualizar_alunos(turma_id, titulo_turma):
                             nome_novo = row["Nome do Aluno"]
                             cpf_novo = str(row["CPF"]).replace(".", "").replace("-", "").strip()
                             carga_nova = row["Carga Horária"]
-                            
                             data_nasc_nova = row["Data de Nascimento"] if str(row["Data de Nascimento"]).strip() else None
 
                             supabase.table("alunos").update({
@@ -160,7 +159,7 @@ def modal_visualizar_alunos(turma_id, titulo_turma):
 # 2. MODAL / POPUP DE EDIÇÃO DA TURMA 
 # ==========================================
 @str_lit.dialog("✏️ Editar Informações da Turma", width="medium")
-def modal_editar_turma(tid, titulo_atual, modalidade_atual, curso_id_atual, instrutor_id_atual, data_treinamento_atual_str, ct_id_atual):
+def modal_editar_turma(tid, titulo_atual, modalidade_atual, nivel_atual, carga_horaria_atual, curso_id_atual, instrutor_id_atual, data_treinamento_atual_str, ct_id_atual):
     try:
         try:
             if data_treinamento_atual_str:
@@ -188,9 +187,21 @@ def modal_editar_turma(tid, titulo_atual, modalidade_atual, curso_id_atual, inst
         with str_lit.form(f"form_edit_turma_modal_{tid}"):
             novo_titulo = str_lit.text_input("Título da Turma", value=titulo_atual)
             
-            modalidades_opcoes = ["Presencial", "In Company", "Online"]
+            modalidades_opcoes = ["CT", "Incompany", "Incompany - CT", "EAD", "Online"]
             mod_idx = modalidades_opcoes.index(modalidade_atual) if modalidade_atual in modalidades_opcoes else 0
             nova_modalidade = str_lit.selectbox("Modalidade", options=modalidades_opcoes, index=mod_idx)
+
+            niveis_opcoes = ["Intermediário", "Avançado", "Básico", "Formação", "Reciclagem"]
+            niv_idx = niveis_opcoes.index(nivel_atual) if nivel_atual in niveis_opcoes else 0
+            novo_nivel = str_lit.selectbox("Tipo de Treinamento (Nível)", options=niveis_opcoes, index=niv_idx)
+
+            # Carga horária ajustável (número entre 1 e 80)
+            try:
+                ch_val = int(re.sub(r'\D', '', str(carga_horaria_atual)))
+                if not (1 <= ch_val <= 80): ch_val = 8
+            except:
+                ch_val = 8
+            nova_carga_num = str_lit.number_input("Carga Horária (Horas)", min_value=1, max_value=80, value=ch_val, step=1)
             
             nova_data = str_lit.date_input("Data do Treinamento", value=data_treinamento_atual)
             
@@ -209,9 +220,12 @@ def modal_editar_turma(tid, titulo_atual, modalidade_atual, curso_id_atual, inst
             salvar_edicao = str_lit.form_submit_button("💾 Salvar Alterações", type="primary", use_container_width=True)
             
             if salvar_edicao:
+                carga_str = f"{nova_carga_num} Horas" if nova_carga_num > 1 else "1 Hora"
                 payload_update = {
                     "titulo": novo_titulo.strip(),
                     "modalidade": nova_modalidade,
+                    "nivel": novo_nivel,
+                    "carga_horaria": carga_str,
                     "data_treinamento": nova_data.isoformat(),
                     "curso_id": edit_cursos.get(novo_curso),
                     "instrutor_id": edit_instrutores.get(novo_instrutor),
@@ -227,7 +241,7 @@ def modal_editar_turma(tid, titulo_atual, modalidade_atual, curso_id_atual, inst
 # 3. MODAL / POPUP DE UPLOAD DE PLANILHA
 # ==========================================
 @str_lit.dialog("📥 Importar Lista de Alunos por Planilha", width="medium")
-def modal_importar_planilha(tid, titulo_turma, data_turma):
+def modal_importar_planilha(tid, titulo_turma, data_turma, carga_padrao_turma):
     str_lit.write(f"**Turma:** {titulo_turma}")
     str_lit.markdown("---")
     
@@ -243,7 +257,7 @@ def modal_importar_planilha(tid, titulo_turma, data_turma):
             options=list(empresas_opcoes.keys()) if empresas_opcoes else ["Nenhuma empresa cadastrada"]
         )
         
-        carga_horaria_padrao = str_lit.text_input("Carga Horária Padrão para os Alunos", value="08 Horas")
+        carga_horaria_padrao = str_lit.text_input("Carga Horária Padrão para os Alunos", value=carga_padrao_turma)
         
         arquivo_excel = str_lit.file_uploader(
             "Envie a planilha (Excel .xlsx ou CSV)",
@@ -357,7 +371,7 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
     str_lit.markdown("---")
 
     if tipo_documento == "Atestado de Brigada (Empresa)":
-        str_lit.info("ℹ️ O atestado usará o template configurado e aplicará dinamicamente as colunas e a carga horária de cada matrícula.")
+        str_lit.info("ℹ️ O atestado usará o template configurado e aplicará dinamicamente as colunas, carga horária, modalidade e nível da turma.")
 
         if str_lit.button("🚀 Processar e Gerar Atestado", type="primary", use_container_width=True):
             try:
@@ -404,11 +418,19 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                                 "cpf": aluno_info.get("cpf", ""),
                                 "data_nasc": aluno_info.get("data_nasc", ""),
                                 "data_matricula": m.get("data_treinamento", ""),
-                                "horas": m.get("carga_horaria") or "08 Horas"
+                                "horas": m.get("carga_horaria") or turma_data.get("carga_horaria", "8 Horas")
                             })
 
                     normativa_curso = curso_res.data.get("normativa", "") if curso_res and curso_res.data else ""
-                    dados_turma_config = {"normativa": normativa_curso, "cidade_data": cidade_data_formatada, "logo_conecta": ""}
+                    
+                    # Variáveis modulares injetadas para o atestado
+                    dados_turma_config = {
+                        "normativa": normativa_curso, 
+                        "cidade_data": cidade_data_formatada, 
+                        "logo_conecta": "",
+                        "modalidade_turma": turma_data.get("modalidade", ""),
+                        "nivel_turma": turma_data.get("nivel", "")
+                    }
 
                     html_gerado = gerar_atestado_pdf_de_arquivo(
                         dados_turma=dados_turma_config,
@@ -436,12 +458,26 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
             str_lit.warning("⚠️ Esta turma não possui uma empresa vinculada (Particular/Aberta). Vincule uma empresa na tela de edição da turma para emitir este documento.")
             str_lit.stop()
 
-        col_nivel, col_resp = str_lit.columns(2)
+        turma_res_pre = supabase.table("turmas").select("modalidade, nivel, carga_horaria").eq("id", tid).single().execute()
+        t_pre = turma_res_pre.data if turma_res_pre and turma_res_pre.data else {}
+
+        col_nivel, col_mod = str_lit.columns(2)
         with col_nivel:
-            nivel_cert = str_lit.selectbox("Nível do Treinamento", ["Intermediário", "Básico", "Avançado", ""], key=f"nivel_emp_{tid}")
-        with col_resp:
+            niveis_opcoes = ["Intermediário", "Avançado", "Básico", "Formação", "Reciclagem"]
+            niv_atual_idx = niveis_opcoes.index(t_pre.get("nivel", "Intermediário")) if t_pre.get("nivel") in niveis_opcoes else 0
+            nivel_cert = str_lit.selectbox("Tipo / Nível", niveis_opcoes, index=niv_atual_idx, key=f"nivel_emp_{tid}")
+        with col_mod:
+            mod_opcoes = ["CT", "Incompany", "Incompany - CT", "EAD", "Online"]
+            mod_atual_idx = mod_opcoes.index(t_pre.get("modalidade", "CT")) if t_pre.get("modalidade") in mod_opcoes else 0
+            modalidade_cert = str_lit.selectbox("Modalidade", mod_opcoes, index=mod_atual_idx, key=f"mod_emp_{tid}")
+
+        carga_cert = str_lit.text_input("Carga Horária", value=t_pre.get("carga_horaria", "8 Horas"), key=f"carga_emp_{tid}")
+
+        col_resp1, col_resp2 = str_lit.columns(2)
+        with col_resp1:
             resp_tecnico = str_lit.text_input("Responsável Técnico", value="Cristiano Reis", key=f"resp_tec_emp_{tid}")
-        cpf_resp = str_lit.text_input("CPF do Resp. Técnico", value="214.135.358-01", key=f"cpf_resp_emp_{tid}")
+        with col_resp2:
+            cpf_resp = str_lit.text_input("CPF do Resp. Técnico", value="214.135.358-01", key=f"cpf_resp_emp_{tid}")
 
         str_lit.markdown("---")
 
@@ -450,7 +486,7 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                 with str_lit.spinner("Gerando certificado da empresa..."):
                     turma_res = supabase.table("turmas").select("*").eq("id", tid).single().execute()
                     turma_data = turma_res.data if turma_res and turma_res.data else {}
-                    
+
                     ct_id_resolvido = ct_id or turma_data.get("ct_id")
                     cidade_ct = "Itapecerica da Serra"
                     if ct_id_resolvido:
@@ -487,13 +523,13 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                                 "name": aluno_info.get("name", ""),
                                 "cpf": aluno_info.get("cpf", ""),
                                 "rg": aluno_info.get("rg", ""),
-                                "horas": m.get("carga_horaria") or "8 Horas",
+                                "horas": m.get("carga_horaria") or carga_cert,
                             })
 
                     turma_cert = {
-                        "modalidade": turma_data.get("modalidade", "Presencial"),
+                        "modalidade": modalidade_cert,
                         "nivel": nivel_cert,
-                        "carga_horaria": "8 Horas",
+                        "carga_horaria": carga_cert,
                         "resp_tecnico": resp_tecnico.strip() if resp_tecnico else "",
                         "cpf_resp_tecnico": cpf_resp.strip() if cpf_resp else "",
                     }
@@ -516,14 +552,26 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                 str_lit.error(f"❌ Erro ao gerar certificado da empresa: {e}")
 
     elif tipo_documento == "Certificados Individuais (Alunos)":
-        str_lit.write("🎓 Gera um ZIP contendo um PDF individual para cada aluno, nomeado com o nome do aluno.")
+        str_lit.write("🎓 Gera um ZIP contendo um PDF individual para cada aluno, respeitando as configurações da turma.")
 
-        col_nivel, col_resp = str_lit.columns(2)
+        turma_res_pre = supabase.table("turmas").select("modalidade, nivel, carga_horaria").eq("id", tid).single().execute()
+        t_pre = turma_res_pre.data if turma_res_pre and turma_res_pre.data else {}
+
+        col_nivel, col_mod = str_lit.columns(2)
         with col_nivel:
-            nivel_cert = str_lit.selectbox("Nível do Treinamento", ["Intermediário", "Básico", "Avançado", ""], key=f"nivel_cert_{tid}")
-        with col_resp:
+            niveis_opcoes = ["Intermediário", "Avançado", "Básico", "Formação", "Reciclagem"]
+            niv_atual_idx = niveis_opcoes.index(t_pre.get("nivel", "Intermediário")) if t_pre.get("nivel") in niveis_opcoes else 0
+            nivel_cert = str_lit.selectbox("Tipo / Nível", niveis_opcoes, index=niv_atual_idx, key=f"nivel_cert_{tid}")
+        with col_mod:
+            mod_opcoes = ["CT", "Incompany", "Incompany - CT", "EAD", "Online"]
+            mod_atual_idx = mod_opcoes.index(t_pre.get("modalidade", "CT")) if t_pre.get("modalidade") in mod_opcoes else 0
+            modalidade_cert = str_lit.selectbox("Modalidade", mod_opcoes, index=mod_atual_idx, key=f"mod_cert_{tid}")
+
+        col_resp1, col_resp2 = str_lit.columns(2)
+        with col_resp1:
             resp_tecnico = str_lit.text_input("Responsável Técnico", value="Cristiano Reis", key=f"resp_tec_{tid}")
-        cpf_resp = str_lit.text_input("CPF do Responsável Técnico", value="214.135.358-01", key=f"cpf_resp_{tid}")
+        with col_resp2:
+            cpf_resp = str_lit.text_input("CPF do Responsável Técnico", value="214.135.358-01", key=f"cpf_resp_{tid}")
 
         str_lit.markdown("---")
 
@@ -575,7 +623,7 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                                 "cpf": aluno_info.get("cpf", ""),
                                 "rg": aluno_info.get("rg", ""),
                                 "data_nasc": aluno_info.get("data_nasc", ""),
-                                "horas": m.get("carga_horaria") or "8 Horas",
+                                "horas": m.get("carga_horaria") or turma_data.get("carga_horaria", "8 Horas"),
                             })
 
                     if not alunos_lista:
@@ -583,9 +631,9 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                         str_lit.stop()
 
                     turma_cert = {
-                        "modalidade": turma_data.get("modalidade", "Presencial"),
+                        "modalidade": modalidade_cert,
                         "nivel": nivel_cert,
-                        "carga_horaria": "8 Horas",
+                        "carga_horaria": turma_data.get("carga_horaria", "8 Horas"),
                         "resp_tecnico": resp_tecnico.strip() if resp_tecnico else "",
                         "cpf_resp_tecnico": cpf_resp.strip() if cpf_resp else "",
                     }
@@ -630,6 +678,8 @@ with tab_listar:
                     titulo = str(t.get("titulo", "Sem Título"))
                     data_treinamento = str(t.get("data_treinamento", ""))
                     modalidade = str(t.get("modalidade", "Presencial"))
+                    nivel_turma = str(t.get("nivel", "Intermediário"))
+                    carga_turma = str(t.get("carga_horaria", "8 Horas"))
                     
                     curso_id = t.get("curso_id")
                     instrutor_id = t.get("instrutor_id")
@@ -655,7 +705,7 @@ with tab_listar:
                         col_info, col_acoes = str_lit.columns([4, 1.5])
                         
                         with col_info:
-                            str_lit.markdown(f"**{titulo}** — *{modalidade}*")
+                            str_lit.markdown(f"**{titulo}** — *{modalidade} | {nivel_turma} | {carga_turma}*")
                             str_lit.markdown(f"Status: **{status_str}**")
                             str_lit.markdown(f"🏢 **Empresa:** {nome_empresa} &nbsp;&nbsp;|&nbsp;&nbsp; 📅 **Data:** {data_treinamento}")
                             str_lit.markdown(f"👨‍🏫 **Instrutor:** {instrutor_nome}")
@@ -670,7 +720,7 @@ with tab_listar:
                                     
                             with b2:
                                 if str_lit.button("✏️", key=f"edit_{tid}", help="Alterar informações da turma"):
-                                    modal_editar_turma(tid, titulo, modalidade, curso_id, instrutor_id, data_treinamento, ct_id)
+                                    modal_editar_turma(tid, titulo, modalidade, nivel_turma, carga_turma, curso_id, instrutor_id, data_treinamento, ct_id)
                                     
                             with b3:
                                 if str_lit.button("✅", key=f"emit_{tid}", help="Emitir documentações"):
@@ -678,11 +728,11 @@ with tab_listar:
                                     
                             with b4:
                                 if str_lit.button("📥", key=f"imp_{tid}", help="Importar planilha de alunos"):
-                                    modal_importar_planilha(tid, titulo, data_treinamento)
+                                    modal_importar_planilha(tid, titulo, data_treinamento, carga_turma)
 
                             with b5:
                                 if not doc_emitido:
-                                    if str_lit.button("🗑️", key=f"del_{tid}", help="Excluir turma (somente turmas sem documentação emitida)"):
+                                    if str_lit.button("🗑️", key=f"del_{tid}", help="Excluir turma"):
                                         modal_excluir_turma(tid, titulo)
                                 else:
                                     str_lit.button("🔒", key=f"locked_{tid}", help="Turma com documentação já emitida não pode ser excluída", disabled=True)
@@ -732,14 +782,16 @@ with tab_cadastrar:
     except Exception as e:
         str_lit.warning(f"Aviso ao carregar dependências: {e}")
 
-    with str_lit.form("form_abertura_turma_master_v3", clear_on_submit=True):
+    with str_lit.form("form_abertura_turma_master_v4", clear_on_submit=True):
         col1, col2 = str_lit.columns(2)
         with col1:
             titulo = str_lit.text_input("Título da Turma*", value=f"Treinamento Brigada - {date.today().strftime('%d/%m/%Y')}")
-            modalidade = str_lit.selectbox("Modalidade*", options=["Presencial", "In Company", "Online"])
+            modalidade = str_lit.selectbox("Modalidade*", options=["CT", "Incompany", "Incompany - CT", "EAD", "Online"])
+            nivel = str_lit.selectbox("Tipo de Treinamento (Nível)*", options=["Intermediário", "Avançado", "Básico", "Formação", "Reciclagem"])
             curso_selecionado = str_lit.selectbox("Curso*", options=list(cursos_dict.keys()) if cursos_dict else ["Nenhum curso cadastrado"])
         with col2:
             data_treinamento = str_lit.date_input("Data Real do Treinamento*", value=date.today())
+            carga_horaria_num = str_lit.number_input("Carga Horária (1 a 80 Horas)*", min_value=1, max_value=80, value=8, step=1)
             instrutor_selecionado = str_lit.selectbox("Instrutor Responsável*", options=list(instrutores_dict.keys()) if instrutores_dict else ["Nenhum instrutor cadastrado"])
             
         str_lit.markdown("---")
@@ -756,10 +808,18 @@ with tab_cadastrar:
             else:
                 try:
                     client_id_val = empresas_dict.get(empresa_selecionada) if empresa_selecionada and "Nenhuma" not in empresa_selecionada else None
+                    carga_final_str = f"{carga_horaria_num} Horas" if carga_horaria_num > 1 else "1 Hora"
+                    
                     nova_turma = {
-                        "titulo": titulo.strip(), "modalidade": modalidade, "data_treinamento": data_treinamento.isoformat(),
-                        "curso_id": cursos_dict[curso_selecionado], "instrutor_id": instrutores_dict[instrutor_selecionado],
-                        "client_id": client_id_val, "ct_id": cts_dict[ct_selecionado]
+                        "titulo": titulo.strip(), 
+                        "modalidade": modalidade,
+                        "nivel": nivel,
+                        "carga_horaria": carga_final_str,
+                        "data_treinamento": data_treinamento.isoformat(),
+                        "curso_id": cursos_dict[curso_selecionado], 
+                        "instrutor_id": instrutores_dict[instrutor_selecionado],
+                        "client_id": client_id_val, 
+                        "ct_id": cts_dict[ct_selecionado]
                     }
                     supabase.table("turmas").insert(nova_turma).execute()
                     str_lit.success("✅ Turma aberta com sucesso!")
