@@ -1,5 +1,6 @@
 import streamlit as str_lit
 import pandas as pd
+import re
 from datetime import date, datetime
 from src.config.database import supabase
 from src.utils.import_helper import processar_planilha_alunos
@@ -19,13 +20,33 @@ MESES_PT = {
     9: "setembro", 10: "outubro", 11: "novembro", 12: "dezembro"
 }
 
-def formatar_data_extenso(data_str):
+def extrair_cidade_do_endereco(endereco):
+    if not endereco:
+        return "Itapecerica da Serra"
+        
+    endereco_str = str(endereco)
+    
+    if "Itapecerica da Serra" in endereco_str:
+        return "Itapecerica da Serra"
+    if "Guarulhos" in endereco_str:
+        return "Guarulhos"
+        
+    match = re.search(r'([^,-]+)(?:/|-)\s*[A-Z]{2}(?:\s|-|$)', endereco_str)
+    if match:
+        cidade_bruta = match.group(1).strip()
+        cidade_limpa = cidade_bruta.split(',')[-1].strip()
+        return cidade_limpa
+        
+    return "Itapecerica da Serra"
+
+def formatar_data_extenso(data_str, cidade="Itapecerica da Serra"):
     try:
         dt = date.fromisoformat(data_str)
         mes_extenso = MESES_PT.get(dt.month, "")
-        return f"Itapecerica da Serra, {dt.day:02d} de {mes_extenso} de {dt.year}"
+        return f"{cidade}, {dt.day:02d} de {mes_extenso} de {dt.year}"
     except Exception:
-        return f"Itapecerica da Serra, {datetime.now().strftime('%d de %B de %Y')}"
+        mes_atual = MESES_PT.get(datetime.now().month, "")
+        return f"{cidade}, {datetime.now().day:02d} de {mes_atual} de {datetime.now().year}"
 
 # ==========================================
 # 1. MODAL / POPUP DE VISUALIZAÇÃO E EDIÇÃO DE ALUNOS
@@ -37,7 +58,6 @@ def modal_visualizar_alunos(turma_id, titulo_turma):
     str_lit.markdown("---")
     
     try:
-        # CORREÇÃO 1: Adicionado data_nasc no select da tabela alunos
         res_mat = supabase.table("matriculas").select("id, data_treinamento, carga_horaria, alunos(id, name, cpf, data_nasc), clients(name, cnpj)").eq("turma_id", turma_id).execute()
         
         if res_mat and res_mat.data:
@@ -61,7 +81,6 @@ def modal_visualizar_alunos(turma_id, titulo_turma):
                     "Empresa Vínculo": empresa.get("name", "Particular / Aberta"),
                     "Carga Horária": m.get("carga_horaria", "08 Horas"),
                     "Data Matrícula/Treino": m.get("data_treinamento", ""),
-                    # CORREÇÃO 2: Puxar do dicionário 'aluno' e garantir fallback string vazia
                     "Data de Nascimento": aluno.get("data_nasc") or ""
                 })
                 
@@ -95,7 +114,6 @@ def modal_visualizar_alunos(turma_id, titulo_turma):
                     for index, row in edited_df.iterrows():
                         orig_row = df_exibicao.iloc[index]
                         
-                        # CORREÇÃO 3: Comparação exata dos nomes da coluna "Data de Nascimento"
                         if (row["Nome do Aluno"] != orig_row["Nome do Aluno"] or 
                             row["CPF"] != orig_row["CPF"] or 
                             row["Data de Nascimento"] != orig_row["Data de Nascimento"] or
@@ -107,7 +125,6 @@ def modal_visualizar_alunos(turma_id, titulo_turma):
                             cpf_novo = str(row["CPF"]).replace(".", "").replace("-", "").strip()
                             carga_nova = row["Carga Horária"]
                             
-                            # CORREÇÃO 4: Impedir envio de string vazia para o banco (Postgres prefere Null/None para datas)
                             data_nasc_nova = row["Data de Nascimento"] if str(row["Data de Nascimento"]).strip() else None
 
                             supabase.table("alunos").update({
@@ -246,7 +263,6 @@ def modal_importar_planilha(tid, titulo_turma, data_turma):
                         data_aluno_final = aluno["data_treinamento"]
                         data_nasc_aluno = aluno["data_nasc"]
                         
-                        # CORREÇÃO 5: Proteção extra para garantir que se vier lixo ou em branco da planilha vire None
                         if not data_nasc_aluno or str(data_nasc_aluno).strip().lower() in ['nan', 'none', '']:
                             data_nasc_aluno = None
                         
@@ -308,9 +324,7 @@ def modal_excluir_turma(tid, titulo_turma):
         ):
             try:
                 with str_lit.spinner("Excluindo turma e matrículas..."):
-                    # Remove primeiro as matrículas (preserva os alunos, apenas o vínculo com a turma)
                     supabase.table("matriculas").delete().eq("turma_id", tid).execute()
-                    # Depois remove a turma
                     supabase.table("turmas").delete().eq("id", tid).execute()
 
                 str_lit.success("✅ Turma excluída com sucesso!")
@@ -330,7 +344,6 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
     str_lit.markdown("Selecione o documento desejado para emissão:")
     str_lit.markdown("---")
 
-    # Inclusão da opção "Certificado da Empresa"
     tipo_documento = str_lit.selectbox(
         "Tipo de Documento",
         [
@@ -354,21 +367,23 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                     turma_data = turma_res.data if turma_res and turma_res.data else {}
                     ct_id_resolvido = ct_id or turma_data.get("ct_id")
 
+                    ct_data = None
+                    cidade_ct = "Itapecerica da Serra"
+                    if ct_id_resolvido:
+                        ct_res = supabase.table("cts").select("*").eq("id", ct_id_resolvido).single().execute()
+                        if ct_res and ct_res.data:
+                            ct_data = ct_res.data
+                            cidade_ct = extrair_cidade_do_endereco(ct_data.get("full_address"))
+
                     curso_id = turma_data.get("curso_id")
                     curso_res = supabase.table("cursos").select("*").eq("id", curso_id).single().execute() if curso_id else None
-                    cidade_data_formatada = formatar_data_extenso(turma_data.get("data_treinamento", ""))
+                    cidade_data_formatada = formatar_data_extenso(turma_data.get("data_treinamento", ""), cidade=cidade_ct)
 
                     empresa_data = {}
                     if client_id:
                         cli_res = supabase.table("clients").select("*").eq("id", client_id).single().execute()
                         if cli_res and cli_res.data:
                             empresa_data = cli_res.data
-
-                    ct_data = None
-                    if ct_id_resolvido:
-                        ct_res = supabase.table("cts").select("*").eq("id", ct_id_resolvido).single().execute()
-                        if ct_res and ct_res.data:
-                            ct_data = ct_res.data
 
                     instrutor_data = {}
                     instrutor_id = turma_data.get("instrutor_id")
@@ -435,6 +450,13 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                 with str_lit.spinner("Gerando certificado da empresa..."):
                     turma_res = supabase.table("turmas").select("*").eq("id", tid).single().execute()
                     turma_data = turma_res.data if turma_res and turma_res.data else {}
+                    
+                    ct_id_resolvido = ct_id or turma_data.get("ct_id")
+                    cidade_ct = "Itapecerica da Serra"
+                    if ct_id_resolvido:
+                        ct_res = supabase.table("cts").select("full_address").eq("id", ct_id_resolvido).single().execute()
+                        if ct_res and ct_res.data:
+                            cidade_ct = extrair_cidade_do_endereco(ct_res.data.get("full_address"))
 
                     curso_id = turma_data.get("curso_id")
                     normativa_cert = ""
@@ -443,7 +465,7 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                         if curso_res and curso_res.data:
                             normativa_cert = curso_res.data.get("normativa", "")
 
-                    cidade_data_cert = formatar_data_extenso(turma_data.get("data_treinamento", ""))
+                    cidade_data_cert = formatar_data_extenso(turma_data.get("data_treinamento", ""), cidade=cidade_ct)
 
                     instrutor_data = {}
                     instrutor_id = turma_data.get("instrutor_id")
@@ -511,6 +533,15 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                     turma_res = supabase.table("turmas").select("*").eq("id", tid).single().execute()
                     turma_data = turma_res.data if turma_res and turma_res.data else {}
 
+                    ct_id_resolvido = ct_id or turma_data.get("ct_id")
+                    cidade_ct = "Itapecerica da Serra"
+                    ct_data_completo = None
+                    if ct_id_resolvido:
+                        ct_res = supabase.table("cts").select("*").eq("id", ct_id_resolvido).single().execute()
+                        if ct_res and ct_res.data:
+                            ct_data_completo = ct_res.data
+                            cidade_ct = extrair_cidade_do_endereco(ct_data_completo.get("full_address"))
+
                     curso_id = turma_data.get("curso_id")
                     normativa_cert = ""
                     if curso_id:
@@ -518,7 +549,7 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                         if curso_res and curso_res.data:
                             normativa_cert = curso_res.data.get("normativa", "")
 
-                    cidade_data_cert = formatar_data_extenso(turma_data.get("data_treinamento", ""))
+                    cidade_data_cert = formatar_data_extenso(turma_data.get("data_treinamento", ""), cidade=cidade_ct)
 
                     instrutor_data = {}
                     instrutor_id = turma_data.get("instrutor_id")
@@ -559,12 +590,12 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                         "cpf_resp_tecnico": cpf_resp.strip() if cpf_resp else "",
                     }
 
-                    # Usa a nova função que gera ZIP em vez de PDF único
                     zip_bytes = gerar_certificados_pdf_zip(
                         alunos_matriculas=alunos_lista,
                         turma=turma_cert,
                         instrutor=instrutor_data,
                         empresa=empresa_data,
+                        ct=ct_data_completo,
                         normativa=normativa_cert,
                         cidade_data=cidade_data_cert,
                     )
