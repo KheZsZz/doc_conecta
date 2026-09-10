@@ -27,13 +27,6 @@ def _imagem_para_data_uri(caminho: str) -> str:
 
 
 def _resolver_imagem(caminho_ou_url: str) -> str:
-    """
-    Resolve uma referência de imagem (assinatura, logo, etc.) vinda do banco para algo
-    que o WeasyPrint consegue renderizar quando o HTML é montado como string em memória:
-      - URL http(s) (ex: Supabase Storage) -> usada diretamente
-      - caminho local existente -> convertido para data URI base64
-      - qualquer outro caso (arquivo local ausente, vazio, etc.) -> string vazia
-    """
     if not caminho_ou_url:
         return ""
     caminho_ou_url = str(caminho_ou_url).strip()
@@ -44,8 +37,6 @@ def _resolver_imagem(caminho_ou_url: str) -> str:
             return _imagem_para_data_uri(caminho_ou_url)
         except Exception:
             return ""
-    # Caminho local salvo no banco não existe mais no filesystem atual (ex: app reiniciado
-    # em ambiente com storage efêmero) — não há como recuperar a imagem aqui.
     return ""
 
 
@@ -53,7 +44,6 @@ def gerar_atestado_pdf_de_arquivo(dados_turma, alunos_matriculas, instrutor, emp
     env = Environment(loader=FileSystemLoader(caminho_pasta_templates))
     template = env.get_template("template_atestado_corrigido.html")
 
-    # Regras das colunas avaliadas para todos os alunos (para manter as tabelas iguais em todas as páginas)
     mostrar_coluna_rg = any(a.get("rg") and str(a.get("rg")).strip() for a in alunos_matriculas)
     mostrar_coluna_nasc = any(a.get("data_nasc") and str(a.get("data_nasc")).strip() for a in alunos_matriculas)
     datas_unicas = set(a.get("data_matricula") for a in alunos_matriculas if a.get("data_matricula"))
@@ -66,7 +56,7 @@ def gerar_atestado_pdf_de_arquivo(dados_turma, alunos_matriculas, instrutor, emp
             "rg": aluno.get("rg", ""),
             "cpf": aluno.get("cpf", ""),
             "data_nasc": formatar_data_br(aluno.get("data_nasc", "")),
-            "Treinamento": aluno.get("Treinamento", "Intermediário"),
+            "Treinamento": aluno.get("Treinamento", "Avançado"),
             "horas": aluno.get("horas", "4H")
         }
         if mostrar_coluna_data:
