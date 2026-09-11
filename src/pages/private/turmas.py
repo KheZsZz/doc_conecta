@@ -392,7 +392,6 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                     curso_res = supabase.table("cursos").select("*").eq("id", curso_id).single().execute() if curso_id else None
                     cidade_data_formatada = formatar_data_extenso(turma_data.get("data_treinamento", ""), cidade=cidade_ct)
 
-                    # 🚀 Extração correta do nome do curso do banco
                     nome_curso_real = curso_res.data.get("name", "Treinamento Técnico") if curso_res and curso_res.data else "Treinamento Técnico"
 
                     empresa_data = {}
@@ -425,7 +424,6 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
 
                     normativa_curso = curso_res.data.get("normativa", "") if curso_res and curso_res.data else ""
                     
-                    # Variáveis modulares injetadas para o atestado
                     dados_turma_config = {
                         "normativa": normativa_curso, 
                         "cidade_data": cidade_data_formatada, 
@@ -673,15 +671,58 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
             str_lit.info("Módulo de lista de presença em andamento.")
 
 # ==========================================
-# ABA 1: LISTAGEM DE TURMAS (EM LINHAS/CARDS)
+# ABA 1: LISTAGEM DE TURMAS COM FILTROS
 # ==========================================
 with tab_listar:
     str_lit.subheader("Turmas Abertas e Emissão de Documentos")
     
     try:
-        response = supabase.table("turmas").select("*").order("data_treinamento", desc=True).execute()
+        # Carregar opções para os filtros de Empresa e CT
+        clients_filter_res = supabase.table("clients").select("id, name").order("name").execute()
+        cts_filter_res = supabase.table("cts").select("id, name").order("name").execute()
+        
+        cli_options = {"Todas as Empresas": None}
+        if clients_filter_res and clients_filter_res.data:
+            for cli in clients_filter_res.data:
+                cli_options[cli["name"]] = cli["id"]
+                
+        ct_options = {"Todos os CTs": None}
+        if cts_filter_res and cts_filter_res.data:
+            for ct in cts_filter_res.data:
+                ct_options[ct["name"]] = ct["id"]
+
+        # Container de Filtros
+        with str_lit.container(border=True):
+            str_lit.markdown("### 🔍 Filtrar Turmas")
+            f_col1, f_col2, f_col3 = str_lit.columns(3)
+            with f_col1:
+                filtro_cliente_sel = str_lit.selectbox("Empresa / Cliente", options=list(cli_options.keys()), key="filtro_cli_turmas")
+            with f_col2:
+                filtro_ct_sel = str_lit.selectbox("Centro de Treinamento (CT)", options=list(ct_options.keys()), key="filtro_ct_turmas")
+            with f_col3:
+                usar_filtro_data = str_lit.checkbox("Filtrar por Data específica?", value=False, key="chk_filtro_data_turmas")
+                filtro_data_val = None
+                if usar_filtro_data:
+                    filtro_data_val = str_lit.date_input("Data do Treinamento", value=date.today(), key="filtro_dt_turmas")
+
+        # Construção da Query dinâmica com base nos filtros selecionados
+        query = supabase.table("turmas").select("*")
+        
+        selected_client_id = cli_options[filtro_cliente_sel]
+        if selected_client_id is not None:
+            query = query.eq("client_id", selected_client_id)
+            
+        selected_ct_id = ct_options[filtro_ct_sel]
+        if selected_ct_id is not None:
+            query = query.eq("ct_id", selected_ct_id)
+            
+        if usar_filtro_data and filtro_data_val:
+            query = query.eq("data_treinamento", filtro_data_val.isoformat())
+            
+        response = query.order("data_treinamento", desc=True).execute()
         
         if response and isinstance(response.data, list) and len(response.data) > 0:
+            str_lit.markdown(f"Exibindo **{len(response.data)}** turma(s) encontrada(s).")
             for t in response.data:
                 if isinstance(t, dict):
                     tid = t.get("id")
@@ -747,7 +788,7 @@ with tab_listar:
                                 else:
                                     str_lit.button("🔒", key=f"locked_{tid}", help="Turma com documentação já emitida não pode ser excluída", disabled=True)
         else:
-            str_lit.info("Nenhuma turma aberta no momento.")
+            str_lit.info("Nenhuma turma encontrada com os filtros selecionados.")
             
     except Exception as e:
         str_lit.error(f"Erro ao buscar turmas: {e}")
@@ -813,7 +854,7 @@ with tab_cadastrar:
         if str_lit.form_submit_button("Criar Turma", type="primary", use_container_width=True):
             if not titulo or not curso_selecionado or not instrutor_selecionado or not ct_selecionado:
                 str_lit.warning("⚠️ Por favor, preencha todos os campos obrigatórios.")
-            elif "Nenhum" in curso_selecionado or "Nenhum" in instrutor_selecionado or "Nenhum" in ct_selecionado:
+            elif "Nenhum" in curso_selecionado or "Nenhum" in instrutor_selejonado or "Nenhum" in ct_selecionado:
                 str_lit.warning("⚠️ Você precisa ter cursos, instrutores e CTs cadastrados antes de abrir uma turma.")
             else:
                 try:
