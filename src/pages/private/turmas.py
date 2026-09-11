@@ -515,7 +515,6 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                                 "horas": m.get("carga_horaria") or carga_turma_atual,
                             })
 
-                    # Dados vindos diretamente da turma cadastrada (sem inputs manuais redundantes)
                     turma_cert = {
                         "modalidade": turma_data.get("modalidade", "CT"),
                         "nivel": turma_data.get("nivel", "Intermediário"),
@@ -544,20 +543,14 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                 str_lit.error(f"❌ Erro ao gerar certificado da empresa: {e}")
 
     elif tipo_documento == "Certificados Individuais (Alunos)":
-        str_lit.write("🎓 Gera um ZIP contendo um PDF individual para cada aluno, respeitando as configurações da turma.")
+        str_lit.write("🎓 Gera os certificados individuais dos alunos, utilizando automaticamente as configurações cadastradas na turma.")
 
-        turma_res_pre = supabase.table("turmas").select("modalidade, nivel, carga_horaria").eq("id", tid).single().execute()
-        t_pre = turma_res_pre.data if turma_res_pre and turma_res_pre.data else {}
-
-        col_nivel, col_mod = str_lit.columns(2)
-        with col_nivel:
-            niveis_opcoes = ["Intermediário", "Avançado", "Básico", "Formação", "Reciclagem"]
-            niv_atual_idx = niveis_opcoes.index(t_pre.get("nivel", "Intermediário")) if t_pre.get("nivel") in niveis_opcoes else 0
-            nivel_cert = str_lit.selectbox("Tipo / Nível", niveis_opcoes, index=niv_atual_idx, key=f"nivel_cert_{tid}")
-        with col_mod:
-            mod_opcoes = ["CT", "Incompany", "Incompany - CT", "EAD", "Online"]
-            mod_atual_idx = mod_opcoes.index(t_pre.get("modalidade", "CT")) if t_pre.get("modalidade") in mod_opcoes else 0
-            modalidade_cert = str_lit.selectbox("Modalidade", mod_opcoes, index=mod_atual_idx, key=f"mod_cert_{tid}")
+        # 🚀 Seletor do formato de saída (ZIP separado ou PDF único)
+        formato_saida = str_lit.selectbox(
+            "Formato de Saída dos Certificados",
+            ["ZIP (PDFs individuais separados)", "PDF Único (Todos os certificados em um único arquivo)"],
+            key=f"formato_cert_{tid}"
+        )
 
         col_resp1, col_resp2 = str_lit.columns(2)
         with col_resp1:
@@ -567,9 +560,9 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
 
         str_lit.markdown("---")
 
-        if str_lit.button("🎓 Gerar Certificados (ZIP)", type="primary", use_container_width=True, key=f"btn_cert_{tid}"):
+        if str_lit.button("🎓 Gerar Certificados", type="primary", use_container_width=True, key=f"btn_cert_{tid}"):
             try:
-                with str_lit.spinner("Gerando certificados em ZIP..."):
+                with str_lit.spinner("Gerando certificados..."):
                     turma_res = supabase.table("turmas").select("*").eq("id", tid).single().execute()
                     turma_data = turma_res.data if turma_res and turma_res.data else {}
 
@@ -609,6 +602,7 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                     mat_res = supabase.table("matriculas").select("data_treinamento, carga_horaria, alunos(name, rg, cpf, data_nasc)").eq("turma_id", tid).execute()
 
                     alunos_lista = []
+                    carga_turma_atual = turma_data.get("carga_horaria", "8 Horas")
                     if mat_res and mat_res.data:
                         for m in mat_res.data:
                             aluno_info = m.get("alunos") or {}
@@ -617,37 +611,52 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                                 "cpf": aluno_info.get("cpf", ""),
                                 "rg": aluno_info.get("rg", ""),
                                 "data_nasc": aluno_info.get("data_nasc", ""),
-                                "horas": turma_data.get("carga_horaria", "8 Horas"),
+                                "horas": m.get("carga_horaria") or carga_turma_atual,
                             })
 
                     if not alunos_lista:
                         str_lit.warning("⚠️ Nenhum aluno matriculado nesta turma.")
                         str_lit.stop()
 
+                    # 🚀 Utiliza diretamente os dados cadastrados na turma (modalidade e nível)
                     turma_cert = {
-                        "modalidade": modalidade_cert,
-                        "nivel": nivel_cert,
-                        "carga_horaria": turma_data.get("carga_horaria", "8 Horas"),
+                        "modalidade": turma_data.get("modalidade", "Presencial"),
+                        "nivel": turma_data.get("nivel", "Intermediário"),
+                        "carga_horaria": carga_turma_atual,
                         "resp_tecnico": resp_tecnico.strip() if resp_tecnico else "",
                         "cpf_resp_tecnico": cpf_resp.strip() if cpf_resp else "",
                     }
 
-                    zip_bytes = gerar_certificados_pdf_zip(
-                        alunos_matriculas=alunos_lista,
-                        turma=turma_cert,
-                        instrutor=instrutor_data,
-                        empresa=empresa_data,
-                        ct=ct_data_completo,
-                        normativa=normativa_cert,
-                        cidade_data=cidade_data_cert,
-                        nome_curso=nome_curso_real
-                    )
-
                     supabase.table("turmas").update({"documento_emitido": True}).eq("id", tid).execute()
                     supabase.table("matriculas").update({"doc_emitida": True}).eq("turma_id", tid).execute()
 
-                    str_lit.success(f"✅ {len(alunos_lista)} certificado(s) gerado(s) em ZIP com sucesso!")
-                    str_lit.download_button("📥 Baixar Certificados (ZIP)", data=zip_bytes, file_name=f"certificados_{titulo_turma.replace(' ', '_')}.zip", mime="application/zip", use_container_width=True, key=f"dl_cert_{tid}")
+                    # 🚀 Gera ZIP ou PDF Único conforme a escolha do usuário
+                    if "ZIP" in formato_saida:
+                        file_bytes = gerar_certificados_pdf_zip(
+                            alunos_matriculas=alunos_lista,
+                            turma=turma_cert,
+                            instrutor=instrutor_data,
+                            empresa=empresa_data,
+                            ct=ct_data_completo,
+                            normativa=normativa_cert,
+                            cidade_data=cidade_data_cert,
+                            nome_curso=nome_curso_real
+                        )
+                        str_lit.success(f"✅ {len(alunos_lista)} certificado(s) gerado(s) em ZIP com sucesso!")
+                        str_lit.download_button("📥 Baixar Certificados (ZIP)", data=file_bytes, file_name=f"certificados_{titulo_turma.replace(' ', '_')}.zip", mime="application/zip", use_container_width=True, key=f"dl_cert_zip_{tid}")
+                    else:
+                        file_bytes = gerar_certificados_pdf(
+                            alunos_matriculas=alunos_lista,
+                            turma=turma_cert,
+                            instrutor=instrutor_data,
+                            empresa=empresa_data,
+                            ct=ct_data_completo,
+                            normativa=normativa_cert,
+                            cidade_data=cidade_data_cert,
+                            nome_curso=nome_curso_real
+                        )
+                        str_lit.success(f"✅ PDF único com {len(alunos_lista)} certificado(s) gerado com sucesso!")
+                        str_lit.download_button("📥 Baixar PDF Único de Certificados", data=file_bytes, file_name=f"certificados_todos_{titulo_turma.replace(' ', '_')}.pdf", mime="application/pdf", use_container_width=True, key=f"dl_cert_pdf_{tid}")
 
             except Exception as e:
                 str_lit.error(f"❌ Erro ao gerar certificados: {e}")
