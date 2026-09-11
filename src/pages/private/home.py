@@ -3,24 +3,20 @@ import pandas as pd
 import plotly.express as px
 from datetime import date
 from src.config.database import supabase
+from src.utils.import_helper import processar_planilha_alunos
 
-# Configuração da página (opcional se já estiver no app.py principal, mas bom garantir)
+# Configuração da página
 str_lit.title("📊 Painel Geral (Dashboard)")
-str_lit.markdown("Acompanhe os principais indicadores do seu Centro de Treinamento em tempo real.")
+str_lit.markdown("Acompanhe os principais indicadores do seu Centro de Treinamento e gerencie importações em tempo real.")
 
 # ==========================================
 # 1. BUSCA DE DADOS (EXTRAÇÃO)
 # ==========================================
 @str_lit.cache_data(ttl=60) # Cache de 60 segundos para deixar a Home super rápida
 def carregar_dados_dashboard():
-    # Busca todas as turmas (trazendo o nome do curso junto)
     res_turmas = supabase.table("turmas").select("id, titulo, data_treinamento, documento_emitido, modalidade, cursos(name)").execute()
-    
-    # Busca alunos e clientes apenas para contagem total
     res_alunos = supabase.table("alunos").select("id").execute()
     res_clientes = supabase.table("clients").select("id").execute()
-    
-    # Busca matrículas para contagem de certificados
     res_matriculas = supabase.table("matriculas").select("id, doc_emitida").execute()
     
     return {
@@ -59,19 +55,111 @@ with col2:
 with col3:
     str_lit.metric("🎓 Certificados Emitidos", f"{total_certificados}")
 with col4:
-    # Destaca em vermelho se houver pendências
     delta_cor = "inverse" if turmas_pendentes > 0 else "normal"
     str_lit.metric("⚠️ Turmas Pendentes", f"{turmas_pendentes}", delta=f"{turmas_pendentes} sem docs", delta_color=delta_cor)
 
 str_lit.markdown("---")
 
 # ==========================================
-# 3. GRÁFICOS INTERATIVOS
+# 3. SEÇÃO DE IMPORTAÇÃO RÁPIDA (UPLOAD DE ARQUIVOS NO DASHBOARD)
+# ==========================================
+with str_lit.expander("📥 Central de Importação Rápida de Alunos (Upload de Planilha)", expanded=False):
+    str_lit.markdown("Envie a planilha de alunos (.xlsx ou .csv) e vincule diretamente a uma turma existente no banco de dados.")
+    
+    try:
+        turmas_res = supabase.table("turmas").select("id, titulo, data_treinamento, carga_horaria").order("data_treinamento", desc=True).execute()
+        turmas_dict_import = {}
+        if turmas_res and turmas_res.data:
+            for tm in turmas_res.data:
+                turmas_dict_import[f"{tm.get('titulo')} (Data: {tm.get('data_treinamento')})"] = {
+                    "id": tm.get("id"),
+                    "data": tm.get("data_treinamento"),
+                    "carga": tm.get("carga_horaria", "8 Horas")
+                }
+
+        clients_res = supabase.table("clients").select("id, name, cnpj").order("name").execute()
+        empresas_opcoes_imp = {}
+        if clients_res and clients_res.data:
+            for cli in clients_res.data:
+                empresas_opcoes_imp[f"{cli.get('name')} (CNPJ: {cli.get('cnpj')})"] = cli.get('id')
+
+        if not turmas_dict_import:
+            str_lit.info("ℹ️ Nenhuma turma cadastrada para receber importações. Crie uma turma na aba de Turmas primeiro.")
+        else:
+            col_imp1, col_imp2 = str_lit.columns(2)
+            with col_imp1:
+                turma_escolhida_label = str_lit.selectbox("Selecione a Turma de Destino*", options=list(turmas_dict_import.keys()), key="home_sel_turma")
+            with col_imp2:
+                empresa_escolhida_imp = str_lit.selectbox("Selecione a Empresa dos Alunos*", options=list(empresas_opcoes_imp.keys()) if empresas_opcoes_imp else ["Nenhuma empresa cadastrada"], key="home_sel_empresa")
+            
+            info_turma_sel = turmas_dict_import[turma_escolhida_label]
+            tid_destino = info_turma_sel["id"]
+            data_turma_sel = info_turma_sel["data"]
+            carga_turma_sel = info_turma_sel["carga"]
+
+            carga_horaria_padrao_imp = str_lit.text_input("Carga Horária Padrão para os Alunos", value=carga_turma_sel, key="home_input_carga")
+            
+            arquivo_excel_dash = str_lit.file_uploader(
+                "Envie o arquivo de alunos (.xlsx ou .csv)",
+                type=["xlsx", "csv"],
+                key="file_uploader_home_dashboard"
+            )
+            
+            if arquivo_excel_dash is not None:
+                if str_lit.button("🚀 Processar e Importar Alunos para a Turma", type="primary", use_container_width=True, key="home_btn_importar"):
+                    try:
+                        with str_lit.spinner("Processando planilha e salvando matrículas..."):
+                            alunos_tratados = processar_planilha_alunos(arquivo_excel_dash, data_turma_sel)
+                            client_id_destino = empresas_opcoes_imp.get(empresa_escolhida_imp) if empresas_opcoes_imp else None
+                            importados_count = 0
+                            
+                            for aluno in alunos_tratados:
+                                nome_aluno = aluno["name"]
+                                cpf_aluno = aluno["cpf"]
+                                data_aluno_final = aluno["data_treinamento"]
+                                data_nasc_aluno = aluno["data_nasc"]
+                                
+                                if not data_nasc_aluno or str(data_nasc_aluno).strip().lower() in ['nan', 'none', '']:
+                                    data_nasc_aluno = None
+                                
+                                aluno_existente = supabase.table("alunos").select("id").eq("cpf", cpf_aluno).execute()
+                                
+                                if aluno_existente and aluno_existente.data:
+                                    aluno_id = aluno_existente.data[0].get("id")
+                                    supabase.table("alunos").update({"name": nome_aluno, "data_nasc": data_nasc_aluno}).eq("id", aluno_id).execute()
+                                else:
+                                    novo_aluno_payload = {"name": nome_aluno, "cpf": cpf_aluno, "data_nasc": data_nasc_aluno}
+                                    res_novo_aluno = supabase.table("alunos").insert(novo_aluno_payload).execute()
+                                    if res_novo_aluno and res_novo_aluno.data:
+                                        aluno_id = res_novo_aluno.data[0].get("id")
+                                    else:
+                                        continue
+                                
+                                matricula_payload = {
+                                    "turma_id": tid_destino,
+                                    "aluno_id": aluno_id,
+                                    "client_id": client_id_destino,
+                                    "carga_horaria": carga_horaria_padrao_imp,
+                                    "data_treinamento": data_aluno_final
+                                }
+                                supabase.table("matriculas").insert(matricula_payload).execute()
+                                importados_count += 1
+                                
+                            str_lit.success(f"✅ {importados_count} alunos importados com sucesso! Os indicadores acima serão atualizados.")
+                            str_lit.balloons()
+                    except Exception as err:
+                        str_lit.error(f"❌ Erro ao processar planilha: {err}")
+    except Exception as e:
+        str_lit.error(f"Erro ao carregar central de importação na home: {e}")
+
+str_lit.markdown("---")
+
+# ==========================================
+# 4. GRÁFICOS INTERATIVOS
 # ==========================================
 if df_turmas.empty:
     str_lit.info("Nenhuma turma cadastrada ainda para gerar os gráficos.")
 else:
-    # Tratamento da tabela de turmas para os gráficos
     df_turmas["data_treinamento"] = pd.to_datetime(df_turmas["data_treinamento"], errors="coerce")
     df_turmas["mes_ano"] = df_turmas["data_treinamento"].dt.strftime("%m/%Y")
     df_turmas["nome_curso"] = df_turmas["cursos"].apply(lambda x: x["name"] if isinstance(x, dict) else "N/D")
@@ -80,10 +168,7 @@ else:
     col_grafico1, col_grafico2 = str_lit.columns(2)
     
     with col_grafico1:
-        # Gráfico 1: Evolução de Turmas por Mês
         turmas_por_mes = df_turmas.groupby("mes_ano").size().reset_index(name="Quantidade")
-        
-        # Ordena a data cronologicamente para o gráfico não ficar bagunçado
         turmas_por_mes["data_sort"] = pd.to_datetime(turmas_por_mes["mes_ano"], format="%m/%Y")
         turmas_por_mes = turmas_por_mes.sort_values("data_sort")
         
@@ -99,7 +184,6 @@ else:
         str_lit.plotly_chart(fig_linha, use_container_width=True)
         
     with col_grafico2:
-        # Gráfico 2: Status das Documentações (Rosquinha / Donut)
         status_counts = df_turmas["Status"].value_counts().reset_index()
         status_counts.columns = ["Status", "Quantidade"]
         
@@ -110,19 +194,18 @@ else:
             hole=0.45, 
             title="📄 Status de Emissão (Turmas)",
             color="Status",
-            color_discrete_map={"Emitido": "#2ca02c", "Pendente": "#d62728"} # Verde e Vermelho
+            color_discrete_map={"Emitido": "#2ca02c", "Pendente": "#d62728"}
         )
         str_lit.plotly_chart(fig_donut, use_container_width=True)
 
     str_lit.markdown("---")
     
     # ==========================================
-    # 4. GRÁFICO INFERIOR & TABELA DE ALERTAS
+    # 5. GRÁFICO INFERIOR & TABELA DE ALERTAS
     # ==========================================
     col_grafico3, col_tabela = str_lit.columns([1, 1])
     
     with col_grafico3:
-        # Gráfico 3: Turmas por Modalidade
         modalidade_counts = df_turmas["modalidade"].value_counts().reset_index()
         modalidade_counts.columns = ["Modalidade", "Quantidade"]
         
@@ -144,10 +227,7 @@ else:
         df_pendentes = df_turmas[df_turmas["documento_emitido"] == False].copy()
         
         if not df_pendentes.empty:
-            # Formata a data bonitinha para a tabela
             df_pendentes["Data"] = df_pendentes["data_treinamento"].dt.strftime("%d/%m/%Y")
-            
-            # Prepara o dataframe final só com as colunas úteis
             df_exibicao = df_pendentes[["Data", "titulo", "nome_curso"]].rename(columns={
                 "titulo": "Título da Turma",
                 "nome_curso": "Curso"
