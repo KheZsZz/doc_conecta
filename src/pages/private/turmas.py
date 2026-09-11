@@ -453,26 +453,11 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                 str_lit.error(f"❌ Erro ao gerar atestado: {e}")
                 
     elif tipo_documento == "Certificado da Empresa":
-        str_lit.write("🏢 Gera um PDF do certificado geral emitido em nome da Empresa Cliente.")
+        str_lit.write("🏢 Gera um PDF do certificado geral emitido em nome da Empresa Cliente utilizando os dados cadastrados da turma.")
 
         if not client_id:
             str_lit.warning("⚠️ Esta turma não possui uma empresa vinculada (Particular/Aberta). Vincule uma empresa na tela de edição da turma para emitir este documento.")
             str_lit.stop()
-
-        turma_res_pre = supabase.table("turmas").select("modalidade, nivel, carga_horaria, curso_id").eq("id", tid).single().execute()
-        t_pre = turma_res_pre.data if turma_res_pre and turma_res_pre.data else {}
-
-        col_nivel, col_mod = str_lit.columns(2)
-        with col_nivel:
-            niveis_opcoes = ["Intermediário", "Avançado", "Básico", "Formação", "Reciclagem"]
-            niv_atual_idx = niveis_opcoes.index(t_pre.get("nivel", "Intermediário")) if t_pre.get("nivel") in niveis_opcoes else 0
-            nivel_cert = str_lit.selectbox("Tipo / Nível", niveis_opcoes, index=niv_atual_idx, key=f"nivel_emp_{tid}")
-        with col_mod:
-            mod_opcoes = ["CT", "Incompany", "Incompany - CT", "EAD", "Online"]
-            mod_atual_idx = mod_opcoes.index(t_pre.get("modalidade", "CT")) if t_pre.get("modalidade") in mod_opcoes else 0
-            modalidade_cert = str_lit.selectbox("Modalidade", mod_opcoes, index=mod_atual_idx, key=f"mod_emp_{tid}")
-
-        carga_cert = str_lit.text_input("Carga Horária", value=t_pre.get("carga_horaria", "8 Horas"), key=f"carga_emp_{tid}")
 
         col_resp1, col_resp2 = str_lit.columns(2)
         with col_resp1:
@@ -519,6 +504,7 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                     mat_res = supabase.table("matriculas").select("data_treinamento, carga_horaria, alunos(name, rg, cpf, data_nasc)").eq("turma_id", tid).execute()
                     alunos_lista = []
                     
+                    carga_turma_atual = turma_data.get("carga_horaria", "8 Horas")
                     if mat_res and mat_res.data:
                         for m in mat_res.data:
                             aluno_info = m.get("alunos") or {}
@@ -526,13 +512,14 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                                 "name": aluno_info.get("name", ""),
                                 "cpf": aluno_info.get("cpf", ""),
                                 "rg": aluno_info.get("rg", ""),
-                                "horas": carga_cert,
+                                "horas": m.get("carga_horaria") or carga_turma_atual,
                             })
 
+                    # Dados vindos diretamente da turma cadastrada (sem inputs manuais redundantes)
                     turma_cert = {
-                        "modalidade": modalidade_cert,
-                        "nivel": nivel_cert,
-                        "carga_horaria": carga_cert,
+                        "modalidade": turma_data.get("modalidade", "CT"),
+                        "nivel": turma_data.get("nivel", "Intermediário"),
+                        "carga_horaria": carga_turma_atual,
                         "resp_tecnico": resp_tecnico.strip() if resp_tecnico else "",
                         "cpf_resp_tecnico": cpf_resp.strip() if cpf_resp else "",
                     }
@@ -677,7 +664,6 @@ with tab_listar:
     str_lit.subheader("Turmas Abertas e Emissão de Documentos")
     
     try:
-        # Carregar opções para os filtros de Empresa e CT
         clients_filter_res = supabase.table("clients").select("id, name").order("name").execute()
         cts_filter_res = supabase.table("cts").select("id, name").order("name").execute()
         
@@ -691,7 +677,6 @@ with tab_listar:
             for ct in cts_filter_res.data:
                 ct_options[ct["name"]] = ct["id"]
 
-        # Container de Filtros
         with str_lit.container(border=True):
             str_lit.markdown("### 🔍 Filtrar Turmas")
             f_col1, f_col2, f_col3 = str_lit.columns(3)
@@ -705,7 +690,6 @@ with tab_listar:
                 if usar_filtro_data:
                     filtro_data_val = str_lit.date_input("Data do Treinamento", value=date.today(), key="filtro_dt_turmas")
 
-        # Construção da Query dinâmica com base nos filtros selecionados
         query = supabase.table("turmas").select("*")
         
         selected_client_id = cli_options[filtro_cliente_sel]
@@ -854,7 +838,7 @@ with tab_cadastrar:
         if str_lit.form_submit_button("Criar Turma", type="primary", use_container_width=True):
             if not titulo or not curso_selecionado or not instrutor_selecionado or not ct_selecionado:
                 str_lit.warning("⚠️ Por favor, preencha todos os campos obrigatórios.")
-            elif "Nenhum" in curso_selecionado or "Nenhum" in instrutor_selejonado or "Nenhum" in ct_selecionado:
+            elif "Nenhum" in curso_selecionado or "Nenhum" in instrutor_selecionado or "Nenhum" in ct_selecionado:
                 str_lit.warning("⚠️ Você precisa ter cursos, instrutores e CTs cadastrados antes de abrir uma turma.")
             else:
                 try:
