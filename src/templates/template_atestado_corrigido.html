@@ -2,7 +2,7 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <title>Atestado de Brigada</title>
+    <title>Atestado de Treinamento</title>
     <style>
       @page {
         size: A4 portrait;
@@ -13,7 +13,6 @@
         padding: 0;
         box-sizing: border-box;
       }
-
       body {
         font-family: "Arial", "Helvetica", sans-serif;
         color: #000000;
@@ -21,21 +20,16 @@
         line-height: 1;
         background: white;
       }
-
       .container {
         width: 100%;
         padding-bottom: 25px;
-        /* ADICIONADO: Força a quebra de página a cada 30 alunos */
         page-break-after: always;
         break-after: page;
       }
-      /* ADICIONADO: Remove a quebra na última página para evitar folha em branco extra */
       .container:last-child {
         page-break-after: auto;
         break-after: auto;
       }
-
-      /* Header com Logos */
       .header {
         display: flex;
         justify-content: space-between;
@@ -48,8 +42,6 @@
         max-width: 200px;
         object-fit: contain;
       }
-
-      /* Título */
       .titulo {
         text-align: center;
         font-size: 16pt;
@@ -57,17 +49,14 @@
         letter-spacing: 2px;
         margin-bottom: 15px;
         margin-top: 5px;
+        text-transform: uppercase;
       }
-
-      /* Declaração */
       .declaracao {
         text-align: justify;
         font-size: 11pt;
         margin-bottom: 12px;
         line-height: 1.5;
       }
-
-      /* Bloco Empresa */
       .bloco-empresa {
         margin-bottom: 12px;
         font-size: 11pt;
@@ -77,8 +66,6 @@
         padding: 2px 0;
         font-weight: bold;
       }
-
-      /* Tabela de Alunos */
       .tabela-container {
         margin-bottom: 15px;
         width: 100%;
@@ -116,30 +103,18 @@
       table.tabela-alunos td:first-child {
         text-align: left;
       }
-      table.tabela-alunos td:nth-child(2),
-      table.tabela-alunos td:nth-child(3),
-      table.tabela-alunos td:nth-child(4),
-      table.tabela-alunos td:nth-child(5) {
-        white-space: nowrap;
-      }
-
-      /* Norma */
       .norma {
         text-align: justify;
         font-size: 11pt;
         margin-bottom: 15px;
         font-style: italic;
       }
-
-      /* Data */
       .data {
         text-align: right;
         font-size: 11pt;
         font-weight: bold;
         margin-bottom: 20px;
       }
-
-      /* Bloco Assinatura */
       .bloco-assinatura {
         text-align: center;
         margin-bottom: 25px;
@@ -162,8 +137,6 @@
       .doc-instrutor {
         font-size: 11pt;
       }
-
-      /* Rodapé Fixo — dinâmico via CT */
       .rodape {
         position: fixed;
         bottom: 0;
@@ -203,7 +176,6 @@
   <body>
     {% for pagina in paginas %}
     <div class="container">
-      <!-- Header: logo dinâmica do CT -->
       <div class="header">
         <div class="logo-left">
           {% if LOGO_CT %}
@@ -212,28 +184,26 @@
         </div>
       </div>
 
-      <!-- Título -->
-      <div class="titulo">ATESTADO DE BRIGADA</div>
+      <div class="titulo">ATESTADO DE TREINAMENTO</div>
 
-      <!-- Declaração -->
+      <!-- 🚀 Declaração 100% Dinâmica baseada no Curso -->
       <div class="declaracao">
         Atesto para os devidos fins, que as pessoas abaixo relacionadas
         participaram com bom aproveitamento do treinamento de
         <strong
-          >Brigada de Incêndio - Prevenção e Combate a Incêndio e Primeiros
-          Socorros</strong
-        >, e estão aptas ao manuseio dos equipamentos de prevenção e combate a
-        incêndio da edificação.
+          >{{ CURSO_NOME }} {% if MODALIDADE_TURMA %}({{ MODALIDADE_TURMA }}){%
+          endif %}</strong
+        >{% if NIVEL_TURMA %}, nível <strong>{{ NIVEL_TURMA }}</strong>{% endif
+        %}, sendo aprovadas nas avaliações teóricas e práticas, estando aptas
+        para as atividades inerentes ao treinamento realizado.
       </div>
 
-      <!-- Dados da Empresa contratante -->
       <div class="bloco-empresa">
         <p><strong>Empresa:</strong> {{ EMPRESA }}</p>
         <p><strong>Endereço:</strong> {{ ENDERECO }}</p>
         <p><strong>CNPJ:</strong> {{ CNPJ }}</p>
       </div>
 
-      <!-- Tabela de Alunos -->
       <div class="tabela-container">
         <table class="tabela-alunos">
           <thead>
@@ -246,15 +216,11 @@
               {% if mostrar_coluna_nasc %}
               <th><strong>DATA NASC.</strong></th>
               {% endif %}
-              <!--{% if mostrar_coluna_data %}
-                        <th><strong>DATA CONCLUSÃO</strong></th>
-                        {% endif %}-->
               <th><strong>TREINAMENTO</strong></th>
               <th><strong>HORAS</strong></th>
             </tr>
           </thead>
           <tbody>
-            <!-- CORRIGIDO: mudou de "alunos" para "pagina" (que representa o lote atual de até 30 alunos) -->
             {% for aluno in pagina %}
             <tr>
               <td>{{ aluno.nome }}</td>
@@ -264,11 +230,7 @@
               <td>{{ aluno.cpf }}</td>
               {% if mostrar_coluna_nasc %}
               <td>{{ aluno.data_nasc }}</td>
-              {% endif %}
-              <!--{% if mostrar_coluna_data %}
-                        <td>{{ aluno.data_matricula }}</td>
-                        {% endif %} -->
-              {%if aluno.Treinamento %}
+              {% endif %} {% if aluno.Treinamento %}
               <td>{{ aluno.Treinamento }}</td>
               {% endif %}
               <td>{{ aluno.horas }}</td>
@@ -278,13 +240,10 @@
         </table>
       </div>
 
-      <!-- Norma -->
       <div class="norma">{{ NORMA }}</div>
 
-      <!-- Data -->
       <div class="data">{{ CIDADE_DATA }}</div>
 
-      <!-- Assinatura -->
       <div class="bloco-assinatura">
         {% if ASSINATURA_IMG %}
         <img
@@ -298,7 +257,6 @@
         <div class="doc-instrutor">CPF: {{ DOC_INSTRUTOR }}</div>
       </div>
 
-      <!-- Rodapé dinâmico baseado no CT da turma -->
       <div class="rodape">
         <div class="rodape-info">
           {% if CT_NOME %}
