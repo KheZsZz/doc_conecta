@@ -6,9 +6,11 @@ from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML, CSS
 from datetime import datetime
 
+# Caminhos padrão das imagens de fundo do certificado (fallback)
 _FUNDO_DEFAULT = "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/certificado_conecta_fundo.png"
 
 def _imagem_para_data_uri(caminho: str) -> str:
+    """Converte uma imagem local para data URI base64 (evita problemas de path no WeasyPrint)."""
     ext = os.path.splitext(caminho)[1].lower().lstrip(".")
     mime = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "gif": "gif", "webp": "webp"}.get(ext, "png")
     with open(caminho, "rb") as f:
@@ -36,10 +38,10 @@ def gerar_certificado_html(
     ct: dict | None = None,
     normativa: str = "",
     cidade_data: str = "",
-    nome_curso: str = "Treinamento Técnico",
     caminho_fundo: str | None = None,
     caminho_pasta_templates: str = "src/templates",
 ) -> str:
+    
     env = Environment(loader=FileSystemLoader(caminho_pasta_templates))
     template = env.get_template("template_certificado.html")
 
@@ -58,10 +60,12 @@ def gerar_certificado_html(
     else:
         imagem_fundo = _FUNDO_DEFAULT
 
-    assinatura_instrutor = ""
-    assinatura_path = instrutor.get("assinatura", "")
-    if assinatura_path:
-        assinatura_instrutor = _resolver_imagem(assinatura_path)
+    assinatura_instrutor = _resolver_imagem(instrutor.get("assinatura", ""))
+    
+    # ===== MODULARIZAÇÃO DA ASSINATURA DO RESP. TÉCNICO =====
+    assinatura_resp_url = turma.get("assinatura_resp_url", "")
+    assinatura_resp_tecnico = _resolver_imagem(assinatura_resp_url)
+    # =========================================================
 
     cpf = aluno.get("cpf", "")
     rg = aluno.get("rg", "")
@@ -88,6 +92,12 @@ def gerar_certificado_html(
         except Exception:
             data_nasc_fmt = str(data_nasc_raw)
 
+    cpf_resp_raw = turma.get("cpf_resp_tecnico", "")
+    cpf_resp_fmt = (
+        f"{cpf_resp_raw[:3]}.{cpf_resp_raw[3:6]}.{cpf_resp_raw[6:9]}-{cpf_resp_raw[9:]}" 
+        if len(cpf_resp_raw) == 11 else cpf_resp_raw
+    )
+
     html = template.render(
         IMAGEM_FUNDO=imagem_fundo,
         NOME_ALUNO=aluno.get("name", ""),
@@ -98,18 +108,16 @@ def gerar_certificado_html(
         NIVEL=turma.get("nivel", "Intermediário"),
         MODALIDADE=turma.get("modalidade", "Presencial"),
         CARGA_HORARIA=turma.get("carga_horaria", "8 Horas"),
-        CURSO_NOME=nome_curso,
         NORMATIVA=normativa,
         CIDADE_DATA=cidade_data,
         ASSINATURA_INSTRUTOR=assinatura_instrutor,
         NOME_INSTRUTOR=instrutor.get("name", ""),
         CPF_INSTRUTOR=cpf_inst_fmt,
         RESP_TECNICO=turma.get("resp_tecnico", ""),
-        CPF_RESP=turma.get("cpf_resp_tecnico", ""),
-        ASSINATURA_RESP_TECNICO="https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/assinaturas/assinatura_responsavel_tecnico.png"
+        CPF_RESP=cpf_resp_fmt,
+        ASSINATURA_RESP_TECNICO=assinatura_resp_tecnico
     )
     return html
-
 
 def gerar_certificados_pdf(
     alunos_matriculas: list[dict],
@@ -119,26 +127,16 @@ def gerar_certificados_pdf(
     ct: dict | None = None,
     normativa: str = "",
     cidade_data: str = "",
-    nome_curso: str = "Treinamento Técnico",
     caminho_fundo: str | None = None,
     caminho_pasta_templates: str = "src/templates",
 ) -> bytes:
     paginas_html = []
-
     for aluno in alunos_matriculas:
         turma_aluno = {**turma, "carga_horaria": aluno.get("horas", turma.get("carga_horaria", "8 Horas"))}
-        
         html_pagina = gerar_certificado_html(
-            aluno=aluno,
-            turma=turma_aluno,
-            instrutor=instrutor,
-            empresa=empresa,
-            ct=ct,
-            normativa=normativa,
-            cidade_data=cidade_data,
-            nome_curso=nome_curso,
-            caminho_fundo=caminho_fundo,
-            caminho_pasta_templates=caminho_pasta_templates,
+            aluno=aluno, turma=turma_aluno, instrutor=instrutor, empresa=empresa, 
+            ct=ct, normativa=normativa, cidade_data=cidade_data, 
+            caminho_fundo=caminho_fundo, caminho_pasta_templates=caminho_pasta_templates,
         )
         paginas_html.append(html_pagina)
 
@@ -146,14 +144,10 @@ def gerar_certificados_pdf(
         raise ValueError("Nenhum aluno para gerar certificado.")
 
     from pypdf import PdfWriter, PdfReader
-
     writer = PdfWriter()
-
     for html_str in paginas_html:
         pdf_bytes_individual = HTML(string=html_str).write_pdf(
-            stylesheets=[
-                CSS(string="@page { size: A4 landscape; margin: 0; }")
-            ]
+            stylesheets=[CSS(string="@page { size: A4 landscape; margin: 0; }")]
         )
         reader = PdfReader(io.BytesIO(pdf_bytes_individual))
         for page in reader.pages:
@@ -163,7 +157,6 @@ def gerar_certificados_pdf(
     writer.write(output)
     return output.getvalue()
 
-
 def gerar_certificados_pdf_zip(
     alunos_matriculas: list[dict],
     turma: dict,
@@ -172,7 +165,6 @@ def gerar_certificados_pdf_zip(
     ct: dict | None = None,
     normativa: str = "",
     cidade_data: str = "",
-    nome_curso: str = "Treinamento Técnico",
     caminho_fundo: str | None = None,
     caminho_pasta_templates: str = "src/templates",
 ) -> bytes:
@@ -180,36 +172,22 @@ def gerar_certificados_pdf_zip(
         raise ValueError("Nenhum aluno para gerar certificado.")
 
     zip_buffer = io.BytesIO()
-    
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
         for aluno in alunos_matriculas:
             turma_aluno = {**turma, "carga_horaria": aluno.get("horas", turma.get("carga_horaria", "8 Horas"))}
-            
             html_certificado = gerar_certificado_html(
-                aluno=aluno,
-                turma=turma_aluno,
-                instrutor=instrutor,
-                empresa=empresa,
-                ct=ct,
-                normativa=normativa,
-                cidade_data=cidade_data,
-                nome_curso=nome_curso,
-                caminho_fundo=caminho_fundo,
-                caminho_pasta_templates=caminho_pasta_templates,
+                aluno=aluno, turma=turma_aluno, instrutor=instrutor, empresa=empresa, 
+                ct=ct, normativa=normativa, cidade_data=cidade_data, 
+                caminho_fundo=caminho_fundo, caminho_pasta_templates=caminho_pasta_templates,
             )
-            
             pdf_bytes = HTML(string=html_certificado).write_pdf(
-                stylesheets=[
-                    CSS(string="@page { size: A4 landscape; margin: 0; }")
-                ]
+                stylesheets=[CSS(string="@page { size: A4 landscape; margin: 0; }")]
             )
-            
             nome_aluno = aluno.get("name", "aluno").strip()
             nome_sanitizado = "".join(c if c.isalnum() or c in (' ', '-', '_') else '' for c in nome_aluno)
             nome_sanitizado = nome_sanitizado.strip().replace(' ', '_')
-            
             nome_arquivo_pdf = f"Certificado_{nome_sanitizado}.pdf"
             zip_file.writestr(nome_arquivo_pdf, pdf_bytes)
-    
+            
     zip_buffer.seek(0)
     return zip_buffer.getvalue()

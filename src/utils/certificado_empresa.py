@@ -4,7 +4,6 @@ from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML, CSS
 
 _FUNDO_DEFAULT = "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/certificado_conecta_fundo.png"
-_ASSINATURA_RESP_TECNICO_DEFAULT = "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/assinaturas/assinatura_responsavel_tecnico.png"
 
 def _imagem_para_data_uri(caminho: str) -> str:
     ext = os.path.splitext(caminho)[1].lower().lstrip(".")
@@ -39,23 +38,36 @@ def gerar_certificado_empresa_pdf(
     alunos: list = None,
     normativa: str = "",
     cidade_data: str = "",
-    nome_curso: str = "Treinamento Técnico",
     caminho_fundo: str = None,
     caminho_pasta_templates: str = "src/templates",
     nome_template: str = "template_certificado_empresa.html",
 ) -> bytes:
+    
     env = Environment(loader=FileSystemLoader(caminho_pasta_templates))
     template = env.get_template(nome_template)
 
-    fundo_path = caminho_fundo if caminho_fundo else (ct.get("fundo_certificado_url") if ct else _FUNDO_DEFAULT)
-    imagem_fundo = _resolver_imagem(fundo_path) or _FUNDO_DEFAULT
+    fundo_path = ""
+    if caminho_fundo:
+        fundo_path = caminho_fundo
+    elif ct and ct.get("fundo_certificado_url"):
+        fundo_path = ct.get("fundo_certificado_url")
+    else:
+        fundo_path = _FUNDO_DEFAULT
+    
+    imagem_fundo = _resolver_imagem(fundo_path)
+    if not imagem_fundo:
+        imagem_fundo = _FUNDO_DEFAULT
 
     assinatura_instrutor = _resolver_imagem(instrutor.get("assinatura", ""))
     cpf_instrutor_fmt = formatar_cpf(instrutor.get("cpf", ""))
 
     resp_tecnico_nome = (turma.get("resp_tecnico") or "").strip()
     cpf_resp_fmt = formatar_cpf(turma.get("cpf_resp_tecnico", ""))
-    assinatura_resp_tecnico = _ASSINATURA_RESP_TECNICO_DEFAULT if resp_tecnico_nome else ""
+    
+    # ===== MODULARIZAÇÃO DA ASSINATURA DO RESP. TÉCNICO =====
+    assinatura_resp_url = turma.get("assinatura_resp_url", "")
+    assinatura_resp_tecnico = _resolver_imagem(assinatura_resp_url)
+    # =========================================================
 
     total_colaboradores = len(alunos) if alunos else 0
 
@@ -64,19 +76,15 @@ def gerar_certificado_empresa_pdf(
         EMPRESA=empresa.get("name", ""),
         ENDERECO_EMPRESA=empresa.get("full_address", ""),
         CNPJ_EMPRESA=empresa.get("cnpj", ""),
-
         NIVEL=turma.get("nivel", "Intermediário"),
         MODALIDADE=turma.get("modalidade", "CT"),
         CARGA_HORARIA=turma.get("carga_horaria", "08 Horas"),
-        CURSO_NOME=nome_curso,
         NORMATIVA=normativa,
         TOTAL_COLABORADORES=total_colaboradores,
         CIDADE_DATA=cidade_data,
-
         NOME_INSTRUTOR=instrutor.get("name", ""),
         CPF_INSTRUTOR=cpf_instrutor_fmt,
         ASSINATURA_INSTRUTOR=assinatura_instrutor,
-
         RESP_TECNICO=resp_tecnico_nome,
         CPF_RESP=cpf_resp_fmt,
         ASSINATURA_RESP_TECNICO=assinatura_resp_tecnico,

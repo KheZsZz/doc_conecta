@@ -471,11 +471,25 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
 
         carga_cert = str_lit.text_input("Carga Horária", value=t_pre.get("carga_horaria", "8 Horas"), key=f"carga_emp_{tid}")
 
-        col_resp1, col_resp2 = str_lit.columns(2)
-        with col_resp1:
-            resp_tecnico = str_lit.text_input("Responsável Técnico", value="Cristiano Reis", key=f"resp_tec_emp_{tid}")
-        with col_resp2:
-            cpf_resp = str_lit.text_input("CPF do Resp. Técnico", value="214.135.358-01", key=f"cpf_resp_emp_{tid}")
+        # ===== Módulo de Responsável Técnico =====
+        resp_res = supabase.table("responsaveis_tecnicos").select("*").eq("is_active", True).execute()
+        responsaveis = resp_res.data if resp_res and resp_res.data else []
+        
+        opcoes_resp = {f"{r['nome']} (CPF: {r['cpf']})": r for r in responsaveis}
+        default_idx = 0
+        for i, r in enumerate(responsaveis):
+            if r.get("is_default"):
+                default_idx = i
+                break
+
+        resp_selecionado = str_lit.selectbox(
+            "Responsável Técnico", 
+            options=list(opcoes_resp.keys()), 
+            index=default_idx if responsaveis else 0, 
+            key=f"sel_resp_emp_{tid}"
+        )
+        dados_resp_tecnico = opcoes_resp.get(resp_selecionado) if opcoes_resp else {"nome": "Cristiano Reis", "cpf": "214.135.358-01", "assinatura_url": None}
+        # =========================================
 
         str_lit.markdown("---")
 
@@ -528,8 +542,9 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                         "modalidade": modalidade_cert,
                         "nivel": nivel_cert,
                         "carga_horaria": carga_cert,
-                        "resp_tecnico": resp_tecnico.strip() if resp_tecnico else "",
-                        "cpf_resp_tecnico": cpf_resp.strip() if cpf_resp else "",
+                        "resp_tecnico": dados_resp_tecnico.get("nome", ""),
+                        "cpf_resp_tecnico": dados_resp_tecnico.get("cpf", ""),
+                        "assinatura_resp_url": dados_resp_tecnico.get("assinatura_url")
                     }
 
                     pdf_bytes = gerar_certificado_empresa_pdf(
@@ -565,11 +580,27 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
             mod_atual_idx = mod_opcoes.index(t_pre.get("modalidade", "CT")) if t_pre.get("modalidade") in mod_opcoes else 0
             modalidade_cert = str_lit.selectbox("Modalidade", mod_opcoes, index=mod_atual_idx, key=f"mod_cert_{tid}")
 
-        col_resp1, col_resp2 = str_lit.columns(2)
-        with col_resp1:
-            resp_tecnico = str_lit.text_input("Responsável Técnico", value="Cristiano Reis", key=f"resp_tec_{tid}")
-        with col_resp2:
-            cpf_resp = str_lit.text_input("CPF do Responsável Técnico", value="214.135.358-01", key=f"cpf_resp_{tid}")
+        carga_cert = str_lit.text_input("Carga Horária Padrão", value=t_pre.get("carga_horaria", "8 Horas"), key=f"carga_ind_{tid}")
+
+        # ===== Módulo de Responsável Técnico =====
+        resp_res = supabase.table("responsaveis_tecnicos").select("*").eq("is_active", True).execute()
+        responsaveis = resp_res.data if resp_res and resp_res.data else []
+        
+        opcoes_resp = {f"{r['nome']} (CPF: {r['cpf']})": r for r in responsaveis}
+        default_idx = 0
+        for i, r in enumerate(responsaveis):
+            if r.get("is_default"):
+                default_idx = i
+                break
+
+        resp_selecionado = str_lit.selectbox(
+            "Responsável Técnico", 
+            options=list(opcoes_resp.keys()), 
+            index=default_idx if responsaveis else 0, 
+            key=f"sel_resp_ind_{tid}"
+        )
+        dados_resp_tecnico = opcoes_resp.get(resp_selecionado) if opcoes_resp else {"nome": "Cristiano Reis", "cpf": "214.135.358-01", "assinatura_url": None}
+        # =========================================
 
         str_lit.markdown("---")
 
@@ -621,7 +652,7 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                                 "cpf": aluno_info.get("cpf", ""),
                                 "rg": aluno_info.get("rg", ""),
                                 "data_nasc": aluno_info.get("data_nasc", ""),
-                                "horas": m.get("carga_horaria") or turma_data.get("carga_horaria", "8 Horas"),
+                                "horas": m.get("carga_horaria") or carga_cert,
                             })
 
                     if not alunos_lista:
@@ -631,9 +662,10 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                     turma_cert = {
                         "modalidade": modalidade_cert,
                         "nivel": nivel_cert,
-                        "carga_horaria": turma_data.get("carga_horaria", "8 Horas"),
-                        "resp_tecnico": resp_tecnico.strip() if resp_tecnico else "",
-                        "cpf_resp_tecnico": cpf_resp.strip() if cpf_resp else "",
+                        "carga_horaria": carga_cert,
+                        "resp_tecnico": dados_resp_tecnico.get("nome", ""),
+                        "cpf_resp_tecnico": dados_resp_tecnico.get("cpf", ""),
+                        "assinatura_resp_url": dados_resp_tecnico.get("assinatura_url")
                     }
 
                     zip_bytes = gerar_certificados_pdf_zip(
@@ -701,7 +733,6 @@ with tab_listar:
                             instrutor_nome = i_res.data[0].get("name", "Não definido")
 
                     with str_lit.container(border=True):
-                        # Exibição limpa do ID da Turma para garantia da integridade referencial
                         str_lit.caption(f"🆔 ID da Turma (BD): `{tid}`")
                         
                         col_info, col_acoes = str_lit.columns([4, 1.5])

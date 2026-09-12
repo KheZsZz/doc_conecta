@@ -28,6 +28,7 @@ turmas_page = st.Page("src/pages/private/turmas.py", title="Turmas", icon="📅"
 clients_page = st.Page("src/pages/private/empresas.py", title="Empresas / Clientes", icon="🏢")
 cursos_page = st.Page("src/pages/private/cursos.py", title="Cursos", icon="📚")
 instrutores_page = st.Page("src/pages/private/instrutores.py", title="Instrutores", icon="👨‍🏫")
+responsaveis_page = st.Page("src/pages/private/responsaveis.py", title="Responsáveis Técnicos", icon="✒️")
 cts_page = st.Page("src/pages/private/cts.py", title="CTS", icon="📝")
 alunos_page = st.Page("src/pages/private/alunos.py", title="Alunos", icon="👨‍🎓")
 mc_page = st.Page("src/pages/private/mcDonalds.py", title="mcDonalds", icon="💻")
@@ -40,7 +41,7 @@ elif st.session_state.user is None:
 else:
     pg = st.navigation({
         "Principal": [home_page],
-        "Operacional": [clients_page, cursos_page, turmas_page, instrutores_page, cts_page],
+        "Operacional": [clients_page, cursos_page, turmas_page, instrutores_page, cts_page, responsaveis_page],
         "cadastro": [signup_page, alunos_page],
         "especificos": [mc_page]
     })
