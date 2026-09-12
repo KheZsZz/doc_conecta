@@ -33,11 +33,13 @@ tab_listar, tab_cadastrar = st.tabs(["📋 Responsáveis Cadastrados", "➕ Novo
 with tab_listar:
     try:
         res = supabase.table("responsaveis_tecnicos").select("*").order("nome").execute()
-        if res and res.data:
+        
+        if res and res.data and len(res.data) > 0:
             for resp in res.data:
-                rid = resp["id"]
-                nome = resp["nome"]
-                cpf = resp["cpf"]
+                # Usa .get() de forma segura para evitar erros se a coluna não existir
+                rid = resp.get("id")
+                nome = resp.get("nome", "Sem Nome")
+                cpf = resp.get("cpf", "Sem CPF")
                 is_active = resp.get("is_active", True)
                 is_default = resp.get("is_default", False)
                 assinatura_url = resp.get("assinatura_url")
@@ -46,7 +48,7 @@ with tab_listar:
                 default_str = "⭐ (Padrão)" if is_default else ""
 
                 with st.container(border=True):
-                    col1, col2, col3 = st.columns([3, 1, 1])
+                    col1, col2, col3 = st.columns([3, 1, 1.5])
                     with col1:
                         st.markdown(f"**{nome}** {default_str}")
                         st.markdown(f"**CPF:** {cpf} | Status: {status_str}")
@@ -57,8 +59,7 @@ with tab_listar:
                             st.caption("Sem assinatura")
                     with col3:
                         if not is_default:
-                            if st.button("Tornar Padrão", key=f"def_{rid}", use_container_width=True):
-                                # Remove o padrão atual e seta o novo
+                            if st.button("Definir como Padrão", key=f"def_{rid}", use_container_width=True):
                                 supabase.table("responsaveis_tecnicos").update({"is_default": False}).neq("id", rid).execute()
                                 supabase.table("responsaveis_tecnicos").update({"is_default": True}).eq("id", rid).execute()
                                 st.rerun()
@@ -68,11 +69,16 @@ with tab_listar:
                         if st.button(rotulo_btn, key=f"act_{rid}", use_container_width=True):
                             supabase.table("responsaveis_tecnicos").update({"is_active": novo_status}).eq("id", rid).execute()
                             st.rerun()
+                        
+                        if st.button("🗑️ Excluir", key=f"del_{rid}", use_container_width=True):
+                            supabase.table("responsaveis_tecnicos").delete().eq("id", rid).execute()
+                            st.success("Removido!")
+                            st.rerun()
         else:
-            st.info("Nenhum responsável técnico cadastrado.")
+            st.info("ℹ️ Nenhum responsável técnico cadastrado no banco de dados ainda.")
+            
     except Exception as e:
-        st.error(f"Erro ao buscar responsáveis: {e}")
-
+        st.error(f"Erro ao buscar dados do Supabase. Verifique se a tabela 'responsaveis_tecnicos' foi criada. Detalhe do erro: {e}")
 # ==========================================
 # ABA 2: CADASTRO DE NOVO RESPONSÁVEL
 # ==========================================
