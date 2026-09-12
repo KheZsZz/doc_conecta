@@ -80,7 +80,7 @@ with tab_listar:
     except Exception as e:
         st.error(f"Erro ao buscar dados do Supabase. Verifique se a tabela 'responsaveis_tecnicos' foi criada. Detalhe do erro: {e}")
 # ==========================================
-# ABA 2: CADASTRO DE NOVO RESPONSÁVEL
+# ABA 2: CADASTRO DE NOVO RESPONSÁVEL (COM TRAVAS DE SEGURANÇA)
 # ==========================================
 with tab_cadastrar:
     with st.form("form_novo_responsavel", clear_on_submit=True):
@@ -91,30 +91,40 @@ with tab_cadastrar:
         st.markdown("**Assinatura Digitalizada (Imagem .PNG sem fundo recomendada):**")
         arquivo_assinatura = st.file_uploader("Upload da Assinatura", type=["png", "jpg", "jpeg"])
         
-        submit = st.form_submit_button("Salvar Responsável", type="primary", use_container_width=True)
+        submit = st.form_submit_button("💾 Salvar Responsável", type="primary", use_container_width=True)
         
         if submit:
             if not nome_resp or not cpf_resp:
-                st.warning("Preencha o Nome e o CPF obrigatórios.")
+                st.warning("⚠️ Preencha o Nome e o CPF obrigatórios.")
             else:
                 cpf_limpo = "".join(filter(str.isdigit, cpf_resp))
-                url_assinatura = fazer_upload_assinatura_resp(arquivo_assinatura, cpf_limpo) if arquivo_assinatura else None
+                cpf_formatado = cpf_resp.strip()
                 
-                # Se este for marcado como padrão, tira o padrão dos outros
-                if is_default_new:
-                    supabase.table("responsaveis_tecnicos").update({"is_default": False}).neq("is_default", False).execute()
+                # 1. TRAVA DE DUPLICIDADE (Busca se o CPF já existe)
+                busca_duplicidade = supabase.table("responsaveis_tecnicos").select("id").eq("cpf", cpf_formatado).execute()
+                
+                if busca_duplicidade and hasattr(busca_duplicidade, 'data') and len(busca_duplicidade.data) > 0:
+                    st.error(f"❌ O CPF {cpf_formatado} já está cadastrado no sistema! Edite o responsável existente na lista.")
+                else:
+                    with st.spinner("Salvando cadastro..."):
+                        url_assinatura = fazer_upload_assinatura_resp(arquivo_assinatura, cpf_limpo) if arquivo_assinatura else None
+                        
+                        # 2. TRAVA DE PADRÃO ÚNICO (Derruba o padrão anterior)
+                        if is_default_new:
+                            # Tira a flag de padrão de todos que estiverem como True
+                            supabase.table("responsaveis_tecnicos").update({"is_default": False}).eq("is_default", True).execute()
 
-                payload = {
-                    "nome": nome_resp.strip(),
-                    "cpf": cpf_resp.strip(),
-                    "assinatura_url": url_assinatura,
-                    "is_active": True,
-                    "is_default": is_default_new
-                }
-                
-                try:
-                    supabase.table("responsaveis_tecnicos").insert(payload).execute()
-                    st.success("✅ Responsável Técnico cadastrado com sucesso!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Erro ao cadastrar: {e}")
+                        payload = {
+                            "nome": nome_resp.strip(),
+                            "cpf": cpf_formatado,
+                            "assinatura_url": url_assinatura,
+                            "is_active": True,
+                            "is_default": is_default_new
+                        }
+                        
+                        try:
+                            supabase.table("responsaveis_tecnicos").insert(payload).execute()
+                            st.success("✅ Responsável Técnico cadastrado com sucesso!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Erro ao salvar no banco de dados: {e}")
