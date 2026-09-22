@@ -369,17 +369,48 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
 
     str_lit.markdown("---")
 
+    # Busca prévia dos dados oficiais da turma no banco
+    turma_res = supabase.table("turmas").select("*").eq("id", tid).single().execute()
+    turma_data = turma_res.data if turma_res and turma_res.data else {}
+    
+    modalidade_oficial = turma_data.get("modalidade", "CT")
+    nivel_oficial = turma_data.get("nivel", "Intermediário")
+    carga_horaria_oficial = turma_data.get("carga_horaria", "8 Horas")
+    curso_id = turma_data.get("curso_id")
+
+    # Carrega os responsáveis técnicos ativos para a seleção da assinatura
+    resp_res = supabase.table("responsaveis_tecnicos").select("*").eq("is_active", True).execute()
+    responsaveis = resp_res.data if resp_res and resp_res.data else []
+    
+    opcoes_resp = {f"{r['nome']} (CPF: {r['cpf']})": r for r in responsaveis}
+    default_idx = 0
+    for i, r in enumerate(responsaveis):
+        if r.get("is_default"):
+            default_idx = i
+            break
+
+    dados_resp_tecnico = {}
+    if tipo_documento in ["Certificado da Empresa", "Certificados Individuais (Alunos)"]:
+        if responsaveis:
+            resp_selecionado = str_lit.selectbox(
+                "Responsável Técnico Assinante", 
+                options=list(opcoes_resp.keys()), 
+                index=default_idx, 
+                key=f"sel_resp_{tipo_documento}_{tid}"
+            )
+            dados_resp_tecnico = opcoes_resp.get(resp_selecionado)
+        else:
+            dados_resp_tecnico = {"nome": "Cristiano Reis", "cpf": "214.135.358-01", "assinatura_url": None}
+            str_lit.warning("⚠️ Nenhum responsável técnico ativo encontrado. Usando padrão.")
+        str_lit.markdown("---")
+
     if tipo_documento == "Atestado de Brigada (Empresa)":
-        str_lit.info("ℹ️ O atestado usará o template configurado e aplicará dinamicamente as colunas, carga horária, modalidade e nível da turma.")
+        str_lit.info(f"ℹ️ O atestado usará os dados oficiais da turma: **{modalidade_oficial} | {nivel_oficial} | {carga_horaria_oficial}**")
 
         if str_lit.button("🚀 Processar e Gerar Atestado", type="primary", use_container_width=True):
             try:
                 with str_lit.spinner("Buscando dados e gerando atestado..."):
-
-                    turma_res = supabase.table("turmas").select("*").eq("id", tid).single().execute()
-                    turma_data = turma_res.data if turma_res and turma_res.data else {}
                     ct_id_resolvido = ct_id or turma_data.get("ct_id")
-
                     ct_data = None
                     cidade_ct = "Itapecerica da Serra"
                     if ct_id_resolvido:
@@ -388,7 +419,6 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                             ct_data = ct_res.data
                             cidade_ct = extrair_cidade_do_endereco(ct_data.get("full_address"))
 
-                    curso_id = turma_data.get("curso_id")
                     curso_res = supabase.table("cursos").select("*").eq("id", curso_id).single().execute() if curso_id else None
                     cidade_data_formatada = formatar_data_extenso(turma_data.get("data_treinamento", ""), cidade=cidade_ct)
 
@@ -417,17 +447,19 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                                 "cpf": aluno_info.get("cpf", ""),
                                 "data_nasc": aluno_info.get("data_nasc", ""),
                                 "data_matricula": m.get("data_treinamento", ""),
-                                "horas": m.get("carga_horaria") or turma_data.get("carga_horaria", "8 Horas")
+                                "horas": m.get("carga_horaria") or carga_horaria_oficial
                             })
 
                     normativa_curso = curso_res.data.get("normativa", "") if curso_res and curso_res.data else ""
+                    nome_do_curso = curso_res.data.get("name", "Treinamento Técnico") if curso_res and curso_res.data else "Treinamento Técnico"
                     
                     dados_turma_config = {
                         "normativa": normativa_curso, 
                         "cidade_data": cidade_data_formatada, 
                         "logo_conecta": "",
-                        "modalidade_turma": turma_data.get("modalidade", ""),
-                        "nivel_turma": turma_data.get("nivel", "")
+                        "modalidade_turma": modalidade_oficial,
+                        "nivel_turma": nivel_oficial,
+                        "curso_nome": nome_do_curso
                     }
 
                     html_gerado = gerar_atestado_pdf_de_arquivo(
@@ -453,52 +485,14 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
         str_lit.write("🏢 Gera um PDF do certificado geral emitido em nome da Empresa Cliente.")
 
         if not client_id:
-            str_lit.warning("⚠️ Esta turma não possui uma empresa vinculada (Particular/Aberta). Vincule uma empresa na tela de edição da turma para emitir este documento.")
+            str_lit.warning("⚠️ Esta turma não possui uma empresa vinculada (Particular/Aberta). Vincule uma empresa na edição da turma.")
             str_lit.stop()
 
-        turma_res_pre = supabase.table("turmas").select("modalidade, nivel, carga_horaria").eq("id", tid).single().execute()
-        t_pre = turma_res_pre.data if turma_res_pre and turma_res_pre.data else {}
-
-        col_nivel, col_mod = str_lit.columns(2)
-        with col_nivel:
-            niveis_opcoes = ["Intermediário", "Avançado", "Básico", "Formação", "Reciclagem"]
-            niv_atual_idx = niveis_opcoes.index(t_pre.get("nivel", "Intermediário")) if t_pre.get("nivel") in niveis_opcoes else 0
-            nivel_cert = str_lit.selectbox("Tipo / Nível", niveis_opcoes, index=niv_atual_idx, key=f"nivel_emp_{tid}")
-        with col_mod:
-            mod_opcoes = ["CT", "Incompany", "Incompany - CT", "EAD", "Online"]
-            mod_atual_idx = mod_opcoes.index(t_pre.get("modalidade", "CT")) if t_pre.get("modalidade") in mod_opcoes else 0
-            modalidade_cert = str_lit.selectbox("Modalidade", mod_opcoes, index=mod_atual_idx, key=f"mod_emp_{tid}")
-
-        carga_cert = str_lit.text_input("Carga Horária", value=t_pre.get("carga_horaria", "8 Horas"), key=f"carga_emp_{tid}")
-
-        # ===== Módulo de Responsável Técnico =====
-        resp_res = supabase.table("responsaveis_tecnicos").select("*").eq("is_active", True).execute()
-        responsaveis = resp_res.data if resp_res and resp_res.data else []
-        
-        opcoes_resp = {f"{r['nome']} (CPF: {r['cpf']})": r for r in responsaveis}
-        default_idx = 0
-        for i, r in enumerate(responsaveis):
-            if r.get("is_default"):
-                default_idx = i
-                break
-
-        resp_selecionado = str_lit.selectbox(
-            "Responsável Técnico", 
-            options=list(opcoes_resp.keys()), 
-            index=default_idx if responsaveis else 0, 
-            key=f"sel_resp_emp_{tid}"
-        )
-        dados_resp_tecnico = opcoes_resp.get(resp_selecionado) if opcoes_resp else {"nome": "Cristiano Reis", "cpf": "214.135.358-01", "assinatura_url": None}
-        # =========================================
-
-        str_lit.markdown("---")
+        str_lit.info(f"Parâmetros oficiais herdados: **{modalidade_oficial} | {nivel_oficial} | {carga_horaria_oficial}**")
 
         if str_lit.button("🏢 Gerar Certificado da Empresa (PDF)", type="primary", use_container_width=True, key=f"btn_cert_emp_{tid}"):
             try:
                 with str_lit.spinner("Gerando certificado da empresa..."):
-                    turma_res = supabase.table("turmas").select("*").eq("id", tid).single().execute()
-                    turma_data = turma_res.data if turma_res and turma_res.data else {}
-
                     ct_id_resolvido = ct_id or turma_data.get("ct_id")
                     cidade_ct = "Itapecerica da Serra"
                     if ct_id_resolvido:
@@ -506,7 +500,6 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                         if ct_res and ct_res.data:
                             cidade_ct = extrair_cidade_do_endereco(ct_res.data.get("full_address"))
 
-                    curso_id = turma_data.get("curso_id")
                     normativa_cert = ""
                     if curso_id:
                         curso_res = supabase.table("cursos").select("normativa").eq("id", curso_id).single().execute()
@@ -535,13 +528,13 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                                 "name": aluno_info.get("name", ""),
                                 "cpf": aluno_info.get("cpf", ""),
                                 "rg": aluno_info.get("rg", ""),
-                                "horas": m.get("carga_horaria") or carga_cert,
+                                "horas": m.get("carga_horaria") or carga_horaria_oficial,
                             })
 
                     turma_cert = {
-                        "modalidade": modalidade_cert,
-                        "nivel": nivel_cert,
-                        "carga_horaria": carga_cert,
+                        "modalidade": modalidade_oficial,
+                        "nivel": nivel_oficial,
+                        "carga_horaria": carga_horaria_oficial,
                         "resp_tecnico": dados_resp_tecnico.get("nome", ""),
                         "cpf_resp_tecnico": dados_resp_tecnico.get("cpf", ""),
                         "assinatura_resp_url": dados_resp_tecnico.get("assinatura_url")
@@ -565,51 +558,12 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                 str_lit.error(f"❌ Erro ao gerar certificado da empresa: {e}")
 
     elif tipo_documento == "Certificados Individuais (Alunos)":
-        str_lit.write("🎓 Gera um ZIP contendo um PDF individual para cada aluno, respeitando as configurações da turma.")
-
-        turma_res_pre = supabase.table("turmas").select("modalidade, nivel, carga_horaria").eq("id", tid).single().execute()
-        t_pre = turma_res_pre.data if turma_res_pre and turma_res_pre.data else {}
-
-        col_nivel, col_mod = str_lit.columns(2)
-        with col_nivel:
-            niveis_opcoes = ["Intermediário", "Avançado", "Básico", "Formação", "Reciclagem"]
-            niv_atual_idx = niveis_opcoes.index(t_pre.get("nivel", "Intermediário")) if t_pre.get("nivel") in niveis_opcoes else 0
-            nivel_cert = str_lit.selectbox("Tipo / Nível", niveis_opcoes, index=niv_atual_idx, key=f"nivel_cert_{tid}")
-        with col_mod:
-            mod_opcoes = ["CT", "Incompany", "Incompany - CT", "EAD", "Online"]
-            mod_atual_idx = mod_opcoes.index(t_pre.get("modalidade", "CT")) if t_pre.get("modalidade") in mod_opcoes else 0
-            modalidade_cert = str_lit.selectbox("Modalidade", mod_opcoes, index=mod_atual_idx, key=f"mod_cert_{tid}")
-
-        carga_cert = str_lit.text_input("Carga Horária Padrão", value=t_pre.get("carga_horaria", "8 Horas"), key=f"carga_ind_{tid}")
-
-        # ===== Módulo de Responsável Técnico =====
-        resp_res = supabase.table("responsaveis_tecnicos").select("*").eq("is_active", True).execute()
-        responsaveis = resp_res.data if resp_res and resp_res.data else []
-        
-        opcoes_resp = {f"{r['nome']} (CPF: {r['cpf']})": r for r in responsaveis}
-        default_idx = 0
-        for i, r in enumerate(responsaveis):
-            if r.get("is_default"):
-                default_idx = i
-                break
-
-        resp_selecionado = str_lit.selectbox(
-            "Responsável Técnico", 
-            options=list(opcoes_resp.keys()), 
-            index=default_idx if responsaveis else 0, 
-            key=f"sel_resp_ind_{tid}"
-        )
-        dados_resp_tecnico = opcoes_resp.get(resp_selecionado) if opcoes_resp else {"nome": "Cristiano Reis", "cpf": "214.135.358-01", "assinatura_url": None}
-        # =========================================
-
-        str_lit.markdown("---")
+        str_lit.write("🎓 Gera um ZIP contendo um PDF individual para cada aluno.")
+        str_lit.info(f"Parâmetros oficiais herdados: **{modalidade_oficial} | {nivel_oficial} | {carga_horaria_oficial}**")
 
         if str_lit.button("🎓 Gerar Certificados (ZIP)", type="primary", use_container_width=True, key=f"btn_cert_{tid}"):
             try:
                 with str_lit.spinner("Gerando certificados em ZIP..."):
-                    turma_res = supabase.table("turmas").select("*").eq("id", tid).single().execute()
-                    turma_data = turma_res.data if turma_res and turma_res.data else {}
-
                     ct_id_resolvido = ct_id or turma_data.get("ct_id")
                     cidade_ct = "Itapecerica da Serra"
                     ct_data_completo = None
@@ -619,7 +573,6 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                             ct_data_completo = ct_res.data
                             cidade_ct = extrair_cidade_do_endereco(ct_data_completo.get("full_address"))
 
-                    curso_id = turma_data.get("curso_id")
                     normativa_cert = ""
                     if curso_id:
                         curso_res = supabase.table("cursos").select("normativa").eq("id", curso_id).single().execute()
@@ -652,7 +605,7 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                                 "cpf": aluno_info.get("cpf", ""),
                                 "rg": aluno_info.get("rg", ""),
                                 "data_nasc": aluno_info.get("data_nasc", ""),
-                                "horas": m.get("carga_horaria") or carga_cert,
+                                "horas": m.get("carga_horaria") or carga_horaria_oficial,
                             })
 
                     if not alunos_lista:
@@ -660,9 +613,9 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                         str_lit.stop()
 
                     turma_cert = {
-                        "modalidade": modalidade_cert,
-                        "nivel": nivel_cert,
-                        "carga_horaria": carga_cert,
+                        "modalidade": modalidade_oficial,
+                        "nivel": nivel_oficial,
+                        "carga_horaria": carga_horaria_oficial,
                         "resp_tecnico": dados_resp_tecnico.get("nome", ""),
                         "cpf_resp_tecnico": dados_resp_tecnico.get("cpf", ""),
                         "assinatura_resp_url": dados_resp_tecnico.get("assinatura_url")
