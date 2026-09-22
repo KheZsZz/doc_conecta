@@ -121,10 +121,16 @@
         page-break-inside: avoid;
         break-inside: avoid;
       }
+
+      /* =========== CORREÇÃO DO TAMANHO DA ASSINATURA =========== */
       .assinatura-img {
-        max-height: 40px;
+        max-height: 90px; /* Aumentado de 40px para 90px */
+        width: auto;
+        object-fit: contain;
         margin-bottom: 5px;
       }
+      /* ========================================================= */
+
       .nome-instrutor {
         font-weight: bold;
         font-size: 11pt;
@@ -186,7 +192,6 @@
 
       <div class="titulo">ATESTADO DE TREINAMENTO</div>
 
-      <!-- 🚀 Declaração 100% Dinâmica baseada no Curso -->
       <div class="declaracao">
         Atesto para os devidos fins, que as pessoas abaixo relacionadas
         participaram com bom aproveitamento do treinamento de
@@ -203,6 +208,7 @@
         <p><strong>Endereço:</strong> {{ ENDERECO }}</p>
         <p><strong>CNPJ:</strong> {{ CNPJ }}</p>
       </div>
+
       <div class="tabela-container">
         <table class="tabela-alunos">
           <thead>
