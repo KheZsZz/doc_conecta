@@ -41,21 +41,27 @@ def gerar_atestado_pdf_de_arquivo(dados_turma, alunos_matriculas, instrutor, emp
 
     mostrar_coluna_rg = any(a.get("rg") and str(a.get("rg")).strip() for a in alunos_matriculas)
     mostrar_coluna_nasc = any(a.get("data_nasc") and str(a.get("data_nasc")).strip() for a in alunos_matriculas)
-    datas_unicas = set(a.get("data_matricula") for a in alunos_matriculas if a.get("data_matricula"))
+    
+    # Formata as datas ANTES de verificar unicidade, para ignorar diferenças de horário no banco
+    datas_unicas = set(formatar_data_br(a.get("data_matricula")) for a in alunos_matriculas if a.get("data_matricula"))
     mostrar_coluna_data = len(datas_unicas) > 1
 
     alunos_processados = []
     for aluno in alunos_matriculas:
+        data_formatada = formatar_data_br(aluno.get("data_matricula", ""))
+        
         item = {
             "nome": aluno.get("nome", "Sem Nome"),
             "rg": aluno.get("rg", ""),
             "cpf": aluno.get("cpf", ""),
             "data_nasc": formatar_data_br(aluno.get("data_nasc", "")),
             "Treinamento": aluno.get("Treinamento", dados_turma.get("nivel_turma", "Intermediário")),
-            "horas": aluno.get("horas", "8H")
+            "horas": aluno.get("horas", "8H"),
+            # Enviamos todos os nomes possíveis para garantir que o Jinja2 no HTML vai encontrar a data
+            "data_matricula": data_formatada,
+            "data_treinamento": data_formatada,
+            "data": data_formatada
         }
-        if mostrar_coluna_data:
-            item["data_matricula"] = formatar_data_br(aluno.get("data_matricula", ""))
         alunos_processados.append(item)
 
     if ct and isinstance(ct, dict):

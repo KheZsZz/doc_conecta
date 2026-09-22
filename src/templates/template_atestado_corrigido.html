@@ -203,7 +203,6 @@
         <p><strong>Endereço:</strong> {{ ENDERECO }}</p>
         <p><strong>CNPJ:</strong> {{ CNPJ }}</p>
       </div>
-
       <div class="tabela-container">
         <table class="tabela-alunos">
           <thead>
@@ -215,6 +214,8 @@
               <th><strong>CPF</strong></th>
               {% if mostrar_coluna_nasc %}
               <th><strong>DATA NASC.</strong></th>
+              {% endif %} {% if mostrar_coluna_data %}
+              <th><strong>DATA TREINAMENTO</strong></th>
               {% endif %}
               <th><strong>TREINAMENTO</strong></th>
               <th><strong>HORAS</strong></th>
@@ -224,15 +225,20 @@
             {% for aluno in pagina %}
             <tr>
               <td>{{ aluno.nome }}</td>
+
               {% if mostrar_coluna_rg %}
               <td>{{ aluno.rg }}</td>
               {% endif %}
+
               <td>{{ aluno.cpf }}</td>
+
               {% if mostrar_coluna_nasc %}
               <td>{{ aluno.data_nasc }}</td>
-              {% endif %} {% if aluno.Treinamento %}
-              <td>{{ aluno.Treinamento }}</td>
+              {% endif %} {% if mostrar_coluna_data %}
+              <td>{{ aluno.data_matricula }}</td>
               {% endif %}
+
+              <td>{{ aluno.Treinamento }}</td>
               <td>{{ aluno.horas }}</td>
             </tr>
             {% endfor %}
