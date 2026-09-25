@@ -7,7 +7,7 @@ import zipfile
 import io
 import numpy as np
 from datetime import datetime
-from src.config.database import supabase # Importa a conexão com o Supabase
+from src.config.database import supabase
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
@@ -32,9 +32,9 @@ def gerar_planilha_exemplo():
         "NOME": ["JOÃO DA SILVA", "MARIA SOUZA"],
         "RG": ["11.222.333-4", "55.666.777-8"],
         "CPF": ["111.222.333-44", "999.888.777-66"],
-        "NASC": ["15/05/1990", "22/10/1985"],
+        "DATA_NASC": ["15/05/1990", "22/10/1985"],
         "CARGA HORARIA": ["8h", "8h"],
-        "CONCLUSÃO": ["31/07/2026", "31/07/2026"],
+        "DATA TÉRMINO": ["31/07/2026", "31/07/2026"],
         "OBS": ["tabela B.2 da IT 17", "tabela B.2 da IT 17"]
     })
 
@@ -120,7 +120,9 @@ with st.sidebar:
     with st.expander("👁️ Exibição de Colunas na Tabela", expanded=True):
         mostrar_rg = st.checkbox("Mostrar coluna RG", value=True)
         mostrar_nasc = st.checkbox("Mostrar coluna Data Nasc.", value=True)
-        mostrar_data_conclusao = st.checkbox("Mostrar coluna Data Conclusão", value=True)
+        
+        # 👇 MUDANÇA AQUI: Alterado para "False" por defeito a seu pedido
+        mostrar_data_conclusao = st.checkbox("Mostrar coluna Data Conclusão", value=False)
 
     with st.expander("📅 Local e Data de Emissão", expanded=True):
         cidade_input = st.text_input("Cidade", value="Diadema")
@@ -171,7 +173,7 @@ if uploaded_file is not None:
             st.error("⚠️ Selecione um Centro de Treinamento válido na barra lateral.")
             st.stop()
 
-        with st.spinner("🔄 Lendo dados, validando e a gerar os PDFs..."):
+        with st.spinner("🔄 A ler dados, validar e gerar os PDFs..."):
             if not validar_template_html():
                 st.stop()
 
@@ -216,10 +218,13 @@ if uploaded_file is not None:
                             "nome": str(row.get('NOME', '')).strip().upper(),
                             "rg": str(row.get('RG', '')).strip(),
                             "cpf": str(row.get('CPF', '')).strip(),
-                            "data_nasc": formatar_data(row.get('NASC', '')),
-                            "data_matricula": formatar_data(row.get('CONCLUSÃO', '')),
+                            
+                            # 👇 MUDANÇA AQUI: Agora aceita os cabeçalhos 'DATA_NASC' e 'DATA TÉRMINO' 
+                            "data_nasc": formatar_data(row.get('DATA_NASC', row.get('NASC', ''))),
+                            "data_matricula": formatar_data(row.get('DATA TÉRMINO', row.get('CONCLUSÃO', ''))),
+                            
                             "horas": str(row.get('CARGA HORARIA', '')).strip(),
-                            "Treinamento": "Intermediário"  # Adicionado para ser compatível com a nova tabela HTML
+                            "Treinamento": "Intermediário"  
                         })
 
                     # Fatiamento de páginas (20 alunos no máximo por folha)
@@ -248,7 +253,6 @@ if uploaded_file is not None:
                         "CT_ENDERECO": ct_selecionado_dados.get("full_address", ""),
                         "CT_TELEFONE": ct_selecionado_dados.get("phone", ""),
                         
-                        # Novas variáveis dinâmicas introduzidas no modelo HTML
                         "CURSO_NOME": "Treinamento Técnico",
                         "MODALIDADE_TURMA": "Incompany",
                         "NIVEL_TURMA": "Intermediário",
@@ -258,7 +262,6 @@ if uploaded_file is not None:
                         "mostrar_coluna_nasc": mostrar_nasc,
                         "mostrar_coluna_data": mostrar_data_conclusao,
                         
-                        # A nova estrutura espera "paginas" em vez da antiga lista plana "alunos"
                         "paginas": paginas_alunos
                     }
 
