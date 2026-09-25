@@ -24,7 +24,6 @@ URL_ASSINATURA_PADRAO = "https://vesgrrejcehseygchigh.supabase.co/storage/v1/obj
 # --- FUNÇÕES AUXILIARES ---
 @st.cache_data
 def gerar_planilha_exemplo():
-    """Gera um DataFrame de exemplo alinhado com as colunas suportadas"""
     df_exemplo = pd.DataFrame({
         "FUNDAÇÃO": ["EMPRESA EXEMPLO LTDA", "EMPRESA EXEMPLO LTDA"],
         "CNPJ": ["12.345.678/0001-90", "12.345.678/0001-90"],
@@ -37,7 +36,6 @@ def gerar_planilha_exemplo():
         "DATA TÉRMINO": ["31/07/2026", "31/07/2026"],
         "OBS": ["tabela B.2 da IT 17", "tabela B.2 da IT 17"]
     })
-
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         df_exemplo.to_excel(writer, sheet_name="LOTE", index=False)
@@ -65,6 +63,14 @@ def valor_esta_vazio(val):
     if pd.isna(val): return True
     val_str = str(val).strip().upper()
     return val_str == "" or val_str in ["NAN", "NONE", "#N/D", "N/D", "NULL"]
+
+# 👇 NOVA FUNÇÃO: Remove o ".0" de RGs e CPFs lidos como decimais
+def formatar_documento(val):
+    if pd.isna(val) or not str(val).strip(): return ""
+    val_str = str(val).strip()
+    if val_str.endswith(".0"):
+        return val_str[:-2]
+    return val_str
 
 def validar_template_html():
     caminho_template = os.path.join("src", "templates", "template_atestado_corrigido.html")
@@ -120,8 +126,6 @@ with st.sidebar:
     with st.expander("👁️ Exibição de Colunas na Tabela", expanded=True):
         mostrar_rg = st.checkbox("Mostrar coluna RG", value=True)
         mostrar_nasc = st.checkbox("Mostrar coluna Data Nasc.", value=True)
-        
-        # 👇 MUDANÇA AQUI: Alterado para "False" por defeito a seu pedido
         mostrar_data_conclusao = st.checkbox("Mostrar coluna Data Conclusão", value=False)
 
     with st.expander("📅 Local e Data de Emissão", expanded=True):
@@ -135,24 +139,8 @@ with st.sidebar:
 st.title("🔥 Emissor de Atestados de Brigada")
 st.markdown("Gere atestados em PDF de forma automatizada via planilha utilizando os dados do **CT** selecionado.")
 
-col_step1, col_step2, col_step3 = st.columns(3)
-with col_step1:
-    st.info("👈 **Passo 1:** Selecione o CT, configure as colunas e o instrutor.")
-with col_step2:
-    st.info("📄 **Passo 2:** Baixe o exemplo e faça o upload da planilha com a aba 'LOTE'.")
-with col_step3:
-    st.info("🚀 **Passo 3:** Clique em gerar e baixe o arquivo ZIP com todos os PDFs.")
-
 st.markdown("---")
 st.subheader("📂 Upload de Dados")
-
-st.download_button(
-    label="📄 Baixar Planilha de Exemplo",
-    data=gerar_planilha_exemplo(),
-    file_name="modelo_dados_brigada.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    help="Baixe este modelo para ver como as colunas devem estar formatadas."
-)
 
 uploaded_file = st.file_uploader(
     "Arraste ou selecione a planilha Excel (`.xlsx`)", 
@@ -199,8 +187,8 @@ if uploaded_file is not None:
                     endereco = primeira_linha.get('ENDEREÇO', '')
                     motivos_falha = []
 
-                    if valor_esta_vazio(cnpj): motivos_falha.append("CNPJ ausente ou #N/D")
-                    if valor_esta_vazio(endereco): motivos_falha.append("Endereço ausente ou #N/D")
+                    if valor_esta_vazio(cnpj): motivos_falha.append("CNPJ ausente")
+                    if valor_esta_vazio(endereco): motivos_falha.append("Endereço ausente")
                     if valor_esta_vazio(empresa_nome): motivos_falha.append("Nome ausente")
 
                     if motivos_falha:
@@ -216,18 +204,15 @@ if uploaded_file is not None:
                     for _, row in grupo.iterrows():
                         lista_alunos.append({
                             "nome": str(row.get('NOME', '')).strip().upper(),
-                            "rg": str(row.get('RG', '')).strip(),
-                            "cpf": str(row.get('CPF', '')).strip(),
-                            
-                            # 👇 MUDANÇA AQUI: Agora aceita os cabeçalhos 'DATA_NASC' e 'DATA TÉRMINO' 
+                            # 👇 AQUI: Utilizamos a função formatar_documento para tirar o ".0"
+                            "rg": formatar_documento(row.get('RG', '')),
+                            "cpf": formatar_documento(row.get('CPF', '')),
                             "data_nasc": formatar_data(row.get('DATA_NASC', row.get('NASC', ''))),
                             "data_matricula": formatar_data(row.get('DATA TÉRMINO', row.get('CONCLUSÃO', ''))),
-                            
                             "horas": str(row.get('CARGA HORARIA', '')).strip(),
                             "Treinamento": "Intermediário"  
                         })
 
-                    # Fatiamento de páginas (20 alunos no máximo por folha)
                     TAMANHO_PAGINA = 20
                     if not lista_alunos:
                         paginas_alunos = [[]]
@@ -256,12 +241,9 @@ if uploaded_file is not None:
                         "CURSO_NOME": "Treinamento Técnico",
                         "MODALIDADE_TURMA": "Incompany",
                         "NIVEL_TURMA": "Intermediário",
-
-                        # Flags de exibição das colunas
                         "mostrar_coluna_rg": mostrar_rg,
                         "mostrar_coluna_nasc": mostrar_nasc,
                         "mostrar_coluna_data": mostrar_data_conclusao,
-                        
                         "paginas": paginas_alunos
                     }
 
@@ -272,32 +254,15 @@ if uploaded_file is not None:
                     atestados_gerados += 1
 
             zip_buffer.seek(0)
-
+            
             st.markdown("---")
             st.subheader("📊 Resultados do Processamento")
             
-            metrica1, metrica2 = st.columns(2)
-            metrica1.metric(label="Atestados Gerados (Válidos)", value=atestados_gerados)
-            metrica2.metric(label="Registros Inconsistentes (Ignorados)", value=len(dados_ignorados))
-
-            aba_download, aba_erros = st.tabs(["📥 Área de Download", "⚠️ Relatório de Inconsistências"])
-            
+            aba_download, aba_erros = st.tabs(["📥 Área de Download", "⚠️ Inconsistências"])
             with aba_download:
                 if atestados_gerados > 0:
-                    st.success("Tudo pronto! Os seus atestados foram gerados com sucesso utilizando os dados do CT selecionado.")
-                    st.download_button(
-                        label="📦 Baixar Atestados (.zip)",
-                        data=zip_buffer,
-                        file_name=f"atestados_brigada_{datetime.today().strftime('%d%m%Y')}.zip",
-                        mime="application/zip",
-                        use_container_width=True
-                    )
-                else:
-                    st.warning("Nenhum atestado pôde ser gerado. Verifique os erros na aba de inconsistências.")
-
+                    st.success(f"✅ {atestados_gerados} atestados gerados com sucesso!")
+                    st.download_button("📦 Baixar Atestados (.zip)", data=zip_buffer, file_name="atestados.zip", mime="application/zip")
             with aba_erros:
                 if dados_ignorados:
-                    st.warning("Algumas linhas da planilha foram saltadas por conterem dados essenciais ausentes ou inválidos.")
                     st.dataframe(pd.DataFrame(dados_ignorados), use_container_width=True)
-                else:
-                    st.info("✨ Todos os registos estavam corretos e foram processados sem problemas!")

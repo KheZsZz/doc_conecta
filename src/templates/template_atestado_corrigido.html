@@ -121,15 +121,15 @@
         page-break-inside: avoid;
         break-inside: avoid;
       }
-
-      /* =========== CORREÇÃO DO TAMANHO DA ASSINATURA =========== */
+      
+      /* =========== TAMANHO IDEAL DA ASSINATURA =========== */
       .assinatura-img {
-        max-height: 90px; /* Aumentado de 40px para 90px */
+        max-height: 60px; /* Reduzido de 90px para 60px */
         width: auto;
         object-fit: contain;
         margin-bottom: 5px;
       }
-      /* ========================================================= */
+      /* =================================================== */
 
       .nome-instrutor {
         font-weight: bold;
@@ -220,7 +220,8 @@
               <th><strong>CPF</strong></th>
               {% if mostrar_coluna_nasc %}
               <th><strong>DATA NASC.</strong></th>
-              {% endif %} {% if mostrar_coluna_data %}
+              {% endif %} 
+              {% if mostrar_coluna_data %}
               <th><strong>DATA TREINAMENTO</strong></th>
               {% endif %}
               <th><strong>TREINAMENTO</strong></th>
@@ -231,19 +232,21 @@
             {% for aluno in pagina %}
             <tr>
               <td>{{ aluno.nome }}</td>
-
+              
               {% if mostrar_coluna_rg %}
               <td>{{ aluno.rg }}</td>
               {% endif %}
-
+              
               <td>{{ aluno.cpf }}</td>
-
+              
               {% if mostrar_coluna_nasc %}
               <td>{{ aluno.data_nasc }}</td>
-              {% endif %} {% if mostrar_coluna_data %}
+              {% endif %} 
+              
+              {% if mostrar_coluna_data %}
               <td>{{ aluno.data_matricula }}</td>
               {% endif %}
-
+              
               <td>{{ aluno.Treinamento }}</td>
               <td>{{ aluno.horas }}</td>
             </tr>
