@@ -250,7 +250,7 @@ if uploaded_file is not None:
                     html_renderizado = template.render(contexto)
                     nome_sanitizado = "".join(c for c in str(empresa_nome) if c.isalnum() or c in (' ', '_', '-')).strip()
                     pdf_bytes = HTML(string=html_renderizado).write_pdf()
-                    zip_file.writestr(f"Atestado_{nome_sanitizado[:50]}.pdf", pdf_bytes)
+                    zip_file.writestr(f"{nome_sanitizado[:50]}.pdf", pdf_bytes)
                     atestados_gerados += 1
 
             zip_buffer.seek(0)
