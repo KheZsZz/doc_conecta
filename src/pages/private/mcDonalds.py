@@ -25,6 +25,7 @@ URL_ASSINATURA_PADRAO = "https://vesgrrejcehseygchigh.supabase.co/storage/v1/obj
 @st.cache_data
 def gerar_planilha_exemplo():
     df_exemplo = pd.DataFrame({
+        "UND": ["MCD_01", "MCD_02"],
         "FUNDAÇÃO": ["EMPRESA EXEMPLO LTDA", "EMPRESA EXEMPLO LTDA"],
         "CNPJ": ["12.345.678/0001-90", "12.345.678/0001-90"],
         "ENDEREÇO": ["Rua Fictícia, 123 - Centro, São Paulo/SP", "Rua Fictícia, 123 - Centro, São Paulo/SP"],
@@ -64,7 +65,6 @@ def valor_esta_vazio(val):
     val_str = str(val).strip().upper()
     return val_str == "" or val_str in ["NAN", "NONE", "#N/D", "N/D", "NULL"]
 
-# 👇 NOVA FUNÇÃO: Remove o ".0" de RGs e CPFs lidos como decimais
 def formatar_documento(val):
     if pd.isna(val) or not str(val).strip(): return ""
     val_str = str(val).strip()
@@ -161,7 +161,7 @@ if uploaded_file is not None:
             st.error("⚠️ Selecione um Centro de Treinamento válido na barra lateral.")
             st.stop()
 
-        with st.spinner("🔄 A ler dados, validar e gerar os PDFs..."):
+        with st.spinner("🔄 A ler dados, validar e a gerar os PDFs..."):
             if not validar_template_html():
                 st.stop()
 
@@ -185,6 +185,7 @@ if uploaded_file is not None:
                 for (empresa_nome, cnpj), grupo in grupos:
                     primeira_linha = grupo.iloc[0]
                     endereco = primeira_linha.get('ENDEREÇO', '')
+                    sigla_und = str(primeira_linha.get('UND', 'Sem Sigla')).strip()
                     motivos_falha = []
 
                     if valor_esta_vazio(cnpj): motivos_falha.append("CNPJ ausente")
@@ -193,9 +194,10 @@ if uploaded_file is not None:
 
                     if motivos_falha:
                         dados_ignorados.append({
+                            "Unidade (UND)": sigla_und,
                             "Empresa": str(empresa_nome),
                             "CNPJ": str(cnpj) if not pd.isna(cnpj) else "Vazio",
-                            "Inconsistência": " | ".join(motivos_falha),
+                            "Motivo / Inconsistência": " | ".join(motivos_falha),
                             "Alunos Afetados": len(grupo)
                         })
                         continue
@@ -204,7 +206,6 @@ if uploaded_file is not None:
                     for _, row in grupo.iterrows():
                         lista_alunos.append({
                             "nome": str(row.get('NOME', '')).strip().upper(),
-                            # 👇 AQUI: Utilizamos a função formatar_documento para tirar o ".0"
                             "rg": formatar_documento(row.get('RG', '')),
                             "cpf": formatar_documento(row.get('CPF', '')),
                             "data_nasc": formatar_data(row.get('DATA_NASC', row.get('NASC', ''))),
@@ -248,11 +249,9 @@ if uploaded_file is not None:
                     }
 
                     html_renderizado = template.render(contexto)
-                    # nome_sanitizado = "".join(c for c in str(empresa_nome) if c.isalnum() or c in (' ', '_', '-')).strip()
-                    sigla_und = str(primeira_linha.get('UND', 'UNIDADE')).strip()
                     sigla_sanitizada = "".join(c for c in sigla_und if c.isalnum() or c in (' ', '_', '-')).strip()
                     pdf_bytes = HTML(string=html_renderizado).write_pdf()
-                    zip_file.writestr(f"{sigla_sanitizada[:50]}.pdf", pdf_bytes)
+                    zip_file.writestr(f"{sigla_sanitizada}.pdf", pdf_bytes)
                     atestados_gerados += 1
 
             zip_buffer.seek(0)
