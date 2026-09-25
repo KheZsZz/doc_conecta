@@ -79,7 +79,6 @@ try:
     res_cts = supabase.table("cts").select("*").execute()
     if res_cts and res_cts.data:
         for ct in res_cts.data:
-            # Identifica pelo nome ou full_name cadastrado na tabela cts
             nome_ct = ct.get("name") or ct.get("full_name") or "Centro de Treinamento"
             cts_dict[nome_ct] = ct
 except Exception as e:
@@ -89,7 +88,6 @@ except Exception as e:
 with st.sidebar:
     st.header("⚙️ Configurações")
     
-    # Seleção do CT direto da tabela 'cts' do Supabase
     ct_selecionado_dados = {}
     if cts_dict:
         ct_nome_escolhido = st.selectbox("🏢 Centro de Treinamento (CT)", options=list(cts_dict.keys()))
@@ -97,7 +95,6 @@ with st.sidebar:
     else:
         st.warning("⚠️ Nenhum CT encontrado na tabela 'cts' do Supabase.")
 
-    # Exibe a logo do CT selecionado na barra lateral se houver URL cadastrada
     url_logo_ct = ct_selecionado_dados.get("logo_url")
     if url_logo_ct:
         st.image(url_logo_ct, use_container_width=True)
@@ -174,15 +171,13 @@ if uploaded_file is not None:
             st.error("⚠️ Selecione um Centro de Treinamento válido na barra lateral.")
             st.stop()
 
-        with st.spinner("🔄 Lendo dados, validando e gerando os PDFs..."):
+        with st.spinner("🔄 Lendo dados, validando e a gerar os PDFs..."):
             if not validar_template_html():
                 st.stop()
 
-            # Formatação da data final
             data_formatada_extenso = formatar_data_por_extenso(data_input)
             cidade_data_final = f"{cidade_input.strip()}, {data_formatada_extenso}."
 
-            # Leitura do DataFrame
             df = pd.read_excel(uploaded_file, sheet_name="LOTE")
             df.columns = df.columns.str.strip()
             df.replace(["#N/D", "#n/d", "N/D", "n/d"], np.nan, inplace=True)
@@ -196,14 +191,12 @@ if uploaded_file is not None:
             atestados_gerados = 0
             dados_ignorados = []
 
-            # Geração dos arquivos
             with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
                 for (empresa_nome, cnpj), grupo in grupos:
                     primeira_linha = grupo.iloc[0]
                     endereco = primeira_linha.get('ENDEREÇO', '')
                     motivos_falha = []
 
-                    # Validações essenciais
                     if valor_esta_vazio(cnpj): motivos_falha.append("CNPJ ausente ou #N/D")
                     if valor_esta_vazio(endereco): motivos_falha.append("Endereço ausente ou #N/D")
                     if valor_esta_vazio(empresa_nome): motivos_falha.append("Nome ausente")
@@ -225,10 +218,20 @@ if uploaded_file is not None:
                             "cpf": str(row.get('CPF', '')).strip(),
                             "data_nasc": formatar_data(row.get('NASC', '')),
                             "data_matricula": formatar_data(row.get('CONCLUSÃO', '')),
-                            "horas": str(row.get('CARGA HORARIA', '')).strip()
+                            "horas": str(row.get('CARGA HORARIA', '')).strip(),
+                            "Treinamento": "Intermediário"  # Adicionado para ser compatível com a nova tabela HTML
                         })
 
-                    # Dicionário do Jinja mapeando os dados do CT vindos diretamente da tabela 'cts'
+                    # Fatiamento de páginas (20 alunos no máximo por folha)
+                    TAMANHO_PAGINA = 20
+                    if not lista_alunos:
+                        paginas_alunos = [[]]
+                    else:
+                        paginas_alunos = [
+                            lista_alunos[i : i + TAMANHO_PAGINA]
+                            for i in range(0, len(lista_alunos), TAMANHO_PAGINA)
+                        ]
+
                     contexto = {
                         "LOGO_CT": ct_selecionado_dados.get("logo_url", ""),
                         "LOGO_CONECTA": URL_LOGO_CONECTA,
@@ -240,19 +243,25 @@ if uploaded_file is not None:
                         "CIDADE_DATA": cidade_data_final,
                         "NOME_INSTRUTOR": nome_instrutor.strip(),
                         "DOC_INSTRUTOR": doc_instrutor.strip(),
-                        # Dados dinâmicos do CT vindos da tabela 'cts' do Supabase
                         "CT_NOME": ct_selecionado_dados.get("full_name") or ct_selecionado_dados.get("name", ""),
                         "CT_CNPJ": ct_selecionado_dados.get("cnpj", ""),
                         "CT_ENDERECO": ct_selecionado_dados.get("full_address", ""),
                         "CT_TELEFONE": ct_selecionado_dados.get("phone", ""),
-                        # Flags condicionais das colunas da tabela
+                        
+                        # Novas variáveis dinâmicas introduzidas no modelo HTML
+                        "CURSO_NOME": "Treinamento Técnico",
+                        "MODALIDADE_TURMA": "Incompany",
+                        "NIVEL_TURMA": "Intermediário",
+
+                        # Flags de exibição das colunas
                         "mostrar_coluna_rg": mostrar_rg,
                         "mostrar_coluna_nasc": mostrar_nasc,
                         "mostrar_coluna_data": mostrar_data_conclusao,
-                        "alunos": lista_alunos
+                        
+                        # A nova estrutura espera "paginas" em vez da antiga lista plana "alunos"
+                        "paginas": paginas_alunos
                     }
 
-                    # Criação do PDF
                     html_renderizado = template.render(contexto)
                     nome_sanitizado = "".join(c for c in str(empresa_nome) if c.isalnum() or c in (' ', '_', '-')).strip()
                     pdf_bytes = HTML(string=html_renderizado).write_pdf()
@@ -261,7 +270,6 @@ if uploaded_file is not None:
 
             zip_buffer.seek(0)
 
-            # --- EXIBIÇÃO DE RESULTADOS EM ABAS ---
             st.markdown("---")
             st.subheader("📊 Resultados do Processamento")
             
@@ -273,7 +281,7 @@ if uploaded_file is not None:
             
             with aba_download:
                 if atestados_gerados > 0:
-                    st.success("Tudo pronto! Seus atestados foram gerados com sucesso utilizando os dados do CT selecionado.")
+                    st.success("Tudo pronto! Os seus atestados foram gerados com sucesso utilizando os dados do CT selecionado.")
                     st.download_button(
                         label="📦 Baixar Atestados (.zip)",
                         data=zip_buffer,
@@ -286,7 +294,7 @@ if uploaded_file is not None:
 
             with aba_erros:
                 if dados_ignorados:
-                    st.warning("Algumas linhas da planilha foram puladas por conterem dados essenciais ausentes ou inválidos.")
+                    st.warning("Algumas linhas da planilha foram saltadas por conterem dados essenciais ausentes ou inválidos.")
                     st.dataframe(pd.DataFrame(dados_ignorados), use_container_width=True)
                 else:
-                    st.info("✨ Todos os registros estavam corretos e foram processados sem problemas!")
+                    st.info("✨ Todos os registos estavam corretos e foram processados sem problemas!")
