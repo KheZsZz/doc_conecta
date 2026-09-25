@@ -124,10 +124,13 @@
       
       /* =========== TAMANHO IDEAL DA ASSINATURA =========== */
       .assinatura-img {
-        max-height: 60px; /* Reduzido de 90px para 60px */
-        width: auto;
-        object-fit: contain;
+        height: 60px;         /* Trava a altura exata da "caixa" */
+        width: 180px;         /* Trava a largura exata da "caixa" */
+        object-fit: contain;  /* Obriga a imagem a caber na caixa sem distorcer/amassar */
         margin-bottom: 5px;
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
       }
       /* =================================================== */
 
