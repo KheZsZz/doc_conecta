@@ -3,9 +3,10 @@ from src.config.database import supabase
 from src.pages.private.turmas.modals import (
     modal_adicionar_aluno,
     modal_editar_matriculas,
-    modal_importar_excel,
+    modal_editar_turma,
     modal_emitir_documentacao,
 )
+
 
 def render_tab_listar():
     st.subheader("📋 Painel de Turmas e Emissão de Documentos")
@@ -85,21 +86,17 @@ def render_tab_listar():
                 col_btn1, col_btn2, col_btn3, col_btn4 = st.columns(4)
 
                 with col_btn1:
+                    if st.button("✏️ Editar Turma", key=f"edt_turma_{tid}", use_container_width=True):
+                        modal_editar_turma(tid)
+
+                with col_btn2:
                     if st.button("➕ Adicionar Aluno", key=f"add_{tid}", use_container_width=True):
                         modal_adicionar_aluno(
                             tid, titulo, empresa_id, data_trein, t.get("carga_horaria")
                         )
 
-                with col_btn2:
-                    if st.button(
-                        "📤 Importar Lista (Excel)", key=f"up_{tid}", use_container_width=True
-                    ):
-                        modal_importar_excel(
-                            tid, titulo, empresa_id, data_trein, t.get("carga_horaria")
-                        )
-
                 with col_btn3:
-                    if st.button("✏️ Ver / Editar Alunos", key=f"edit_{tid}", use_container_width=True):
+                    if st.button("👥 Ver / Editar Alunos", key=f"edit_{tid}", use_container_width=True):
                         modal_editar_matriculas(tid, titulo)
 
                 with col_btn4:
