@@ -1,5 +1,5 @@
 from src.config.database import supabase
-from src.pages.turmas.helpers import extrair_cidade_do_endereco
+from src.pages.private.turmas.helpers import extrair_cidade_do_endereco
 
 
 def fetch_turma(tid: str) -> dict:

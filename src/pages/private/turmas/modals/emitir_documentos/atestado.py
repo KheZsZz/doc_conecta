@@ -1,7 +1,7 @@
 import streamlit as st
 
 from src.utils.atestado import gerar_atestado_pdf_de_arquivo
-from src.pages.turmas.helpers import formatar_data_extenso
+from src.pages.private.turmas.helpers import formatar_data_extenso
 
 from .data import (
     fetch_ct,

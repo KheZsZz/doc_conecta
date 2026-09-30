@@ -1,7 +1,7 @@
 import streamlit as st
 
 from src.utils.certificado import gerar_certificados_pdf_zip
-from src.pages.turmas.helpers import formatar_data_extenso
+from src.pages.private.turmas.helpers import formatar_data_extenso
 
 from .data import (
     fetch_empresa,
