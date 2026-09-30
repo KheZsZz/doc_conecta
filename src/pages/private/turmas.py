@@ -308,7 +308,7 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
     resp_res = supabase.table("responsaveis_tecnicos").select("*").execute()
     responsaveis = resp_res.data if resp_res and resp_res.data else []
 
-    opcoes_resp = {f"{r['nome']} - {r['cargo']}": r for r in responsaveis}
+    opcoes_resp = {f"{r.get('nome', 'Sem Nome')} (CPF: {r.get('cpf', 'N/D')})": r for r in responsaveis}
     default_idx = 0
     for i, r in enumerate(responsaveis):
         if r.get("is_default"):
