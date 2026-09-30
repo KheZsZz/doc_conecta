@@ -6,7 +6,6 @@ from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML, CSS
 from datetime import datetime
 
-# Caminhos padrão das imagens de fundo do certificado (fallback)
 _FUNDO_DEFAULT = "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/certificado_conecta_fundo.png"
 
 def _imagem_para_data_uri(caminho: str) -> str:
@@ -94,10 +93,9 @@ def gerar_certificado_html(
         if len(cpf_resp_raw) == 11 else cpf_resp_raw
     )
 
-    dizeres = turma.get("dizeres_certificado")
+    dizeres = turma.get("dizeres_certificado_aluno")
     if not dizeres:
-        # Texto Padrão (Fallback)
-        dizeres = f"Certificamos que o aluno acima identificado concluiu com aproveitamento o treinamento de \"{turma.get('curso_nome', 'Treinamento')}\""
+        dizeres = f"Certificamos que o aluno acima identificado realizou o treinamento de \"{turma.get('curso_nome', 'Treinamento')}\""
         if normativa:
             dizeres += f", em conformidade com as exigências da {normativa}."
         else:

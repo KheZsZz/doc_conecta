@@ -10,7 +10,7 @@ tab_listar, tab_cadastrar = st.tabs(["📋 Cursos Cadastrados", "➕ Novo Curso"
 # 1. MODAL / POPUP DE EDIÇÃO DO CURSO
 # ==========================================
 @st.dialog("✏️ Editar Curso", width="medium")
-def modal_editar_curso(curso_id, nome_atual, sigla_atual, normativa_atual, dizeres_atual, exige_atestado_atual):
+def modal_editar_curso(curso_id, nome_atual, sigla_atual, normativa_atual, dizeres_aluno_atual, dizeres_empresa_atual, exige_atestado_atual):
     with st.form(f"form_edit_curso_{curso_id}"):
         novo_nome = st.text_input("Nome do Curso*", value=nome_atual)
         
@@ -20,10 +20,16 @@ def modal_editar_curso(curso_id, nome_atual, sigla_atual, normativa_atual, dizer
         with col2:
             nova_normativa = st.text_input("Normativa (Ex: Conforme IT 17)", value=normativa_atual if normativa_atual else "")
         
-        novos_dizeres = st.text_area(
-            "Dizeres do Certificado", 
-            value=dizeres_atual if dizeres_atual else "",
-            help="Ex: Certificamos que a empresa acima identificada promoveu o treinamento de CIPA..."
+        novos_dizeres_aluno = st.text_area(
+            "Dizeres do Certificado do Aluno", 
+            value=dizeres_aluno_atual if dizeres_aluno_atual else "",
+            help="Texto impresso no certificado individual do aluno."
+        )
+
+        novos_dizeres_empresa = st.text_area(
+            "Dizeres do Certificado da Empresa", 
+            value=dizeres_empresa_atual if dizeres_empresa_atual else "",
+            help="Texto impresso no certificado corporativo da empresa."
         )
         
         novo_exige_atestado = st.checkbox(
@@ -36,14 +42,15 @@ def modal_editar_curso(curso_id, nome_atual, sigla_atual, normativa_atual, dizer
         
         if salvar:
             if not novo_nome.strip():
-                st.warning("⚠️ O nome do curso é obrigatório.")
+                st.warning("⚠️️ O nome do curso é obrigatório.")
             else:
                 try:
                     payload = {
                         "name": novo_nome.strip(),
                         "sigla": nova_sigla.strip().upper() if nova_sigla else None,
                         "normativa": nova_normativa.strip() if nova_normativa else None,
-                        "dizeres_certificado": novos_dizeres.strip() if novos_dizeres else None,
+                        "dizeres_certificado_aluno": novos_dizeres_aluno.strip() if novos_dizeres_aluno else None,
+                        "dizeres_certificado_empresa": novos_dizeres_empresa.strip() if novos_dizeres_empresa else None,
                         "exige_atestado": novo_exige_atestado
                     }
                     supabase.table("cursos").update(payload).eq("id", curso_id).execute()
@@ -67,7 +74,8 @@ with tab_listar:
                 nome = c.get("name", "Sem Nome")
                 sigla = c.get("sigla", "")
                 normativa = c.get("normativa", "")
-                dizeres = c.get("dizeres_certificado", "")
+                dizeres_aluno = c.get("dizeres_certificado_aluno", "")
+                dizeres_empresa = c.get("dizeres_certificado_empresa", "")
                 exige_atestado = c.get("exige_atestado", True)
                 
                 sigla_display = f" [{sigla}]" if sigla else ""
@@ -86,7 +94,7 @@ with tab_listar:
                     with col_acoes:
                         st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
                         if st.button("✏️", key=f"edit_curso_{cid}", help="Editar curso", use_container_width=True):
-                            modal_editar_curso(cid, nome, sigla, normativa, dizeres, exige_atestado)
+                            modal_editar_curso(cid, nome, sigla, normativa, dizeres_aluno, dizeres_empresa, exige_atestado)
         else:
             st.info("ℹ️ Nenhum curso cadastrado no momento.")
             
@@ -108,9 +116,14 @@ with tab_cadastrar:
         with col2:
             normativa_curso = st.text_input("Normativa (Ex: Conforme IT 17)")
             
-        dizeres_curso = st.text_area(
-            "Dizeres do Certificado", 
-            help="Texto base dinâmico impresso nos certificados. Ex: Certificamos que o aluno..."
+        dizeres_aluno_curso = st.text_area(
+            "Dizeres do Certificado do Aluno", 
+            help="Texto base para o certificado individual."
+        )
+
+        dizeres_empresa_curso = st.text_area(
+            "Dizeres do Certificado da Empresa", 
+            help="Texto base para o certificado corporativo."
         )
         
         exige_atestado_curso = st.checkbox("Emite Atestado de Empresa (Brigada)?", value=True)
@@ -126,7 +139,8 @@ with tab_cadastrar:
                         "name": nome_curso.strip(),
                         "sigla": sigla_curso.strip().upper() if sigla_curso else None,
                         "normativa": normativa_curso.strip() if normativa_curso else None,
-                        "dizeres_certificado": dizeres_curso.strip() if dizeres_curso else None,
+                        "dizeres_certificado_aluno": dizeres_aluno_curso.strip() if dizeres_aluno_curso else None,
+                        "dizeres_certificado_empresa": dizeres_empresa_curso.strip() if dizeres_empresa_curso else None,
                         "exige_atestado": exige_atestado_curso
                     }
                     supabase.table("cursos").insert(novo_curso_payload).execute()

@@ -69,7 +69,7 @@ def gerar_certificado_empresa_pdf(
 
     total_colaboradores = len(alunos) if alunos else 0
 
-    dizeres = turma.get("dizeres_certificado")
+    dizeres = turma.get("dizeres_certificado_empresa")
     if not dizeres:
         dizeres = "Certificamos que a empresa acima identificada promoveu o treinamento de “Brigada de Incêndio - Prevenção e Combate a Incêndio e Primeiros Socorros”, de acordo com as normas NBR 14277 da ABNT, e IT-17 do Corpo de Bombeiros."
 
