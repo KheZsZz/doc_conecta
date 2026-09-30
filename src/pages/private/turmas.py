@@ -269,17 +269,19 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
     except Exception:
         pass
     
-    # 2. Verifica se o curso emite atestado e traz os dizeres
+    # 2. Verifica se o curso emite atestado e traz os dizeres específicos
     curso_id = turma_data.get("curso_id")
     exige_atestado = True
-    dizeres = ""
+    dizeres_aluno = ""
+    dizeres_empresa = ""
     nome_curso = "Treinamento"
     if curso_id:
         try:
             c_res = supabase.table("cursos").select("*").eq("id", curso_id).single().execute()
             if c_res and c_res.data:
                 exige_atestado = c_res.data.get("exige_atestado", True)
-                dizeres = c_res.data.get("dizeres_certificado", "")
+                dizeres_aluno = c_res.data.get("dizeres_certificado_aluno", "")
+                dizeres_empresa = c_res.data.get("dizeres_certificado_empresa", "")
                 nome_curso = c_res.data.get("name", "Treinamento")
         except: pass
 
@@ -437,7 +439,7 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                         "cpf_resp_tecnico": dados_resp_tecnico.get("cpf", ""),
                         "assinatura_resp_url": dados_resp_tecnico.get("assinatura_url"),
                         "curso_nome": nome_curso, 
-                        "dizeres_certificado": dizeres 
+                        "dizeres_certificado_empresa": dizeres_empresa 
                     }
 
                     pdf_bytes = gerar_certificado_empresa_pdf(
@@ -493,7 +495,7 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                             })
 
                     if not alunos_lista:
-                        str_lit.warning("⚠️️ Nenhum aluno matriculado nesta turma.")
+                        str_lit.warning("⚠️ Nenhum aluno matriculado nesta turma.")
                         str_lit.stop()
 
                     turma_cert = {
@@ -504,7 +506,7 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                         "cpf_resp_tecnico": dados_resp_tecnico.get("cpf", ""),
                         "assinatura_resp_url": dados_resp_tecnico.get("assinatura_url"),
                         "curso_nome": nome_curso, 
-                        "dizeres_certificado": dizeres 
+                        "dizeres_certificado_aluno": dizeres_aluno 
                     }
 
                     zip_bytes = gerar_certificados_pdf_zip(
