@@ -10,7 +10,6 @@ from datetime import datetime
 _FUNDO_DEFAULT = "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/certificado_conecta_fundo.png"
 
 def _imagem_para_data_uri(caminho: str) -> str:
-    """Converte uma imagem local para data URI base64 (evita problemas de path no WeasyPrint)."""
     ext = os.path.splitext(caminho)[1].lower().lstrip(".")
     mime = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "gif": "gif", "webp": "webp"}.get(ext, "png")
     with open(caminho, "rb") as f:
@@ -61,11 +60,8 @@ def gerar_certificado_html(
         imagem_fundo = _FUNDO_DEFAULT
 
     assinatura_instrutor = _resolver_imagem(instrutor.get("assinatura", ""))
-    
-    # ===== MODULARIZAÇÃO DA ASSINATURA DO RESP. TÉCNICO =====
     assinatura_resp_url = turma.get("assinatura_resp_url", "")
     assinatura_resp_tecnico = _resolver_imagem(assinatura_resp_url)
-    # =========================================================
 
     cpf = aluno.get("cpf", "")
     rg = aluno.get("rg", "")
@@ -98,6 +94,15 @@ def gerar_certificado_html(
         if len(cpf_resp_raw) == 11 else cpf_resp_raw
     )
 
+    dizeres = turma.get("dizeres_certificado")
+    if not dizeres:
+        # Texto Padrão (Fallback)
+        dizeres = f"Certificamos que o aluno acima identificado concluiu com aproveitamento o treinamento de \"{turma.get('curso_nome', 'Treinamento')}\""
+        if normativa:
+            dizeres += f", em conformidade com as exigências da {normativa}."
+        else:
+            dizeres += "."
+
     html = template.render(
         IMAGEM_FUNDO=imagem_fundo,
         NOME_ALUNO=aluno.get("name", ""),
@@ -115,7 +120,9 @@ def gerar_certificado_html(
         CPF_INSTRUTOR=cpf_inst_fmt,
         RESP_TECNICO=turma.get("resp_tecnico", ""),
         CPF_RESP=cpf_resp_fmt,
-        ASSINATURA_RESP_TECNICO=assinatura_resp_tecnico
+        ASSINATURA_RESP_TECNICO=assinatura_resp_tecnico,
+        CURSO_NOME=turma.get("curso_nome", ""),
+        DIZERES_CERTIFICADO=dizeres
     )
     return html
 

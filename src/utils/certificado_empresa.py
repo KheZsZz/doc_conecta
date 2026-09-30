@@ -64,12 +64,14 @@ def gerar_certificado_empresa_pdf(
     resp_tecnico_nome = (turma.get("resp_tecnico") or "").strip()
     cpf_resp_fmt = formatar_cpf(turma.get("cpf_resp_tecnico", ""))
     
-    # ===== MODULARIZAÇÃO DA ASSINATURA DO RESP. TÉCNICO =====
     assinatura_resp_url = turma.get("assinatura_resp_url", "")
     assinatura_resp_tecnico = _resolver_imagem(assinatura_resp_url)
-    # =========================================================
 
     total_colaboradores = len(alunos) if alunos else 0
+
+    dizeres = turma.get("dizeres_certificado")
+    if not dizeres:
+        dizeres = "Certificamos que a empresa acima identificada promoveu o treinamento de “Brigada de Incêndio - Prevenção e Combate a Incêndio e Primeiros Socorros”, de acordo com as normas NBR 14277 da ABNT, e IT-17 do Corpo de Bombeiros."
 
     html_renderizado = template.render(
         IMAGEM_FUNDO=imagem_fundo,
@@ -88,6 +90,7 @@ def gerar_certificado_empresa_pdf(
         RESP_TECNICO=resp_tecnico_nome,
         CPF_RESP=cpf_resp_fmt,
         ASSINATURA_RESP_TECNICO=assinatura_resp_tecnico,
+        DIZERES_CERTIFICADO=dizeres
     )
 
     pdf_bytes = HTML(string=html_renderizado).write_pdf(

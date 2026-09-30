@@ -40,349 +40,275 @@ def extrair_cidade_do_endereco(endereco):
     return "Itapecerica da Serra"
 
 def formatar_data_extenso(data_str, cidade="Itapecerica da Serra"):
+    if not data_str:
+        return f"{cidade}, data não informada."
+        
     try:
-        dt = date.fromisoformat(data_str)
-        mes_extenso = MESES_PT.get(dt.month, "")
-        return f"{cidade}, {dt.day:02d} de {mes_extenso} de {dt.year}"
-    except Exception:
-        mes_atual = MESES_PT.get(datetime.now().month, "")
-        return f"{cidade}, {datetime.now().day:02d} de {mes_atual} de {datetime.now().year}"
+        if "T" in str(data_str):
+            data_str = str(data_str).split("T")[0]
+            
+        dt = pd.to_datetime(data_str)
+        dia = dt.day
+        mes = MESES_PT[dt.month]
+        ano = dt.year
+        return f"{cidade}, {dia} de {mes} de {ano}."
+    except Exception as e:
+        return f"{cidade}, {data_str}."
 
 # ==========================================
-# 1. MODAL / POPUP DE VISUALIZAÇÃO E EDIÇÃO DE ALUNOS
+# 0. FUNÇÕES DE MODAL / POPUPS
 # ==========================================
-@str_lit.dialog("👥 Alunos Matriculados na Turma", width="large")
-def modal_visualizar_alunos(turma_id, titulo_turma):
+@str_lit.dialog("👥 Adicionar Aluno Manualmente", width="medium")
+def modal_adicionar_aluno(turma_id, titulo_turma, client_id, data_treinamento, carga_horaria):
     str_lit.write(f"**Turma:** {titulo_turma}")
-    str_lit.markdown("💡 *Edite o **Nome**, o **CPF**, a **Data de Nascimento** ou a **Carga Horária** diretamente na tabela abaixo e clique em Salvar Alterações.*")
-    str_lit.markdown("---")
+    str_lit.caption("Os alunos adicionados aqui serão vinculados à empresa desta turma.")
+    
+    with str_lit.form(f"form_add_aluno_{turma_id}"):
+        nome_aluno = str_lit.text_input("Nome Completo*")
+        
+        col1, col2 = str_lit.columns(2)
+        with col1:
+            cpf_aluno = str_lit.text_input("CPF")
+        with col2:
+            rg_aluno = str_lit.text_input("RG")
+            
+        col_nasc, _ = str_lit.columns(2)
+        with col_nasc:
+            data_nasc_input = str_lit.date_input("Data de Nascimento", value=None, min_value=date(1920, 1, 1))
+            
+        submit_aluno = str_lit.form_submit_button("💾 Salvar Aluno e Matricular", type="primary", use_container_width=True)
+        
+        if submit_aluno:
+            if not nome_aluno.strip():
+                str_lit.warning("⚠️ O nome do aluno é obrigatório.")
+            else:
+                try:
+                    str_lit.info("Buscando se o aluno já existe (pelo CPF ou Nome)...")
+                    aluno_id = None
+                    
+                    if cpf_aluno.strip():
+                        cpf_limpo = re.sub(r'[^0-9]', '', cpf_aluno)
+                        if len(cpf_limpo) > 0:
+                            aluno_res = supabase.table("alunos").select("id").eq("cpf", cpf_aluno.strip()).execute()
+                            if aluno_res and len(aluno_res.data) > 0:
+                                aluno_id = aluno_res.data[0]['id']
+                                
+                    if not aluno_id:
+                        aluno_res = supabase.table("alunos").select("id").ilike("name", nome_aluno.strip()).execute()
+                        if aluno_res and len(aluno_res.data) > 0:
+                            aluno_id = aluno_res.data[0]['id']
+                            
+                    data_nasc_str = data_nasc_input.isoformat() if data_nasc_input else None
+                            
+                    if not aluno_id:
+                        novo_aluno = {
+                            "name": nome_aluno.strip().upper(),
+                            "cpf": cpf_aluno.strip() if cpf_aluno.strip() else None,
+                            "rg": rg_aluno.strip() if rg_aluno.strip() else None,
+                            "client_id": client_id,
+                            "data_nasc": data_nasc_str
+                        }
+                        insert_res = supabase.table("alunos").insert(novo_aluno).execute()
+                        if insert_res and len(insert_res.data) > 0:
+                            aluno_id = insert_res.data[0]['id']
+                            
+                    if aluno_id:
+                        matricula_res = supabase.table("matriculas").select("id").eq("turma_id", turma_id).eq("aluno_id", aluno_id).execute()
+                        if matricula_res and len(matricula_res.data) > 0:
+                            str_lit.warning("⚠️ Este aluno já está matriculado nesta turma!")
+                        else:
+                            nova_matricula = {
+                                "turma_id": turma_id,
+                                "aluno_id": aluno_id,
+                                "data_treinamento": data_treinamento,
+                                "carga_horaria": carga_horaria
+                            }
+                            supabase.table("matriculas").insert(nova_matricula).execute()
+                            str_lit.success(f"✅ Aluno {nome_aluno} adicionado e matriculado com sucesso!")
+                            str_lit.rerun()
+                            
+                except Exception as e:
+                    str_lit.error(f"❌ Erro ao adicionar/matricular aluno: {e}")
+
+@str_lit.dialog("📝 Visualizar / Editar Matrículas", width="large")
+def modal_editar_matriculas(tid, titulo_turma):
+    str_lit.subheader(f"Matrículas: {titulo_turma}")
     
     try:
-        res_mat = supabase.table("matriculas").select("id, data_treinamento, carga_horaria, alunos(id, name, cpf, data_nasc), clients(name, cnpj)").eq("turma_id", turma_id).execute()
+        mat_res = supabase.table("matriculas").select("id, aluno_id, carga_horaria, alunos(name, cpf, rg)").eq("turma_id", tid).execute()
         
-        if res_mat and res_mat.data:
-            dados_tabela = []
-            for idx, m in enumerate(res_mat.data, 1):
-                aluno = m.get("alunos") or {}
-                empresa = m.get("clients") or {}
-                
-                cpf_limpo = aluno.get("cpf", "")
-                if cpf_limpo and len(cpf_limpo) == 11:
-                    cpf_fmt = f"{cpf_limpo[:3]}.{cpf_limpo[3:6]}.{cpf_limpo[6:9]}-{cpf_limpo[9:]}"
-                else:
-                    cpf_fmt = cpf_limpo
-                
-                dados_tabela.append({
-                    "aluno_id": aluno.get("id"),
-                    "matricula_id": m.get("id"),
-                    "Nº": idx,
-                    "Nome do Aluno": aluno.get("name", "Não informado"),
-                    "CPF": cpf_fmt,
-                    "Empresa Vínculo": empresa.get("name", "Particular / Aberta"),
-                    "Carga Horária": m.get("carga_horaria", "08 Horas"),
-                    "Data Matrícula/Treino": m.get("data_treinamento", ""),
-                    "Data de Nascimento": aluno.get("data_nasc") or ""
-                })
-                
-            df_exibicao = pd.DataFrame(dados_tabela)
+        if not mat_res or not mat_res.data:
+            str_lit.info("Nenhum aluno matriculado nesta turma até o momento.")
+            return
             
-            edited_df = str_lit.data_editor(
-                df_exibicao,
-                column_config={
-                    "aluno_id": None,
-                    "matricula_id": None,
-                    "Nº": str_lit.column_config.NumberColumn(disabled=True),
-                    "Empresa Vínculo": str_lit.column_config.TextColumn(disabled=True),
-                    "Data Matrícula/Treino": str_lit.column_config.TextColumn(disabled=True),
-                    "Nome do Aluno": str_lit.column_config.TextColumn(required=True),
-                    "CPF": str_lit.column_config.TextColumn(required=True),
-                    "Carga Horária": str_lit.column_config.TextColumn(required=True),
-                    "Data de Nascimento": str_lit.column_config.TextColumn(required=False)
-                },
-                disabled=["Nº", "Empresa Vínculo", "Data Matrícula/Treino"],
-                hide_index=True,
+        matriculas_lista = []
+        for m in mat_res.data:
+            aluno_info = m.get('alunos') or {}
+            matriculas_lista.append({
+                "matricula_id": m.get("id"),
+                "aluno_id": m.get("aluno_id"),
+                "Nome": aluno_info.get("name", "Sem Nome"),
+                "CPF": aluno_info.get("cpf", ""),
+                "RG": aluno_info.get("rg", ""),
+                "Carga Horária": m.get("carga_horaria", "")
+            })
+            
+        df_mat = pd.DataFrame(matriculas_lista)
+        
+        if not df_mat.empty:
+            str_lit.dataframe(
+                df_mat[["Nome", "CPF", "RG", "Carga Horária"]],
                 use_container_width=True,
-                key=f"editor_alunos_{turma_id}"
+                hide_index=True
             )
             
-            str_lit.info(f"Total de alunos nesta turma: **{len(dados_tabela)}**")
+            str_lit.markdown("---")
+            str_lit.write("⚠️ **Ações de Remoção:**")
             
-            col1, col2 = str_lit.columns(2)
-            with col1:
-                if str_lit.button("💾 Salvar Alterações", type="primary", use_container_width=True):
-                    alteracoes = 0
-                    for index, row in edited_df.iterrows():
-                        orig_row = df_exibicao.iloc[index]
-                        
-                        if (row["Nome do Aluno"] != orig_row["Nome do Aluno"] or 
-                            row["CPF"] != orig_row["CPF"] or 
-                            row["Data de Nascimento"] != orig_row["Data de Nascimento"] or
-                            row["Carga Horária"] != orig_row["Carga Horária"]):
-                            
-                            aluno_id = row["aluno_id"]
-                            matricula_id = row["matricula_id"]
-                            nome_novo = row["Nome do Aluno"]
-                            cpf_novo = str(row["CPF"]).replace(".", "").replace("-", "").strip()
-                            carga_nova = row["Carga Horária"]
-                            data_nasc_nova = row["Data de Nascimento"] if str(row["Data de Nascimento"]).strip() else None
-
-                            supabase.table("alunos").update({
-                                "name": nome_novo,
-                                "cpf": cpf_novo,
-                                "data_nasc": data_nasc_nova
-                            }).eq("id", aluno_id).execute()
-                            
-                            supabase.table("matriculas").update({
-                                "carga_horaria": carga_nova
-                            }).eq("id", matricula_id).execute()
-                            
-                            alteracoes += 1
-                            
-                    if alteracoes > 0:
-                        str_lit.success(f"✅ {alteracoes} registro(s) atualizado(s) com sucesso!")
+            aluno_para_remover = str_lit.selectbox(
+                "Selecione um aluno para remover desta turma:",
+                options=df_mat.to_dict('records'),
+                format_func=lambda x: f"{x['Nome']} (CPF: {x['CPF']})",
+                key=f"rem_aluno_{tid}"
+            )
+            
+            if aluno_para_remover:
+                if str_lit.button(f"🗑️ Remover {aluno_para_remover['Nome']} da Turma", type="primary", key=f"btn_rem_{tid}"):
+                    try:
+                        supabase.table("matriculas").delete().eq("id", aluno_para_remover['matricula_id']).execute()
+                        str_lit.success("✅ Matrícula removida com sucesso!")
                         str_lit.rerun()
-                    else:
-                        str_lit.warning("⚠️ Nenhuma alteração foi detectada.")
+                    except Exception as e:
+                        str_lit.error(f"Erro ao remover: {e}")
                         
-            with col2:
-                if str_lit.button("❌ Fechar", use_container_width=True):
-                    str_lit.rerun()
-        else:
-            str_lit.info("ℹ️ Nenhum aluno matriculado nesta turma até o momento.")
-            if str_lit.button("Fechar", use_container_width=True):
-                str_lit.rerun()
-            
     except Exception as e:
-        str_lit.error(f"Erro ao carregar lista de alunos: {e}")
+        str_lit.error(f"Erro ao buscar matrículas: {e}")
 
-# ==========================================
-# 2. MODAL / POPUP DE EDIÇÃO DA TURMA 
-# ==========================================
-@str_lit.dialog("✏️ Editar Informações da Turma", width="medium")
-def modal_editar_turma(tid, titulo_atual, modalidade_atual, nivel_atual, carga_horaria_atual, curso_id_atual, instrutor_id_atual, data_treinamento_atual_str, ct_id_atual):
-    try:
-        try:
-            if data_treinamento_atual_str:
-                data_treinamento_atual = date.fromisoformat(data_treinamento_atual_str)
-            else:
-                data_treinamento_atual = date.today()
-        except ValueError:
-            data_treinamento_atual = date.today()
-
-        instr_res = supabase.table("instrutores").select("id, name").eq("is_active", True).execute()
-        curso_res = supabase.table("cursos").select("id, name").execute()
-        cts_res = supabase.table("cts").select("id, name, cnpj").execute()
-        
-        edit_instrutores = {i["name"]: i["id"] for i in instr_res.data} if instr_res.data else {}
-        edit_cursos = {c["name"]: c["id"] for c in curso_res.data} if curso_res.data else {}
-        
-        edit_cts = {}
-        if cts_res and cts_res.data:
-            for ct in cts_res.data:
-                ct_nome = ct.get('name', 'Centro de Treinamento')
-                ct_cnpj = ct.get('cnpj', 'N/D')
-                label_ct = f"{ct_nome} — CNPJ: {ct_cnpj}"
-                edit_cts[label_ct] = ct["id"]
-        
-        with str_lit.form(f"form_edit_turma_modal_{tid}"):
-            novo_titulo = str_lit.text_input("Título da Turma", value=titulo_atual)
-            
-            modalidades_opcoes = ["CT", "Incompany", "Incompany - CT", "EAD", "Online"]
-            mod_idx = modalidades_opcoes.index(modalidade_atual) if modalidade_atual in modalidades_opcoes else 0
-            nova_modalidade = str_lit.selectbox("Modalidade", options=modalidades_opcoes, index=mod_idx)
-
-            niveis_opcoes = ["Intermediário", "Avançado", "Básico", "Formação", "Reciclagem"]
-            niv_idx = niveis_opcoes.index(nivel_atual) if nivel_atual in niveis_opcoes else 0
-            novo_nivel = str_lit.selectbox("Tipo de Treinamento (Nível)", options=niveis_opcoes, index=niv_idx)
-
-            try:
-                ch_val = int(re.sub(r'\D', '', str(carga_horaria_atual)))
-                if not (1 <= ch_val <= 80): ch_val = 8
-            except:
-                ch_val = 8
-            nova_carga_num = str_lit.number_input("Carga Horária (Horas)", min_value=1, max_value=80, value=ch_val, step=1)
-            
-            nova_data = str_lit.date_input("Data do Treinamento", value=data_treinamento_atual)
-            
-            c_keys = list(edit_cursos.keys())
-            curso_idx = c_keys.index(next((k for k, v in edit_cursos.items() if v == curso_id_atual), c_keys[0])) if c_keys else 0
-            novo_curso = str_lit.selectbox("Curso", options=c_keys if c_keys else ["Nenhum"], index=curso_idx)
-            
-            i_keys = list(edit_instrutores.keys())
-            instr_idx = i_keys.index(next((k for k, v in edit_instrutores.items() if v == instrutor_id_atual), i_keys[0])) if i_keys else 0
-            novo_instrutor = str_lit.selectbox("Instrutor Responsável", options=i_keys if i_keys else ["Nenhum"], index=instr_idx)
-            
-            ct_keys = list(edit_cts.keys())
-            ct_idx = ct_keys.index(next((k for k, v in edit_cts.items() if v == ct_id_atual), ct_keys[0])) if ct_keys else 0
-            novo_ct = str_lit.selectbox("Centro de Treinamento (CT)", options=ct_keys if ct_keys else ["Nenhum CT cadastrado"], index=ct_idx)
-            
-            salvar_edicao = str_lit.form_submit_button("💾 Salvar Alterações", type="primary", use_container_width=True)
-            
-            if salvar_edicao:
-                carga_str = f"{nova_carga_num} Horas" if nova_carga_num > 1 else "1 Hora"
-                payload_update = {
-                    "titulo": novo_titulo.strip(),
-                    "modalidade": nova_modalidade,
-                    "nivel": novo_nivel,
-                    "carga_horaria": carga_str,
-                    "data_treinamento": nova_data.isoformat(),
-                    "curso_id": edit_cursos.get(novo_curso),
-                    "instrutor_id": edit_instrutores.get(novo_instrutor),
-                    "ct_id": edit_cts.get(novo_ct) if novo_ct != "Nenhum CT cadastrado" else None
-                }
-                supabase.table("turmas").update(payload_update).eq("id", tid).execute()
-                str_lit.success("✅ Turma atualizada com sucesso!")
-                str_lit.rerun()
-    except Exception as e:
-        str_lit.error(f"Erro ao carregar formulário de edição: {e}")
-
-# ==========================================
-# 3. MODAL / POPUP DE UPLOAD DE PLANILHA
-# ==========================================
-@str_lit.dialog("📥 Importar Lista de Alunos por Planilha", width="medium")
-def modal_importar_planilha(tid, titulo_turma, data_turma, carga_padrao_turma):
+@str_lit.dialog("📤 Importar Alunos (Excel)", width="large")
+def modal_importar_excel(tid, titulo_turma, client_id, data_treinamento_str, carga_horaria_str):
+    str_lit.subheader(f"Importar Lista de Presença para a Turma")
     str_lit.write(f"**Turma:** {titulo_turma}")
-    str_lit.markdown("---")
     
-    try:
-        clients_res = supabase.table("clients").select("id, name, cnpj").order("name").execute()
-        empresas_opcoes = {}
-        if clients_res and clients_res.data:
-            for cli in clients_res.data:
-                empresas_opcoes[f"{cli.get('name')} (CNPJ: {cli.get('cnpj')})"] = cli.get('id')
-        
-        empresa_escolhida_str = str_lit.selectbox(
-            "Selecione a Empresa dos Alunos da Planilha",
-            options=list(empresas_opcoes.keys()) if empresas_opcoes else ["Nenhuma empresa cadastrada"]
-        )
-        
-        carga_horaria_padrao = str_lit.text_input("Carga Horária Padrão para os Alunos", value=carga_padrao_turma)
-        
-        arquivo_excel = str_lit.file_uploader(
-            "Envie a planilha (Excel .xlsx ou CSV)",
-            type=["xlsx", "csv"]
-        )
-        
-        if arquivo_excel is not None:
-            if str_lit.button("🚀 Processar e Importar Alunos", type="primary", use_container_width=True):
-                try:
-                    alunos_tratados = processar_planilha_alunos(arquivo_excel, data_turma)
-                    client_id_destino = empresas_opcoes.get(empresa_escolhida_str) if empresas_opcoes else None
-                    importados_count = 0
+    str_lit.info("""
+    Para facilitar o processo, você pode usar a nossa ferramenta de Extração Automática via OCR 
+    na página "Leitor de PDF/Imagens" para converter a sua lista assinada em um arquivo Excel (.xlsx).
+    
+    A planilha deve conter preferencialmente as colunas: **NOME, RG, CPF**.
+    """)
+    
+    arquivo_upload = str_lit.file_uploader("Selecione o arquivo Excel (.xlsx ou .xls)", type=["xlsx", "xls"], key=f"up_excel_{tid}")
+    
+    if arquivo_upload:
+        try:
+            df_temp = pd.read_excel(arquivo_upload)
+            str_lit.write("📊 Pré-visualização das Colunas Encontradas:")
+            str_lit.dataframe(df_temp.head(3), use_container_width=True)
+            
+            colunas_disp = ["(Nenhuma)"] + list(df_temp.columns)
+            
+            str_lit.markdown("### Mapeamento de Colunas")
+            col1, col2, col3 = str_lit.columns(3)
+            with col1:
+                col_nome = str_lit.selectbox("Coluna de NOME*", options=colunas_disp, index=colunas_disp.index("NOME") if "NOME" in colunas_disp else 0)
+            with col2:
+                col_cpf = str_lit.selectbox("Coluna de CPF", options=colunas_disp, index=colunas_disp.index("CPF") if "CPF" in colunas_disp else 0)
+            with col3:
+                col_rg = str_lit.selectbox("Coluna de RG", options=colunas_disp, index=colunas_disp.index("RG") if "RG" in colunas_disp else 0)
+                
+            if str_lit.button("🚀 Processar e Matricular Alunos", type="primary", use_container_width=True, key=f"btn_proc_excel_{tid}"):
+                if col_nome == "(Nenhuma)":
+                    str_lit.error("⚠️ Você deve selecionar qual é a coluna que contém o NOME dos alunos.")
+                    str_lit.stop()
                     
-                    for aluno in alunos_tratados:
-                        nome_aluno = aluno["name"]
-                        cpf_aluno = aluno["cpf"]
-                        data_aluno_final = aluno["data_treinamento"]
-                        data_nasc_aluno = aluno["data_nasc"]
+                mapa_colunas = {
+                    "NOME": col_nome,
+                    "CPF": col_cpf if col_cpf != "(Nenhuma)" else None,
+                    "RG": col_rg if col_rg != "(Nenhuma)" else None
+                }
+                
+                with str_lit.spinner("A analisar a planilha e matricular os alunos no sistema... (Isto pode levar alguns segundos)"):
+                    resultado = processar_planilha_alunos(
+                        arquivo_bytes=arquivo_upload.getvalue(),
+                        nome_arquivo=arquivo_upload.name,
+                        mapeamento_colunas=mapa_colunas,
+                        turma_id=tid,
+                        client_id=client_id,
+                        data_treinamento=data_treinamento_str,
+                        carga_horaria=carga_horaria_str
+                    )
+                    
+                    if resultado["sucesso"]:
+                        str_lit.success(resultado["mensagem"])
                         
-                        if not data_nasc_aluno or str(data_nasc_aluno).strip().lower() in ['nan', 'none', '']:
-                            data_nasc_aluno = None
+                        col_met1, col_met2 = str_lit.columns(2)
+                        col_met1.metric("Alunos Inseridos/Encontrados", resultado["alunos_processados"])
+                        col_met2.metric("Novas Matrículas", resultado["matriculas_criadas"])
                         
-                        aluno_existente = supabase.table("alunos").select("id").eq("cpf", cpf_aluno).execute()
+                        if resultado["erros"]:
+                            str_lit.warning("Algumas linhas tiveram erros ou alunos já estavam matriculados:")
+                            for err in resultado["erros"]:
+                                str_lit.write(f"- {err}")
+                                
+                        str_lit.balloons()
+                    else:
+                        str_lit.error(f"Falha no processamento: {resultado['mensagem']}")
                         
-                        if aluno_existente and aluno_existente.data:
-                            aluno_id = aluno_existente.data[0].get("id")
-                            supabase.table("alunos").update({"name": nome_aluno, "data_nasc": data_nasc_aluno}).eq("id", aluno_id).execute()
-                        else:
-                            novo_aluno_payload = {"name": nome_aluno, "cpf": cpf_aluno, "data_nasc": data_nasc_aluno}
-                            res_novo_aluno = supabase.table("alunos").insert(novo_aluno_payload).execute()
-                            if res_novo_aluno and res_novo_aluno.data:
-                                aluno_id = res_novo_aluno.data[0].get("id")
-                            else:
-                                continue
-                        
-                        matricula_payload = {
-                            "turma_id": tid,
-                            "aluno_id": aluno_id,
-                            "client_id": client_id_destino,
-                            "carga_horaria": carga_horaria_padrao,
-                            "data_treinamento": data_aluno_final
-                        }
-                        supabase.table("matriculas").insert(matricula_payload).execute()
-                        importados_count += 1
-                        
-                    str_lit.success(f"✅ {importados_count} alunos importados com sucesso!")
-                    str_lit.rerun()
-                except Exception as err:
-                    str_lit.error(f"❌ Erro ao processar planilha: {err}")
-    except Exception as e:
-        str_lit.error(f"Erro ao abrir importação: {e}")
+        except Exception as e:
+            str_lit.error(f"Erro ao ler o arquivo Excel: {e}")
 
-# ==========================================
-# 3.5 MODAL / POPUP DE EXCLUSÃO DE TURMA
-# ==========================================
-@str_lit.dialog("🗑️ Excluir Turma", width="medium")
-def modal_excluir_turma(tid, titulo_turma):
-    str_lit.warning(f"⚠️ Você está prestes a excluir permanentemente a turma **{titulo_turma}**.")
-    str_lit.markdown(
-        "Essa ação também vai remover todas as **matrículas** vinculadas a esta turma "
-        "(os registros dos alunos na tabela `alunos` **não** serão apagados, apenas o vínculo com esta turma)."
-    )
-    str_lit.markdown("---")
-
-    confirmar = str_lit.checkbox(
-        "Sim, eu entendo e quero excluir esta turma definitivamente.",
-        key=f"confirma_del_{tid}"
-    )
-
-    col1, col2 = str_lit.columns(2)
-    with col1:
-        if str_lit.button(
-            "🗑️ Excluir Turma",
-            type="primary",
-            use_container_width=True,
-            disabled=not confirmar,
-            key=f"btn_del_turma_{tid}"
-        ):
-            try:
-                with str_lit.spinner("Excluindo turma e matrículas..."):
-                    supabase.table("matriculas").delete().eq("turma_id", tid).execute()
-                    supabase.table("turmas").delete().eq("id", tid).execute()
-
-                str_lit.success("✅ Turma excluída com sucesso!")
-                str_lit.rerun()
-            except Exception as e:
-                str_lit.error(f"❌ Erro ao excluir turma: {e}")
-    with col2:
-        if str_lit.button("Cancelar", use_container_width=True, key=f"btn_cancel_del_{tid}"):
-            str_lit.rerun()
-
-# ==========================================
-# 4. MODAL / POPUP DE EMISSÃO DE DOCUMENTOS
-# ==========================================
-@str_lit.dialog("📄 Emitir Documentação da Turma", width="medium")
+@str_lit.dialog("📄 Emitir Documentos", width="large")
 def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
     str_lit.write(f"**Turma:** {titulo_turma}")
+    
+    # 1. Pega os dados da turma para descobrir o curso
+    turma_data = {}
+    try:
+        t_res = supabase.table("turmas").select("*").eq("id", tid).single().execute()
+        if t_res and t_res.data:
+            turma_data = t_res.data
+    except Exception:
+        pass
+    
+    # 2. Verifica se o curso emite atestado e traz os dizeres
+    curso_id = turma_data.get("curso_id")
+    exige_atestado = True
+    dizeres = ""
+    nome_curso = "Treinamento"
+    if curso_id:
+        try:
+            c_res = supabase.table("cursos").select("*").eq("id", curso_id).single().execute()
+            if c_res and c_res.data:
+                exige_atestado = c_res.data.get("exige_atestado", True)
+                dizeres = c_res.data.get("dizeres_certificado", "")
+                nome_curso = c_res.data.get("name", "Treinamento")
+        except: pass
+
     str_lit.markdown("Selecione o documento desejado para emissão:")
     str_lit.markdown("---")
 
-    tipo_documento = str_lit.selectbox(
-        "Tipo de Documento",
-        [
-            "Atestado de Brigada (Empresa)",
-            "Certificado da Empresa",
-            "Certificados Individuais (Alunos)",
-            "Lista de Presença"
-        ]
-    )
-
-    str_lit.markdown("---")
-
-    # Busca prévia dos dados oficiais da turma no banco
-    turma_res = supabase.table("turmas").select("*").eq("id", tid).single().execute()
-    turma_data = turma_res.data if turma_res and turma_res.data else {}
+    opcoes_documentos = [
+        "Certificado da Empresa",
+        "Certificados Individuais (Alunos)",
+        "Lista de Presença"
+    ]
     
-    modalidade_oficial = turma_data.get("modalidade", "CT")
-    nivel_oficial = turma_data.get("nivel", "Intermediário")
+    # Só adiciona o Atestado se o curso permitir
+    if exige_atestado:
+        opcoes_documentos.insert(0, "Atestado de Brigada (Empresa)")
+    else:
+        str_lit.info("ℹ️ Este curso está configurado para **NÃO emitir Atestado**.")
+
+    tipo_documento = str_lit.selectbox("Tipo de Documento", opcoes_documentos)
+
+    modalidade_oficial = turma_data.get("modalidade", "Presencial")
+    nivel_oficial = turma_data.get("nivel", "Básico")
     carga_horaria_oficial = turma_data.get("carga_horaria", "8 Horas")
-    curso_id = turma_data.get("curso_id")
+    normativa_cert = turma_data.get("normativa", "")
 
-    # Carrega os responsáveis técnicos ativos para a seleção da assinatura
-    resp_res = supabase.table("responsaveis_tecnicos").select("*").eq("is_active", True).execute()
+    resp_res = supabase.table("responsaveis_tecnicos").select("*").execute()
     responsaveis = resp_res.data if resp_res and resp_res.data else []
-    
-    opcoes_resp = {f"{r['nome']} (CPF: {r['cpf']})": r for r in responsaveis}
+
+    opcoes_resp = {f"{r['nome']} - {r['cargo']}": r for r in responsaveis}
     default_idx = 0
     for i, r in enumerate(responsaveis):
         if r.get("is_default"):
@@ -447,65 +373,37 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                                 "cpf": aluno_info.get("cpf", ""),
                                 "data_nasc": aluno_info.get("data_nasc", ""),
                                 "data_matricula": m.get("data_treinamento", ""),
-                                "horas": m.get("carga_horaria") or carga_horaria_oficial
+                                "horas": m.get("carga_horaria") or carga_horaria_oficial,
+                                "Treinamento": nivel_oficial 
                             })
 
-                    normativa_curso = curso_res.data.get("normativa", "") if curso_res and curso_res.data else ""
-                    nome_do_curso = curso_res.data.get("name", "Treinamento Técnico") if curso_res and curso_res.data else "Treinamento Técnico"
-                    
-                    dados_turma_config = {
-                        "normativa": normativa_curso, 
-                        "cidade_data": cidade_data_formatada, 
-                        "logo_conecta": "",
-                        "modalidade_turma": modalidade_oficial,
-                        "nivel_turma": nivel_oficial,
-                        "curso_nome": nome_do_curso
-                    }
-
-                    html_gerado = gerar_atestado_pdf_de_arquivo(
-                        dados_turma=dados_turma_config,
-                        alunos_matriculas=alunos_lista,
-                        instrutor=instrutor_data,
+                    pdf_bytes = gerar_atestado_pdf_de_arquivo(
+                        alunos=alunos_lista,
+                        turma=turma_data,
                         empresa=empresa_data,
-                        ct=ct_data
+                        curso=curso_res.data if curso_res else None,
+                        instrutor=instrutor_data,
+                        ct=ct_data,
+                        cidade_data_formatada=cidade_data_formatada
                     )
-
-                    pdf_bytes = HTML(string=html_gerado).write_pdf()
-
+                    
                     supabase.table("turmas").update({"documento_emitido": True}).eq("id", tid).execute()
-                    supabase.table("matriculas").update({"doc_emitida": True}).eq("turma_id", tid).execute()
 
-                    str_lit.success("✅ Atestado em PDF gerado com sucesso!")
-                    str_lit.download_button("📥 Baixar Atestado (PDF)", data=pdf_bytes, file_name=f"atestado_{titulo_turma.replace(' ', '_')}.pdf", mime="application/pdf", use_container_width=True)
+                    str_lit.success("✅ Atestado gerado com sucesso!")
+                    str_lit.download_button("📥 Baixar Atestado (PDF)", data=pdf_bytes, file_name=f"atestado_{titulo_turma.replace(' ', '_')}.pdf", mime="application/pdf", use_container_width=True, key=f"dl_atest_{tid}")
 
             except Exception as e:
-                str_lit.error(f"❌ Erro ao gerar atestado: {e}")
-                
+                str_lit.error(f"❌ Erro ao gerar o atestado: {e}")
+
     elif tipo_documento == "Certificado da Empresa":
-        str_lit.write("🏢 Gera um PDF do certificado geral emitido em nome da Empresa Cliente.")
-
-        if not client_id:
-            str_lit.warning("⚠️ Esta turma não possui uma empresa vinculada (Particular/Aberta). Vincule uma empresa na edição da turma.")
-            str_lit.stop()
-
-        str_lit.info(f"Parâmetros oficiais herdados: **{modalidade_oficial} | {nivel_oficial} | {carga_horaria_oficial}**")
-
-        if str_lit.button("🏢 Gerar Certificado da Empresa (PDF)", type="primary", use_container_width=True, key=f"btn_cert_emp_{tid}"):
+        if str_lit.button("🚀 Processar e Gerar Certificado (Empresa)", type="primary", use_container_width=True):
             try:
-                with str_lit.spinner("Gerando certificado da empresa..."):
-                    ct_id_resolvido = ct_id or turma_data.get("ct_id")
+                with str_lit.spinner("Gerando certificado corporativo..."):
                     cidade_ct = "Itapecerica da Serra"
-                    if ct_id_resolvido:
-                        ct_res = supabase.table("cts").select("full_address").eq("id", ct_id_resolvido).single().execute()
+                    if ct_id:
+                        ct_res = supabase.table("cts").select("full_address").eq("id", ct_id).single().execute()
                         if ct_res and ct_res.data:
                             cidade_ct = extrair_cidade_do_endereco(ct_res.data.get("full_address"))
-
-                    normativa_cert = ""
-                    if curso_id:
-                        curso_res = supabase.table("cursos").select("normativa").eq("id", curso_id).single().execute()
-                        if curso_res and curso_res.data:
-                            normativa_cert = curso_res.data.get("normativa", "")
-
                     cidade_data_cert = formatar_data_extenso(turma_data.get("data_treinamento", ""), cidade=cidade_ct)
 
                     instrutor_data = {}
@@ -537,7 +435,9 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                         "carga_horaria": carga_horaria_oficial,
                         "resp_tecnico": dados_resp_tecnico.get("nome", ""),
                         "cpf_resp_tecnico": dados_resp_tecnico.get("cpf", ""),
-                        "assinatura_resp_url": dados_resp_tecnico.get("assinatura_url")
+                        "assinatura_resp_url": dados_resp_tecnico.get("assinatura_url"),
+                        "curso_nome": nome_curso, 
+                        "dizeres_certificado": dizeres 
                     }
 
                     pdf_bytes = gerar_certificado_empresa_pdf(
@@ -555,30 +455,17 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                     str_lit.download_button("📥 Baixar Certificado Empresa (PDF)", data=pdf_bytes, file_name=f"certificado_empresa_{titulo_turma.replace(' ', '_')}.pdf", mime="application/pdf", use_container_width=True, key=f"dl_cert_emp_{tid}")
 
             except Exception as e:
-                str_lit.error(f"❌ Erro ao gerar certificado da empresa: {e}")
+                str_lit.error(f"❌ Erro ao gerar certificado corporativo: {e}")
 
     elif tipo_documento == "Certificados Individuais (Alunos)":
-        str_lit.write("🎓 Gera um ZIP contendo um PDF individual para cada aluno.")
-        str_lit.info(f"Parâmetros oficiais herdados: **{modalidade_oficial} | {nivel_oficial} | {carga_horaria_oficial}**")
-
-        if str_lit.button("🎓 Gerar Certificados (ZIP)", type="primary", use_container_width=True, key=f"btn_cert_{tid}"):
+        if str_lit.button("🚀 Processar e Baixar Lote (ZIP)", type="primary", use_container_width=True):
             try:
-                with str_lit.spinner("Gerando certificados em ZIP..."):
-                    ct_id_resolvido = ct_id or turma_data.get("ct_id")
+                with str_lit.spinner("Processando certificados individuais..."):
                     cidade_ct = "Itapecerica da Serra"
-                    ct_data_completo = None
-                    if ct_id_resolvido:
-                        ct_res = supabase.table("cts").select("*").eq("id", ct_id_resolvido).single().execute()
+                    if ct_id:
+                        ct_res = supabase.table("cts").select("full_address").eq("id", ct_id).single().execute()
                         if ct_res and ct_res.data:
-                            ct_data_completo = ct_res.data
-                            cidade_ct = extrair_cidade_do_endereco(ct_data_completo.get("full_address"))
-
-                    normativa_cert = ""
-                    if curso_id:
-                        curso_res = supabase.table("cursos").select("normativa").eq("id", curso_id).single().execute()
-                        if curso_res and curso_res.data:
-                            normativa_cert = curso_res.data.get("normativa", "")
-
+                            cidade_ct = extrair_cidade_do_endereco(ct_res.data.get("full_address"))
                     cidade_data_cert = formatar_data_extenso(turma_data.get("data_treinamento", ""), cidade=cidade_ct)
 
                     instrutor_data = {}
@@ -588,15 +475,12 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                         if inst_res and inst_res.data:
                             instrutor_data = inst_res.data
 
-                    empresa_data = None
-                    if client_id:
-                        cli_res = supabase.table("clients").select("*").eq("id", client_id).single().execute()
-                        if cli_res and cli_res.data:
-                            empresa_data = cli_res.data
+                    cli_res = supabase.table("clients").select("*").eq("id", client_id).single().execute()
+                    empresa_data = cli_res.data if cli_res and cli_res.data else {}
 
                     mat_res = supabase.table("matriculas").select("data_treinamento, carga_horaria, alunos(name, rg, cpf, data_nasc)").eq("turma_id", tid).execute()
-
                     alunos_lista = []
+                    
                     if mat_res and mat_res.data:
                         for m in mat_res.data:
                             aluno_info = m.get("alunos") or {}
@@ -609,7 +493,7 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                             })
 
                     if not alunos_lista:
-                        str_lit.warning("⚠️ Nenhum aluno matriculado nesta turma.")
+                        str_lit.warning("⚠️️ Nenhum aluno matriculado nesta turma.")
                         str_lit.stop()
 
                     turma_cert = {
@@ -618,7 +502,9 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                         "carga_horaria": carga_horaria_oficial,
                         "resp_tecnico": dados_resp_tecnico.get("nome", ""),
                         "cpf_resp_tecnico": dados_resp_tecnico.get("cpf", ""),
-                        "assinatura_resp_url": dados_resp_tecnico.get("assinatura_url")
+                        "assinatura_resp_url": dados_resp_tecnico.get("assinatura_url"),
+                        "curso_nome": nome_curso, 
+                        "dizeres_certificado": dizeres 
                     }
 
                     zip_bytes = gerar_certificados_pdf_zip(
@@ -626,170 +512,214 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
                         turma=turma_cert,
                         instrutor=instrutor_data,
                         empresa=empresa_data,
-                        ct=ct_data_completo,
+                        ct=None,
                         normativa=normativa_cert,
                         cidade_data=cidade_data_cert,
                     )
 
                     supabase.table("turmas").update({"documento_emitido": True}).eq("id", tid).execute()
-                    supabase.table("matriculas").update({"doc_emitida": True}).eq("turma_id", tid).execute()
 
-                    str_lit.success(f"✅ {len(alunos_lista)} certificado(s) gerado(s) em ZIP com sucesso!")
-                    str_lit.download_button("📥 Baixar Certificados (ZIP)", data=zip_bytes, file_name=f"certificados_{titulo_turma.replace(' ', '_')}.zip", mime="application/zip", use_container_width=True, key=f"dl_cert_{tid}")
+                    str_lit.success("✅ Certificados gerados com sucesso!")
+                    str_lit.download_button("📥 Baixar Certificados (ZIP)", data=zip_bytes, file_name=f"certificados_{titulo_turma.replace(' ', '_')}.zip", mime="application/zip", use_container_width=True, key=f"dl_cert_zip_{tid}")
 
             except Exception as e:
-                str_lit.error(f"❌ Erro ao gerar certificados: {e}")
+                str_lit.error(f"❌ Erro ao gerar os certificados: {e}")
 
     elif tipo_documento == "Lista de Presença":
-        str_lit.write("📋 Opções para a Lista de Presença da turma.")
-        if str_lit.button("Gerar Lista", type="primary", use_container_width=True):
-            str_lit.info("Módulo de lista de presença em andamento.")
+        if str_lit.button("🚀 Processar e Gerar Lista", type="primary", use_container_width=True):
+            try:
+                with str_lit.spinner("Buscando alunos matriculados..."):
+                    mat_res = supabase.table("matriculas").select("alunos(name, rg, cpf)").eq("turma_id", tid).execute()
+                    
+                    if not mat_res or not mat_res.data:
+                        str_lit.warning("⚠️ Nenhum aluno matriculado para gerar a lista.")
+                        str_lit.stop()
+                        
+                    alunos_lista = []
+                    for m in mat_res.data:
+                        aluno_info = m.get("alunos") or {}
+                        alunos_lista.append({
+                            "Nome": aluno_info.get("name", ""),
+                            "RG": aluno_info.get("rg", ""),
+                            "CPF": aluno_info.get("cpf", ""),
+                            "Assinatura": "_________________________________"
+                        })
+                        
+                    df_presenca = pd.DataFrame(alunos_lista)
+                    
+                    import io
+                    buffer = io.BytesIO()
+                    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                        df_presenca.to_excel(writer, index=False, sheet_name='Lista de Presença')
+                    
+                    str_lit.success("✅ Lista gerada com sucesso!")
+                    str_lit.download_button(
+                        label="📥 Baixar Lista de Presença (.xlsx)",
+                        data=buffer.getvalue(),
+                        file_name=f"lista_presenca_{titulo_turma.replace(' ', '_')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                        key=f"dl_lista_{tid}"
+                    )
+            except Exception as e:
+                str_lit.error(f"❌ Erro ao gerar a lista de presença: {e}")
 
 # ==========================================
 # ABA 1: LISTAGEM DE TURMAS (EM LINHAS/CARDS)
 # ==========================================
 with tab_listar:
     str_lit.subheader("📋 Painel de Turmas e Emissão de Documentos")
-    str_lit.markdown("Gerencie as turmas abertas, visualize o **ID da Turma no Banco de Dados** e emita documentações.")
     
+    col_filtro1, col_filtro2 = str_lit.columns(2)
+    with col_filtro1:
+        busca_turma = str_lit.text_input("🔍 Buscar turma (Nome ou Empresa)", placeholder="Digite para filtrar...")
+    with col_filtro2:
+        filtro_status = str_lit.selectbox("Status dos Documentos", ["Todos", "Pendentes", "Emitidos"])
+
     try:
-        response = supabase.table("turmas").select("*").order("data_treinamento", desc=True).execute()
+        query = supabase.table("turmas").select(
+            "id, titulo, modalidade, nivel, carga_horaria, data_treinamento, "
+            "documento_emitido, cursos(name), instrutores(name), clients(id, name), cts(id, name)"
+        )
         
-        if response and isinstance(response.data, list) and len(response.data) > 0:
-            for t in response.data:
-                if isinstance(t, dict):
-                    tid = t.get("id")
-                    titulo = str(t.get("titulo", "Sem Título"))
-                    data_treinamento = str(t.get("data_treinamento", ""))
-                    modalidade = str(t.get("modalidade", "Presencial"))
-                    nivel_turma = str(t.get("nivel", "Intermediário"))
-                    carga_turma = str(t.get("carga_horaria", "8 Horas"))
-                    
-                    curso_id = t.get("curso_id")
-                    instrutor_id = t.get("instrutor_id")
-                    client_id = t.get("client_id")
-                    ct_id = t.get("ct_id")
-                    
-                    doc_emitido = t.get("documento_emitido", False)
-                    status_str = "🟢 Documentações Emitidas" if doc_emitido else "🟡 A Emitir"
-                    
-                    nome_empresa = "Aberta ao Público / Particular"
-                    if client_id:
-                        cli_res = supabase.table("clients").select("name").eq("id", client_id).execute()
-                        if cli_res and cli_res.data:
-                            nome_empresa = cli_res.data[0].get("name", "Aberta ao Público")
-                            
-                    instrutor_nome = "Não definido"
-                    if instrutor_id:
-                        i_res = supabase.table("instrutores").select("name").eq("id", instrutor_id).execute()
-                        if i_res and i_res.data:
-                            instrutor_nome = i_res.data[0].get("name", "Não definido")
+        if filtro_status == "Pendentes":
+            query = query.eq("documento_emitido", False)
+        elif filtro_status == "Emitidos":
+            query = query.eq("documento_emitido", True)
+            
+        res_turmas = query.order('data_treinamento', desc=True).execute()
+        
+        if res_turmas and res_turmas.data:
+            turmas_exibir = res_turmas.data
+            
+            if busca_turma.strip():
+                busca_lower = busca_turma.lower()
+                turmas_exibir = [
+                    t for t in turmas_exibir 
+                    if busca_lower in str(t.get('titulo', '')).lower() 
+                    or busca_lower in str((t.get('clients') or {}).get('name', '')).lower()
+                ]
 
-                    with str_lit.container(border=True):
-                        str_lit.caption(f"🆔 ID da Turma (BD): `{tid}`")
-                        
-                        col_info, col_acoes = str_lit.columns([4, 1.5])
-                        
-                        with col_info:
-                            str_lit.markdown(f"**{titulo}** — *{modalidade} | {nivel_turma} | {carga_turma}*")
-                            str_lit.markdown(f"Status: **{status_str}**")
-                            str_lit.markdown(f"🏢 **Empresa:** {nome_empresa} &nbsp;&nbsp;|&nbsp;&nbsp; 📅 **Data:** {data_treinamento}")
-                            str_lit.markdown(f"👨‍🏫 **Instrutor:** {instrutor_nome}")
+            for t in turmas_exibir:
+                tid = t.get('id')
+                titulo = t.get('titulo', 'Turma Sem Título')
+                data_trein = str(t.get('data_treinamento', ''))[:10]
+                status_doc = t.get('documento_emitido', False)
+                curso_nome = (t.get('cursos') or {}).get('name', 'N/A')
+                empresa_nome = (t.get('clients') or {}).get('name', 'Sem Empresa Vinculada')
+                empresa_id = (t.get('clients') or {}).get('id')
+                ct_id = (t.get('cts') or {}).get('id')
+                
+                # Interface em linha (expander) para economizar espaço
+                icon_status = "✅" if status_doc else "⚠️"
+                cor_status = "green" if status_doc else "orange"
+                
+                label_expander = f"{icon_status} **{data_trein}** | {titulo} | {empresa_nome} | {curso_nome}"
+                
+                with str_lit.expander(label_expander):
+                    str_lit.markdown(f"""
+                    **📝 Detalhes da Turma:**
+                    * **Curso:** {curso_nome}
+                    * **Instrutor:** {(t.get('instrutores') or {}).get('name', 'N/A')}
+                    * **Modalidade:** {t.get('modalidade')} | **Nível:** {t.get('nivel')} | **Carga:** {t.get('carga_horaria')}
+                    * **Status de Emissão:** <span style="color:{cor_status}">{'Emitidos' if status_doc else 'Pendentes'}</span>
+                    """, unsafe_allow_html=True)
+                    
+                    # Contar alunos
+                    mat_count_res = supabase.table("matriculas").select("id", count="exact").eq("turma_id", tid).execute()
+                    qtd_alunos = mat_count_res.count if mat_count_res else 0
+                    
+                    str_lit.info(f"👥 **Alunos Matriculados:** {qtd_alunos}")
+                    
+                    # BOTÕES DE AÇÃO NA LINHA
+                    col_btn1, col_btn2, col_btn3, col_btn4 = str_lit.columns(4)
+                    
+                    with col_btn1:
+                        if str_lit.button("➕ Adicionar Aluno", key=f"add_{tid}", use_container_width=True):
+                            modal_adicionar_aluno(tid, titulo, empresa_id, data_trein, t.get('carga_horaria'))
                             
-                        with col_acoes:
-                            str_lit.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
-                            b1, b2, b3, b4, b5 = str_lit.columns(5)
+                    with col_btn2:
+                        if str_lit.button("📤 Importar Lista (Excel)", key=f"up_{tid}", use_container_width=True):
+                            modal_importar_excel(tid, titulo, empresa_id, data_trein, t.get('carga_horaria'))
                             
-                            with b1:
-                                if str_lit.button("👁️", key=f"view_{tid}", help="Visualizar e Editar lista de alunos e cargas horárias"):
-                                    modal_visualizar_alunos(tid, titulo)
-                                    
-                            with b2:
-                                if str_lit.button("✏️", key=f"edit_{tid}", help="Alterar informações da turma"):
-                                    modal_editar_turma(tid, titulo, modalidade, nivel_turma, carga_turma, curso_id, instrutor_id, data_treinamento, ct_id)
-                                    
-                            with b3:
-                                if str_lit.button("✅", key=f"emit_{tid}", help="Emitir documentações"):
-                                    modal_emitir_documentacao(tid, titulo, client_id, ct_id)
-                                    
-                            with b4:
-                                if str_lit.button("📥", key=f"imp_{tid}", help="Importar planilha de alunos"):
-                                    modal_importar_planilha(tid, titulo, data_treinamento, carga_turma)
+                    with col_btn3:
+                        if str_lit.button("✏️ Ver / Editar Alunos", key=f"edit_{tid}", use_container_width=True):
+                            modal_editar_matriculas(tid, titulo)
+                            
+                    with col_btn4:
+                        if str_lit.button("📄 Gerar Documentos", key=f"doc_{tid}", type="primary", use_container_width=True):
+                            modal_emitir_documentacao(tid, titulo, empresa_id, ct_id)
 
-                            with b5:
-                                if not doc_emitido:
-                                    if str_lit.button("🗑️", key=f"del_{tid}", help="Excluir turma"):
-                                        modal_excluir_turma(tid, titulo)
-                                else:
-                                    str_lit.button("🔒", key=f"locked_{tid}", help="Turma com documentação já emitida não pode ser excluída", disabled=True)
         else:
-            str_lit.info("Nenhuma turma aberta no momento.")
+            str_lit.info("Nenhuma turma encontrada.")
             
     except Exception as e:
-        str_lit.error(f"Erro ao buscar turmas: {e}")
+        str_lit.error(f"Erro ao carregar turmas: {e}")
+
 
 # ==========================================
-# ABA 2: FORMULÁRIO DE ABERTURA DE TURMA
+# ABA 2: ABRIR NOVA TURMA (CADASTRO ÚNICO)
 # ==========================================
 with tab_cadastrar:
-    str_lit.subheader("Abrir Nova Turma")
+    str_lit.subheader("Formulário de Abertura de Turma")
+    str_lit.markdown("Ao abrir uma turma, os dados do curso e instrutor ficarão atrelados. Depois você poderá inserir os alunos e gerar os documentos na aba anterior.")
     
-    instrutores_dict, cursos_dict, empresas_dict, cts_dict = {}, {}, {}, {}
-    
+    # 1. Carregar listas (Comboboxes)
     try:
-        instr_res = supabase.table("instrutores").select("id, name").eq("is_active", True).execute()
-        if instr_res and isinstance(instr_res.data, list):
-            for i in instr_res.data:
-                if isinstance(i, dict) and i.get("name") and i.get("id"):
-                    instrutores_dict[str(i.get("name"))] = i.get("id")
+        cursos_res = supabase.table("cursos").select("id, name").execute()
+        instrutores_res = supabase.table("instrutores").select("id, name").execute()
+        empresas_res = supabase.table("clients").select("id, name, cnpj").execute()
+        cts_res = supabase.table("cts").select("id, name").execute()
+        
+        cursos_dict = {c['name']: c['id'] for c in cursos_res.data} if cursos_res.data else {}
+        instrutores_dict = {i['name']: i['id'] for i in instrutores_res.data} if instrutores_res.data else {}
+        
+        # Para empresas, mostra Nome - CNPJ
+        empresas_dict = {}
+        if empresas_res.data:
+            for e in empresas_res.data:
+                cnpj_fmt = e.get('cnpj', 'Sem CNPJ')
+                empresas_dict[f"{e['name']} ({cnpj_fmt})"] = e['id']
                 
-        curso_res = supabase.table("cursos").select("id, name").execute()
-        if curso_res and isinstance(curso_res.data, list):
-            for c in curso_res.data:
-                if isinstance(c, dict) and c.get("name") and c.get("id"):
-                    cursos_dict[str(c.get("name"))] = c.get("id")
-
-        client_res = supabase.table("clients").select("id, name, sigla, cnpj").order("name", desc=False).execute()
-        if client_res and isinstance(client_res.data, list):
-            for cl in client_res.data:
-                if isinstance(cl, dict):
-                    cid, c_name, c_sigla, c_cnpj = cl.get("id"), cl.get("name", "Sem Nome"), cl.get("sigla", ""), cl.get("cnpj", "")
-                    rotulo_empresa = f"{c_name}{' [' + c_sigla + ']' if c_sigla else ''} — CNPJ: {c_cnpj}"
-                    if cid: empresas_dict[rotulo_empresa] = cid
-
-        cts_res = supabase.table("cts").select("id, name, cnpj").execute()
-        if cts_res and isinstance(cts_res.data, list):
-            for ct in cts_res.data:
-                if isinstance(ct, dict):
-                    ct_id, ct_nome, ct_cnpj = ct.get("id"), ct.get("name", "CT"), ct.get("cnpj", "N/D")
-                    ct_label = f"{ct_nome} — CNPJ: {ct_cnpj}"
-                    if ct_id: cts_dict[ct_label] = ct_id
+        cts_dict = {c['name']: c['id'] for c in cts_res.data} if cts_res.data else {}
 
     except Exception as e:
-        str_lit.warning(f"Aviso ao carregar dependências: {e}")
+        str_lit.error(f"Erro ao carregar dados auxiliares: {e}")
+        cursos_dict, instrutores_dict, empresas_dict, cts_dict = {}, {}, {}, {}
 
-    with str_lit.form("form_abertura_turma_master_v4", clear_on_submit=True):
-        col1, col2 = str_lit.columns(2)
-        with col1:
-            titulo = str_lit.text_input("Título da Turma*", value=f"Treinamento Brigada - {date.today().strftime('%d/%m/%Y')}")
-            modalidade = str_lit.selectbox("Modalidade*", options=["CT", "Incompany", "Incompany - CT", "EAD", "Online"])
-            nivel = str_lit.selectbox("Tipo de Treinamento (Nível)*", options=["Intermediário", "Avançado", "Básico", "Formação", "Reciclagem"])
-            curso_selecionado = str_lit.selectbox("Curso*", options=list(cursos_dict.keys()) if cursos_dict else ["Nenhum curso cadastrado"])
-        with col2:
-            data_treinamento = str_lit.date_input("Data Real do Treinamento*", value=date.today())
-            carga_horaria_num = str_lit.number_input("Carga Horária (1 a 80 Horas)*", min_value=1, max_value=80, value=8, step=1)
-            instrutor_selecionado = str_lit.selectbox("Instrutor Responsável*", options=list(instrutores_dict.keys()) if instrutores_dict else ["Nenhum instrutor cadastrado"])
-            
-        str_lit.markdown("---")
-        str_lit.subheader("🏢 Centro de Treinamento e Empresa Contratante")
+    # 2. Formulário
+    with str_lit.form("form_nova_turma", clear_on_submit=True):
+        titulo = str_lit.text_input("Título Identificador da Turma*", placeholder="Ex: Turma CIPA - Outubro 2026 - Empresa XPTO")
         
-        ct_selecionado = str_lit.selectbox("Centro de Treinamento (CT)*", options=list(cts_dict.keys()) if cts_dict else ["Nenhum CT cadastrado"])
-        empresa_selecionada = str_lit.selectbox("Empresa Cliente (Opcional ou In Company)", options=["Nenhuma / Aberta ao Público"] + list(empresas_dict.keys()) if empresas_dict else ["Nenhuma empresa cadastrada"])
+        col1, col2, col3 = str_lit.columns(3)
+        with col1:
+            data_treinamento = str_lit.date_input("Data do Treinamento*", value=datetime.today())
+        with col2:
+            curso_selecionado = str_lit.selectbox("Curso / Treinamento*", ["(Nenhum curso cadastrado)"] if not cursos_dict else list(cursos_dict.keys()))
+        with col3:
+            instrutor_selecionado = str_lit.selectbox("Instrutor Titular*", ["(Nenhum instrutor cadastrado)"] if not instrutores_dict else list(instrutores_dict.keys()))
             
-        if str_lit.form_submit_button("Criar Turma", type="primary", use_container_width=True):
-            if not titulo or not curso_selecionado or not instrutor_selecionado or not ct_selecionado:
-                str_lit.warning("⚠️ Por favor, preencha todos os campos obrigatórios.")
-            elif "Nenhum" in curso_selecionado or "Nenhum" in instrutor_selecionado or "Nenhum" in ct_selecionado:
+        col4, col5 = str_lit.columns(2)
+        with col4:
+            empresa_selecionada = str_lit.selectbox("Empresa Contratante (Cliente)*", ["Nenhuma Empresa"] + list(empresas_dict.keys()))
+        with col5:
+            ct_selecionado = str_lit.selectbox("CT Responsável / Local*", ["(Nenhum CT cadastrado)"] if not cts_dict else list(cts_dict.keys()))
+
+        str_lit.markdown("#### Especificações do Treinamento")
+        col6, col7, col8 = str_lit.columns(3)
+        with col6:
+            modalidade = str_lit.selectbox("Modalidade", ["In Company", "Presencial (No CT)", "EAD", "Semipresencial"])
+        with col7:
+            nivel = str_lit.selectbox("Nível", ["Básico", "Intermediário", "Avançado", "Reciclagem", "Único"])
+        with col8:
+            carga_horaria_num = str_lit.number_input("Carga Horária (Apenas números)", min_value=1, value=8, step=1)
+
+        submit_turma = str_lit.form_submit_button("✅ Criar e Salvar Nova Turma", type="primary")
+
+        if submit_turma:
+            if not titulo.strip():
+                str_lit.warning("⚠️ O título da turma é obrigatório.")
+            elif "(Nenhum" in curso_selecionado or "(Nenhum" in instrutor_selecionado or "(Nenhum" in ct_selecionado:
                 str_lit.warning("⚠️ Você precisa ter cursos, instrutores e CTs cadastrados antes de abrir uma turma.")
             else:
                 try:
