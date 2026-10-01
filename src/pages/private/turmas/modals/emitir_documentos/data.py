@@ -79,5 +79,32 @@ def resolver_cidade(ct_id: str | None, turma_data: dict) -> str:
     return "Itapecerica da Serra"
 
 
-def marcar_documento_emitido(tid: str) -> None:
-    supabase.table("turmas").update({"documento_emitido": True}).eq("id", tid).execute()
+def marcar_documento_emitido(tid: str) -> tuple[bool, str]:
+    """
+    Marca a turma como documentação emitida.
+    Retorna (ok, mensagem).
+    """
+    if not tid:
+        return False, "ID da turma inválido."
+    try:
+        res = (
+            supabase.table("turmas")
+            .update({"documento_emitido": True})
+            .eq("id", tid)
+            .execute()
+        )
+        if res is None:
+            return False, "Resposta vazia do banco ao marcar emissão."
+        # Confirma leitura
+        check = (
+            supabase.table("turmas")
+            .select("documento_emitido")
+            .eq("id", tid)
+            .single()
+            .execute()
+        )
+        if check and check.data and check.data.get("documento_emitido") is True:
+            return True, "Turma marcada como documentação emitida."
+        return True, "Update enviado (confira o card na listagem)."
+    except Exception as e:
+        return False, f"Falha ao marcar emissão: {e}"

@@ -76,9 +76,13 @@ def gerar_certificados_individuais(
                 cidade_data=cidade_data,
             )
 
-            marcar_documento_emitido(tid)
+            ok, msg = marcar_documento_emitido(tid)
+            if ok:
+                st.success("✅ Certificados gerados e **turma marcada como emitida**!")
+            else:
+                st.success("✅ Certificados gerados com sucesso!")
+                st.warning(f"⚠️ Status do card: {msg}")
 
-            st.success("✅ Certificados gerados com sucesso!")
             st.download_button(
                 "📥 Baixar Certificados (ZIP)",
                 data=zip_bytes,

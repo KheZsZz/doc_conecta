@@ -63,9 +63,13 @@ def gerar_atestado(
                 cidade_data_formatada=cidade_data,
             )
 
-            marcar_documento_emitido(tid)
+            ok, msg = marcar_documento_emitido(tid)
+            if ok:
+                st.success("✅ Atestado gerado e **turma marcada como emitida**!")
+            else:
+                st.success("✅ Atestado gerado com sucesso!")
+                st.warning(f"⚠️ Status do card: {msg}")
 
-            st.success("✅ Atestado gerado com sucesso!")
             st.download_button(
                 "📥 Baixar Atestado (PDF)",
                 data=pdf_bytes,

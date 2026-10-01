@@ -32,6 +32,14 @@ def _slug(texto: str) -> str:
     return "".join(c for c in s if c.isalnum() or c in ("_", "-"))[:80] or "turma"
 
 
+def _ss_key(tid: str) -> str:
+    return f"doc_completa_zip_{tid}"
+
+
+def _ss_meta_key(tid: str) -> str:
+    return f"doc_completa_meta_{tid}"
+
+
 def gerar_documentacao_completa(
     tid: str,
     titulo_turma: str,
@@ -60,6 +68,47 @@ def gerar_documentacao_completa(
         + "\n- ".join(incluidos)
         + f"\n\n**Turma:** {nivel} | {modalidade} | {carga}"
     )
+
+    # Se já gerou nesta sessão, mostra download + status
+    zip_pronto = st.session_state.get(_ss_key(tid))
+    meta = st.session_state.get(_ss_meta_key(tid)) or {}
+
+    if zip_pronto:
+        st.success(
+            "✅ Documentação gerada: **"
+            + "**, **".join(meta.get("gerados") or [])
+            + "**."
+        )
+        if meta.get("marcado"):
+            st.success("✅ Card da turma marcado como **documentação emitida**.")
+        elif meta.get("erro_marca"):
+            st.warning(f"⚠️ Documentos gerados, mas status do card: {meta['erro_marca']}")
+
+        if meta.get("erros"):
+            with st.expander("⚠️ Alguns itens falharam", expanded=False):
+                for e in meta["erros"]:
+                    st.write(f"- {e}")
+
+        base = meta.get("base") or _slug(titulo_turma)
+        st.download_button(
+            "📥 Baixar documentação completa (ZIP)",
+            data=zip_pronto,
+            file_name=f"documentacao_{base}.zip",
+            mime="application/zip",
+            use_container_width=True,
+            key=f"dl_doc_completa_{tid}",
+        )
+
+        if st.button(
+            "🔄 Atualizar listagem de turmas",
+            use_container_width=True,
+            key=f"btn_refresh_apos_doc_{tid}",
+        ):
+            # limpa cache local e recarrega a página (card atualiza)
+            st.session_state.pop(_ss_key(tid), None)
+            st.session_state.pop(_ss_meta_key(tid), None)
+            st.rerun()
+        return
 
     if not st.button(
         "🚀 Gerar documentação completa (ZIP)",
@@ -112,7 +161,6 @@ def gerar_documentacao_completa(
             zip_buffer = io.BytesIO()
             with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
 
-                # ---- Atestado ----
                 if exige_atestado:
                     try:
                         pdf_atest = gerar_atestado_pdf_de_arquivo(
@@ -129,7 +177,6 @@ def gerar_documentacao_completa(
                     except Exception as e:
                         erros.append(f"Atestado: {e}")
 
-                # ---- Certificado Empresa ----
                 try:
                     pdf_emp = gerar_certificado_empresa_pdf(
                         turma=turma_cert,
@@ -144,7 +191,6 @@ def gerar_documentacao_completa(
                 except Exception as e:
                     erros.append(f"Certificado Empresa: {e}")
 
-                # ---- Certificados individuais (ZIP interno) ----
                 try:
                     zip_alunos = gerar_certificados_pdf_zip(
                         alunos_matriculas=alunos_cert,
@@ -162,7 +208,6 @@ def gerar_documentacao_completa(
                 except Exception as e:
                     erros.append(f"Certificados Individuais: {e}")
 
-                # ---- Lista de presença ----
                 try:
                     df = pd.DataFrame(alunos_lista)
                     xlsx_buf = io.BytesIO()
@@ -184,25 +229,21 @@ def gerar_documentacao_completa(
                 )
                 return
 
-            marcar_documento_emitido(tid)
+            # Marca turma como emitida
+            ok_marca, msg_marca = marcar_documento_emitido(tid)
 
             zip_buffer.seek(0)
-            st.success(
-                "✅ Documentação gerada: **" + "**, **".join(gerados) + "**."
-            )
-            if erros:
-                with st.expander("⚠️ Alguns itens falharam", expanded=True):
-                    for e in erros:
-                        st.write(f"- {e}")
+            st.session_state[_ss_key(tid)] = zip_buffer.getvalue()
+            st.session_state[_ss_meta_key(tid)] = {
+                "gerados": gerados,
+                "erros": erros,
+                "base": base,
+                "marcado": ok_marca,
+                "erro_marca": None if ok_marca else msg_marca,
+            }
 
-            st.download_button(
-                "📥 Baixar documentação completa (ZIP)",
-                data=zip_buffer.getvalue(),
-                file_name=f"documentacao_{base}.zip",
-                mime="application/zip",
-                use_container_width=True,
-                key=f"dl_doc_completa_{tid}",
-            )
+            # Recarrega o modal com o download pronto + feedback de status
+            st.rerun()
 
     except Exception as e:
         st.error(f"❌ Erro ao gerar documentação completa: {e}")

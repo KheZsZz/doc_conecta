@@ -71,9 +71,13 @@ def gerar_certificado_empresa(
                 cidade_data=cidade_data,
             )
 
-            marcar_documento_emitido(tid)
+            ok, msg = marcar_documento_emitido(tid)
+            if ok:
+                st.success("✅ Certificado da Empresa gerado e **turma marcada como emitida**!")
+            else:
+                st.success("✅ Certificado da Empresa gerado com sucesso!")
+                st.warning(f"⚠️ Status do card: {msg}")
 
-            st.success("✅ Certificado da Empresa gerado com sucesso!")
             st.download_button(
                 "📥 Baixar Certificado Empresa (PDF)",
                 data=pdf_bytes,
