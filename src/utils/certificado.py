@@ -69,7 +69,7 @@ def gerar_certificado_html(
         partes_doc.append(f"RG: {rg}")
     if cpf:
         cpf_fmt = f"{cpf[:3]}.{cpf[3:6]}.{cpf[6:9]}-{cpf[9:]}" if len(cpf) == 11 else cpf
-        partes_doc.append(f"CPF: {cpf_fmt}")
+        partes_doc.append(f"{cpf_fmt}")
     rg_cpf_str = " / ".join(partes_doc)
 
     cpf_inst = instrutor.get("cpf", "")
@@ -191,7 +191,7 @@ def gerar_certificados_pdf_zip(
             nome_aluno = aluno.get("name", "aluno").strip()
             nome_sanitizado = "".join(c if c.isalnum() or c in (' ', '-', '_') else '' for c in nome_aluno)
             nome_sanitizado = nome_sanitizado.strip().replace(' ', '_')
-            nome_arquivo_pdf = f"Certificado_{nome_sanitizado}.pdf"
+            nome_arquivo_pdf = f"{nome_sanitizado}.pdf"
             zip_file.writestr(nome_arquivo_pdf, pdf_bytes)
             
     zip_buffer.seek(0)
