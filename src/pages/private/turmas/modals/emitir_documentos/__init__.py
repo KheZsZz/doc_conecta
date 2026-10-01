@@ -8,6 +8,7 @@ from .atestado import gerar_atestado
 from .certificado_empresa import gerar_certificado_empresa
 from .certificados_individuais import gerar_certificados_individuais
 from .lista_presenca import gerar_lista_presenca
+from .documentacao_completa import gerar_documentacao_completa
 
 
 @st.dialog("📄 Emitir Documentos", width="large")
@@ -22,23 +23,41 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
     st.markdown("---")
 
     opcoes = [
+        "📦 Documentação Completa (tudo em ZIP)",
         "Certificado da Empresa",
         "Certificados Individuais (Alunos)",
         "Lista de Presença",
     ]
     if exige_atestado:
-        opcoes.insert(0, "Atestado de Brigada (Empresa)")
+        opcoes.insert(1, "Atestado de Brigada (Empresa)")
     else:
         st.info("ℹ️ Este curso está configurado para **NÃO emitir Atestado**.")
 
     tipo = st.selectbox("Tipo de Documento", opcoes)
 
     dados_resp: dict[str, Any] = {}
-    if tipo in ("Certificado da Empresa", "Certificados Individuais (Alunos)"):
+    precisa_resp = tipo in (
+        "📦 Documentação Completa (tudo em ZIP)",
+        "Certificado da Empresa",
+        "Certificados Individuais (Alunos)",
+    )
+    if precisa_resp:
         dados_resp = ui_selecionar_responsavel(tid, tipo)
         st.markdown("---")
 
-    if tipo == "Atestado de Brigada (Empresa)":
+    if tipo == "📦 Documentação Completa (tudo em ZIP)":
+        gerar_documentacao_completa(
+            tid,
+            titulo_turma,
+            client_id,
+            ct_id,
+            turma_data,
+            curso_data,
+            dados_resp,
+            exige_atestado=exige_atestado,
+        )
+
+    elif tipo == "Atestado de Brigada (Empresa)":
         gerar_atestado(tid, titulo_turma, client_id, ct_id, turma_data, curso_data)
 
     elif tipo == "Certificado da Empresa":
