@@ -74,7 +74,7 @@ def render_tab_cadastrar():
             )
         with col7:
             nivel = st.selectbox(
-                "Nível", ["Básico", "Intermediário", "Avançado", "Reciclagem", "Único"]
+                "Nível", ["Básico", "Intermediário", "Avançado", "Reciclagem", "Formação"]
             )
         with col8:
             carga_horaria_num = st.number_input(
@@ -102,7 +102,7 @@ def render_tab_cadastrar():
                         else None
                     )
                     carga_final_str = (
-                        f"{carga_horaria_num} Horas" if carga_horaria_num > 1 else "1 Hora"
+                        f"{carga_horaria_num} Horas" if carga_horaria_num > 1 else "8 Hora"
                     )
 
                     nova_turma = {
