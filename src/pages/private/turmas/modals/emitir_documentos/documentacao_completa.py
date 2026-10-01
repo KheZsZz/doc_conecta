@@ -69,7 +69,7 @@ def gerar_documentacao_completa(
         + f"\n\n**Turma:** {nivel} | {modalidade} | {carga}"
     )
 
-    # Se já gerou nesta sessão, mostra download + status
+    # ZIP já gerado nesta sessão → só mostra download (sem fechar o modal)
     zip_pronto = st.session_state.get(_ss_key(tid))
     meta = st.session_state.get(_ss_meta_key(tid)) or {}
 
@@ -80,7 +80,10 @@ def gerar_documentacao_completa(
             + "**."
         )
         if meta.get("marcado"):
-            st.success("✅ Card da turma marcado como **documentação emitida**.")
+            st.success(
+                "✅ Turma marcada como **documentação emitida** no banco. "
+                "O card atualiza quando você fechar este modal."
+            )
         elif meta.get("erro_marca"):
             st.warning(f"⚠️ Documentos gerados, mas status do card: {meta['erro_marca']}")
 
@@ -98,16 +101,7 @@ def gerar_documentacao_completa(
             use_container_width=True,
             key=f"dl_doc_completa_{tid}",
         )
-
-        if st.button(
-            "🔄 Atualizar listagem de turmas",
-            use_container_width=True,
-            key=f"btn_refresh_apos_doc_{tid}",
-        ):
-            # limpa cache local e recarrega a página (card atualiza)
-            st.session_state.pop(_ss_key(tid), None)
-            st.session_state.pop(_ss_meta_key(tid), None)
-            st.rerun()
+        st.caption("Você pode baixar quantas vezes quiser. Feche o modal quando terminar.")
         return
 
     if not st.button(
@@ -229,11 +223,14 @@ def gerar_documentacao_completa(
                 )
                 return
 
-            # Marca turma como emitida
             ok_marca, msg_marca = marcar_documento_emitido(tid)
 
             zip_buffer.seek(0)
-            st.session_state[_ss_key(tid)] = zip_buffer.getvalue()
+            zip_bytes = zip_buffer.getvalue()
+
+            # Guarda na sessão para o botão continuar disponível
+            # se o Streamlit re-renderizar o dialog (sem fechar)
+            st.session_state[_ss_key(tid)] = zip_bytes
             st.session_state[_ss_meta_key(tid)] = {
                 "gerados": gerados,
                 "erros": erros,
@@ -242,8 +239,32 @@ def gerar_documentacao_completa(
                 "erro_marca": None if ok_marca else msg_marca,
             }
 
-            # Recarrega o modal com o download pronto + feedback de status
-            st.rerun()
+            # NÃO chama st.rerun() — mantém o modal aberto com o download
+            st.success(
+                "✅ Documentação gerada: **" + "**, **".join(gerados) + "**."
+            )
+            if ok_marca:
+                st.success(
+                    "✅ Turma marcada como **documentação emitida**. "
+                    "O card na listagem atualiza ao fechar este modal."
+                )
+            else:
+                st.warning(f"⚠️ {msg_marca}")
+
+            if erros:
+                with st.expander("⚠️ Alguns itens falharam", expanded=True):
+                    for e in erros:
+                        st.write(f"- {e}")
+
+            st.download_button(
+                "📥 Baixar documentação completa (ZIP)",
+                data=zip_bytes,
+                file_name=f"documentacao_{base}.zip",
+                mime="application/zip",
+                use_container_width=True,
+                key=f"dl_doc_completa_{tid}",
+            )
+            st.caption("Baixe o arquivo antes de fechar o modal.")
 
     except Exception as e:
         st.error(f"❌ Erro ao gerar documentação completa: {e}")
