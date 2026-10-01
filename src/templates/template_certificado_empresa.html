@@ -7,85 +7,153 @@
       @page { size: A4 landscape; margin: 0; }
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body { width: 297mm; height: 210mm; overflow: hidden; }
-      .pagina { position: relative; width: 297mm; height: 210mm; background-color: #f5f3e8; font-family: "Arial", "Helvetica", sans-serif; }
-      .fundo { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
-      .conteudo {
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
-        padding-left: 150px; padding-right: 30px; padding-top: 150px; padding-bottom: 18px;
-        display: flex; flex-direction: column; justify-content: flex-start;
-      }
-      .linha { width: 100%; height: 1px; background-color: #c8c0a0; margin-bottom: 14px; }
-      .texto-certificado { font-size: 10pt; color: #222; line-height: 1.55; margin-bottom: 10px; text-align: justify; }
-      .texto-certificado p { margin: 0 0 2px 0; }
-      .texto-certificado strong { font-size: 11pt; color: #1a2a5e; }
-      .texto-certificado .normativa-extra { display: block; margin-top: 8px; font-style: italic; }
-      .texto-certificado .espaco-dizeres { margin-top: 12px; }
 
-      /* Campos compactos, sem gap estranho entre linhas */
-      .campos {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        font-size: 9.5pt;
-        color: #333;
-        margin: 8px 0 10px 0;
-        line-height: 1.35;
+      .pagina {
+        position: relative;
+        width: 297mm;
+        height: 210mm;
+        background-color: #f5f3e8;
+        font-family: "Arial", "Helvetica", sans-serif;
       }
-      .campo-item {
-        display: flex;
-        flex-direction: row;
-        align-items: baseline;
-        gap: 6px;
+
+      .fundo {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        object-fit: cover;
+        z-index: 0;
       }
-      .campo-label {
-        font-weight: bold;
-        color: #1a2a5e;
+
+      /* Area de texto — sem as assinaturas (elas ficam absolutas no rodape) */
+      .conteudo {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        z-index: 1;
+        padding-left: 150px;
+        padding-right: 40px;
+        padding-top: 148px;
+        padding-bottom: 95px; /* reserva espaco para as assinaturas no rodape */
+      }
+
+      .linha {
+        width: 100%;
+        height: 1px;
+        background-color: #c8c0a0;
+        margin-bottom: 12px;
+      }
+
+      .texto-certificado {
+        font-size: 10pt;
+        color: #222;
+        line-height: 1.5;
+        text-align: justify;
+      }
+      .texto-certificado p {
         margin: 0;
         padding: 0;
-        white-space: nowrap;
+        line-height: 1.5;
       }
-      .campo-valor { margin: 0; padding: 0; }
+      .texto-certificado strong {
+        font-size: 11pt;
+        color: #1a2a5e;
+      }
+      .texto-certificado .espaco-dizeres {
+        margin-top: 14px;
+      }
+      .texto-certificado .normativa-extra {
+        display: block;
+        margin-top: 8px;
+        font-style: italic;
+      }
 
-      .data { font-size: 9.5pt; color: #333; margin-bottom: 12px; }
+      /*
+        Campos em um unico bloco de texto — line-height unico,
+        evita o "buraco" visual entre Modalidade e Carga Horaria.
+      */
+      .campos {
+        margin-top: 14px;
+        font-size: 9.5pt;
+        color: #333;
+        line-height: 1.45;
+      }
+      .campos .linha-campo {
+        margin: 0;
+        padding: 0;
+        line-height: 1.45;
+      }
+      .campos .campo-label {
+        font-weight: bold;
+        color: #1a2a5e;
+      }
 
+      .data {
+        margin-top: 12px;
+        font-size: 9.5pt;
+        color: #333;
+      }
+
+      /*
+        Assinaturas SEMPRE no rodape da pagina,
+        uma a esquerda e outra a direita da area de conteudo.
+      */
       .assinaturas {
+        position: absolute;
+        z-index: 2;
+        left: 150px;
+        right: 40px;
+        bottom: 14mm;
         display: flex;
-        justify-content: flex-start;
+        justify-content: space-between;
         align-items: flex-end;
-        gap: 60px;
-        margin-top: auto;
-        padding-bottom: 4px;
       }
+
       .assinatura-bloco {
         text-align: center;
-        min-width: 180px;
+        width: 42%;
+        max-width: 240px;
       }
-      /* Assinaturas bem maiores (antes max-height: 32px) */
+
       .assinatura-img {
-        height: 72px;
-        width: 220px;
+        height: 70px;
+        width: 100%;
+        max-width: 220px;
         object-fit: contain;
         object-position: center bottom;
         display: block;
-        margin: 0 auto 4px auto;
+        margin: 0 auto 2px auto;
       }
+
       .assinatura-placeholder {
-        height: 72px;
-        width: 220px;
-        margin: 0 auto 4px auto;
+        height: 70px;
+        width: 100%;
+        max-width: 220px;
+        margin: 0 auto 2px auto;
       }
+
       .assinatura-linha {
         border-top: 1px solid #555;
-        margin-bottom: 4px;
+        width: 100%;
+        margin: 0 auto 4px auto;
       }
+
       .assinatura-nome {
         font-size: 8.5pt;
         font-weight: bold;
         color: #1a2a5e;
         text-transform: uppercase;
+        line-height: 1.2;
       }
-      .assinatura-cargo { font-size: 8pt; color: #444; }
-      .assinatura-doc { font-size: 7.5pt; color: #444; }
+      .assinatura-cargo {
+        font-size: 8pt;
+        color: #444;
+        line-height: 1.2;
+      }
+      .assinatura-doc {
+        font-size: 7.5pt;
+        color: #444;
+        line-height: 1.2;
+      }
     </style>
   </head>
   <body>
@@ -108,53 +176,44 @@
         </div>
 
         <div class="campos">
-          <div class="campo-item">
-            <span class="campo-label">Nível:</span>
-            <span class="campo-valor">{{ NIVEL }}</span>
-          </div>
-          <div class="campo-item">
-            <span class="campo-label">Modalidade:</span>
-            <span class="campo-valor">{{ MODALIDADE }}</span>
-          </div>
-          <div class="campo-item">
-            <span class="campo-label">Carga Horária:</span>
-            <span class="campo-valor">{{ CARGA_HORARIA }}</span>
-          </div>
+          <p class="linha-campo"><span class="campo-label">Nível:</span> {{ NIVEL }}</p>
+          <p class="linha-campo"><span class="campo-label">Modalidade:</span> {{ MODALIDADE }}</p>
+          <p class="linha-campo"><span class="campo-label">Carga Horária:</span> {{ CARGA_HORARIA }}</p>
         </div>
 
         <div class="data">{{ CIDADE_DATA }}</div>
+      </div>
 
-        <div class="assinaturas">
-          <div class="assinatura-bloco">
-            {% if ASSINATURA_INSTRUTOR %}
-            <img src="{{ ASSINATURA_INSTRUTOR }}" class="assinatura-img" alt="Assinatura Instrutor" />
-            {% else %}
-            <div class="assinatura-placeholder"></div>
-            {% endif %}
-            <div class="assinatura-linha"></div>
-            <div class="assinatura-nome">{{ NOME_INSTRUTOR }}</div>
-            <div class="assinatura-cargo">Instrutor</div>
-            {% if CPF_INSTRUTOR %}
-            <div class="assinatura-doc">CPF: {{ CPF_INSTRUTOR }}</div>
-            {% endif %}
-          </div>
-
-          {% if RESP_TECNICO %}
-          <div class="assinatura-bloco">
-            {% if ASSINATURA_RESP_TECNICO %}
-            <img src="{{ ASSINATURA_RESP_TECNICO }}" class="assinatura-img" alt="Assinatura Responsável Técnico" />
-            {% else %}
-            <div class="assinatura-placeholder"></div>
-            {% endif %}
-            <div class="assinatura-linha"></div>
-            <div class="assinatura-nome">{{ RESP_TECNICO }}</div>
-            <div class="assinatura-cargo">Responsável Técnico</div>
-            {% if CPF_RESP %}
-            <div class="assinatura-doc">CPF: {{ CPF_RESP }}</div>
-            {% endif %}
-          </div>
+      <div class="assinaturas">
+        <div class="assinatura-bloco">
+          {% if ASSINATURA_INSTRUTOR %}
+          <img src="{{ ASSINATURA_INSTRUTOR }}" class="assinatura-img" alt="Assinatura Instrutor" />
+          {% else %}
+          <div class="assinatura-placeholder"></div>
+          {% endif %}
+          <div class="assinatura-linha"></div>
+          <div class="assinatura-nome">{{ NOME_INSTRUTOR }}</div>
+          <div class="assinatura-cargo">Instrutor</div>
+          {% if CPF_INSTRUTOR %}
+          <div class="assinatura-doc">CPF: {{ CPF_INSTRUTOR }}</div>
           {% endif %}
         </div>
+
+        {% if RESP_TECNICO %}
+        <div class="assinatura-bloco">
+          {% if ASSINATURA_RESP_TECNICO %}
+          <img src="{{ ASSINATURA_RESP_TECNICO }}" class="assinatura-img" alt="Assinatura Responsável Técnico" />
+          {% else %}
+          <div class="assinatura-placeholder"></div>
+          {% endif %}
+          <div class="assinatura-linha"></div>
+          <div class="assinatura-nome">{{ RESP_TECNICO }}</div>
+          <div class="assinatura-cargo">Responsável Técnico</div>
+          {% if CPF_RESP %}
+          <div class="assinatura-doc">CPF: {{ CPF_RESP }}</div>
+          {% endif %}
+        </div>
+        {% endif %}
       </div>
     </div>
   </body>
