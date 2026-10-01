@@ -15,9 +15,21 @@
       .linha { width: 100%; height: 1px; background-color: #c8c0a0; margin-bottom: 16px; }
       .texto-certificado { font-size: 10pt; color: #222; line-height: 1.6; margin-bottom: 14px; text-align: justify; }
       .texto-certificado strong { font-size: 11pt; color: #1a2a5e; }
-      .campos { display: flex; flex-direction: column; gap: 4px; font-size: 9.5pt; color: #333; margin-bottom: 14px; }
-      .campo-item { display: flex; gap: 4px; }
-      .campo-label { font-weight: bold; color: #1a2a5e; }
+      .campos {
+        margin-top: 14px;
+        font-size: 9.5pt;
+        color: #333;
+        line-height: 1.45;
+      }
+      .campos .linha-campo {
+        margin: 0;
+        padding: 0;
+        line-height: 1.45;
+      }
+      .campos .campo-label {
+        font-weight: bold;
+        color: #1a2a5e;
+      }
       .data { font-size: 9.5pt; color: #333; margin-bottom: 18px; }
       .assinaturas { display: flex; justify-content: flex-start; gap: 50px; margin-top: auto; }
       .assinatura-bloco { text-align: center; min-width: 160px; }
@@ -56,20 +68,11 @@
         </div>
 
         <div class="campos">
-          <div class="campo-item">
-            <p class="campo-label">Nível:</p>
-            <span>{{ NIVEL }}</span>
-          </div>
-          <div class="campo-item">
-            <p class="campo-label">Carga Horária:</p>
-            <span>{{ CARGA_HORARIA }}</span>
-          </div>
-          <div class="campo-item">
-            <p class="campo-label">Modalidade:</p>
-            <span>{{ MODALIDADE }}</span>
-          </div>
+          <p class="linha-campo"><span class="campo-label">Nível:</span> {{ NIVEL }}</p>
+          <p class="linha-campo"><span class="campo-label">Modalidade:</span> {{ MODALIDADE }}</p>
+          <p class="linha-campo"><span class="campo-label">Carga Horária:</span> {{ CARGA_HORARIA }}</p>
         </div>
-        <br />
+
         <div class="data">{{ CIDADE_DATA }}</div>
 
         <div class="assinaturas">
