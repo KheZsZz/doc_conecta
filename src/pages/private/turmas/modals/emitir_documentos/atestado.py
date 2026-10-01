@@ -23,11 +23,11 @@ def gerar_atestado(
     curso_data: dict,
 ) -> None:
     modalidade = turma_data.get("modalidade", "Presencial")
-    nivel = turma_data.get("nivel", "Básico")
+    nivel = turma_data.get("nivel", "Basico")
     carga = turma_data.get("carga_horaria", "8 Horas")
 
     st.info(
-        f"ℹ️ O atestado usará os dados oficiais da turma: "
+        f"ℹ️ O atestado usara os dados oficiais da turma: "
         f"**{modalidade} | {nivel} | {carga}**"
     )
 
@@ -48,6 +48,10 @@ def gerar_atestado(
             instrutor_data = fetch_instrutor(turma_data.get("instrutor_id"))
             matriculas = fetch_matriculas(tid)
             alunos = alunos_para_atestado(matriculas, carga, nivel)
+
+            if not alunos:
+                st.warning("⚠️ Nenhum aluno matriculado nesta turma.")
+                return
 
             pdf_bytes = gerar_atestado_pdf_de_arquivo(
                 alunos=alunos,
