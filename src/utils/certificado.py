@@ -58,7 +58,9 @@ def gerar_certificado_html(
     else:
         imagem_fundo = _FUNDO_DEFAULT
 
-    assinatura_instrutor = _resolver_imagem(instrutor.get("assinatura", ""))
+    assinatura_instrutor = _resolver_imagem(
+        instrutor.get("assinatura") or instrutor.get("assinatura_url") or ""
+    )
     assinatura_resp_url = turma.get("assinatura_resp_url", "")
     assinatura_resp_tecnico = _resolver_imagem(assinatura_resp_url)
 
@@ -101,6 +103,10 @@ def gerar_certificado_html(
         else:
             dizeres += "."
 
+    nivel = (turma.get("nivel") or "").strip() or "Formação"
+    modalidade = (turma.get("modalidade") or "").strip() or "Presencial"
+    carga = (turma.get("carga_horaria") or "").strip() or "8 Horas"
+
     html = template.render(
         IMAGEM_FUNDO=imagem_fundo,
         NOME_ALUNO=aluno.get("name", ""),
@@ -108,9 +114,9 @@ def gerar_certificado_html(
         DATA_NASCIMENTO=data_nasc_fmt,
         EMPRESA=empresa.get("name", "") if empresa else "",
         ENDERECO_EMPRESA=empresa.get("full_address", "") if empresa else "",
-        NIVEL=turma.get("nivel", "Intermediário"),
-        MODALIDADE=turma.get("modalidade", "Presencial"),
-        CARGA_HORARIA=turma.get("carga_horaria", "8 Horas"),
+        NIVEL=nivel,
+        MODALIDADE=modalidade,
+        CARGA_HORARIA=carga,
         NORMATIVA=normativa,
         CIDADE_DATA=cidade_data,
         ASSINATURA_INSTRUTOR=assinatura_instrutor,

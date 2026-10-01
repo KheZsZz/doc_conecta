@@ -65,7 +65,7 @@ def modal_editar_turma(tid: str):
         return 0
 
     modalidades = ["In Company", "Presencial (No CT)", "EAD", "Semipresencial"]
-    niveis = ["Básico", "Intermediário", "Avançado", "Reciclagem", "Formação"]
+    niveis = ["Formação", "Básico", "Intermediário", "Avançado", "Reciclagem"]
 
     with st.form(f"form_editar_turma_{tid}"):
         titulo = st.text_input(
@@ -113,6 +113,9 @@ def modal_editar_turma(tid: str):
             )
 
         st.markdown("#### Especificações do Treinamento")
+        st.caption(
+            "O **Nível** é da **turma** e é o valor impresso nos certificados."
+        )
         col6, col7, col8 = st.columns(3)
         with col6:
             mod_atual = turma.get("modalidade") or modalidades[0]
@@ -122,7 +125,7 @@ def modal_editar_turma(tid: str):
                 index=modalidades.index(mod_atual) if mod_atual in modalidades else 0,
             )
         with col7:
-            nivel_atual = turma.get("nivel") or niveis[0]
+            nivel_atual = turma.get("nivel") or "Formação"
             nivel = st.selectbox(
                 "Nível",
                 niveis,

@@ -22,6 +22,14 @@ def gerar_certificados_individuais(
     curso_data: dict,
     dados_resp: dict,
 ) -> None:
+    nivel = (turma_data.get("nivel") or "").strip() or "Formação"
+    modalidade = (turma_data.get("modalidade") or "").strip() or "Presencial"
+    carga = (turma_data.get("carga_horaria") or "").strip() or "8 Horas"
+
+    st.info(
+        f"ℹ️ Nível / modalidade / carga da **turma**: **{nivel}** | **{modalidade}** | **{carga}**"
+    )
+
     if not st.button(
         "🚀 Processar e Baixar Lote (ZIP)",
         type="primary",
@@ -36,7 +44,6 @@ def gerar_certificados_individuais(
                 turma_data.get("data_treinamento", ""), cidade=cidade
             )
 
-            carga = turma_data.get("carga_horaria", "8 Horas")
             empresa_data = fetch_empresa(client_id)
             instrutor_data = fetch_instrutor(turma_data.get("instrutor_id"))
             matriculas = fetch_matriculas(tid)
@@ -47,8 +54,8 @@ def gerar_certificados_individuais(
                 return
 
             turma_cert = {
-                "modalidade": turma_data.get("modalidade", "Presencial"),
-                "nivel": turma_data.get("nivel", "Básico"),
+                "modalidade": modalidade,
+                "nivel": nivel,
                 "carga_horaria": carga,
                 "resp_tecnico": dados_resp.get("nome", ""),
                 "cpf_resp_tecnico": dados_resp.get("cpf", ""),
@@ -65,7 +72,7 @@ def gerar_certificados_individuais(
                 instrutor=instrutor_data,
                 empresa=empresa_data,
                 ct=None,
-                normativa=turma_data.get("normativa", ""),
+                normativa=turma_data.get("normativa", "") or curso_data.get("normativa", ""),
                 cidade_data=cidade_data,
             )
 

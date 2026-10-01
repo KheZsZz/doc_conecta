@@ -58,7 +58,9 @@ def gerar_certificado_empresa_pdf(
     if not imagem_fundo:
         imagem_fundo = _FUNDO_DEFAULT
 
-    assinatura_instrutor = _resolver_imagem(instrutor.get("assinatura", ""))
+    assinatura_instrutor = _resolver_imagem(
+        instrutor.get("assinatura") or instrutor.get("assinatura_url") or ""
+    )
     cpf_instrutor_fmt = formatar_cpf(instrutor.get("cpf", ""))
 
     resp_tecnico_nome = (turma.get("resp_tecnico") or "").strip()
@@ -73,14 +75,18 @@ def gerar_certificado_empresa_pdf(
     if not dizeres:
         dizeres = "Certificamos que a empresa acima identificada promoveu o treinamento de “Brigada de Incêndio - Prevenção e Combate a Incêndio e Primeiros Socorros”, de acordo com as normas NBR 14277 da ABNT, e IT-17 do Corpo de Bombeiros."
 
+    nivel = (turma.get("nivel") or "").strip() or "Formação"
+    modalidade = (turma.get("modalidade") or "").strip() or "In Company"
+    carga = (turma.get("carga_horaria") or "").strip() or "08 Horas"
+
     html_renderizado = template.render(
         IMAGEM_FUNDO=imagem_fundo,
         EMPRESA=empresa.get("name", ""),
         ENDERECO_EMPRESA=empresa.get("full_address", ""),
         CNPJ_EMPRESA=empresa.get("cnpj", ""),
-        NIVEL=turma.get("nivel", "Intermediário"),
-        MODALIDADE=turma.get("modalidade", "CT"),
-        CARGA_HORARIA=turma.get("carga_horaria", "08 Horas"),
+        NIVEL=nivel,
+        MODALIDADE=modalidade,
+        CARGA_HORARIA=carga,
         NORMATIVA=normativa,
         TOTAL_COLABORADORES=total_colaboradores,
         CIDADE_DATA=cidade_data,
