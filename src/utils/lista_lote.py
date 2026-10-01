@@ -89,16 +89,10 @@ def _normalizar_nome(val) -> str | None:
     if not s:
         return None
 
-    # Remove acentos (NFKD separa letra + marca diacritica)
     s = unicodedata.normalize("NFKD", s)
     s = "".join(ch for ch in s if not unicodedata.combining(ch))
-
     s = s.upper()
-
-    # Mantem apenas letras A-Z e espacos
     s = re.sub(r"[^A-Z\s]", "", s)
-
-    # Colapsa espacos multiplos e faz strip
     s = re.sub(r"\s+", " ", s).strip()
 
     return s or None
@@ -143,8 +137,8 @@ def _buscar_ou_criar_aluno(
     rg: str | None,
     data_nasc: str | None,
     email: str | None,
-    client_id: str | None,
 ) -> str:
+    """Cria ou atualiza aluno. Tabela alunos NAO tem client_id."""
     aluno_id = None
 
     res = supabase.table("alunos").select("id").eq("cpf", cpf).execute()
@@ -164,8 +158,6 @@ def _buscar_ou_criar_aluno(
             payload_upd["data_nasc"] = data_nasc
         if email:
             payload_upd["email"] = email
-        if client_id:
-            payload_upd["client_id"] = client_id
         supabase.table("alunos").update(payload_upd).eq("id", aluno_id).execute()
         return aluno_id
 
@@ -175,7 +167,6 @@ def _buscar_ou_criar_aluno(
         "rg": rg,
         "data_nasc": data_nasc,
         "email": email,
-        "client_id": client_id,
     }
     payload_novo = {k: v for k, v in payload_novo.items() if v is not None}
     ins = supabase.table("alunos").insert(payload_novo).execute()
@@ -270,7 +261,6 @@ def processar_lista_lote(arquivo_bytes: bytes, nome_arquivo: str) -> dict:
                 cache_turmas[turma_id] = t_res.data[0]
 
             turma = cache_turmas[turma_id]
-            client_id = turma.get("client_id")
             carga = turma.get("carga_horaria") or "8 Horas"
             data_trein = data_trein_planilha or (
                 str(turma.get("data_treinamento", ""))[:10] or None
@@ -282,7 +272,6 @@ def processar_lista_lote(arquivo_bytes: bytes, nome_arquivo: str) -> dict:
                 rg=rg,
                 data_nasc=data_nasc,
                 email=email,
-                client_id=client_id,
             )
             alunos_processados += 1
 
