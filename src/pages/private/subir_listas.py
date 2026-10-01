@@ -7,7 +7,7 @@ from src.utils.lista_lote import gerar_template_excel, processar_lista_lote, COL
 st.title("📤 Subir Listas")
 st.markdown(
     "Importe planilhas de alunos em **lote**, vinculadas pelo **ID da turma**. "
-    "Campos opcionais (CPF, RG, NASC, e-mail, data) podem ficar em branco — "
+    "Campos opcionais (RG, NASC, e-mail, data) podem ficar em branco — "
     "a documentação só exibe o que estiver cadastrado."
 )
 
@@ -17,7 +17,15 @@ st.markdown(
 st.subheader("1. Baixe o modelo")
 st.caption(
     "Colunas do modelo: **" + " | ".join(COLUNAS_MODELO) + "**  \n"
-    "Obrigatórios: **ID TURMA** e **NOME**. Os demais são opcionais."
+    "Obrigatórios: **ID TURMA**, **NOME** e **CPF**. Os demais são opcionais."
+)
+
+st.info(
+    """
+**Regras de normalização automática:**
+- **NOME:** maiúsculas, sem acentos (ex.: CONCEIÇÃO → CONCEICAO), sem caracteres especiais, sem espaços extras.
+- **CPF:** somente números; se tiver menos de 11 dígitos, completa com zeros à esquerda.
+"""
 )
 
 st.download_button(

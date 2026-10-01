@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import re
+import unicodedata
 from typing import Any
 
 import pandas as pd
@@ -78,12 +79,49 @@ def _limpar_texto(val) -> str | None:
     return s
 
 
-def _limpar_cpf(val) -> str | None:
+def _normalizar_nome(val) -> str | None:
+    """
+    Nome em MAIUSCULAS, sem acentos, sem caracteres especiais,
+    sem espacos no inicio/fim e com espacos internos colapsados.
+    Ex.: "  José  da  Conceição " -> "JOSE DA CONCEICAO"
+    """
     s = _limpar_texto(val)
     if not s:
         return None
+
+    # Remove acentos (NFKD separa letra + marca diacritica)
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+
+    s = s.upper()
+
+    # Mantem apenas letras A-Z e espacos
+    s = re.sub(r"[^A-Z\s]", "", s)
+
+    # Colapsa espacos multiplos e faz strip
+    s = re.sub(r"\s+", " ", s).strip()
+
+    return s or None
+
+
+def _normalizar_cpf(val) -> str | None:
+    """
+    Apenas digitos, exatamente 11 posicoes.
+    Se tiver menos de 11, preenche com zeros a esquerda.
+    Se tiver mais de 11 digitos apos limpeza, retorna None (invalido).
+    """
+    s = _limpar_texto(val)
+    if not s:
+        return None
+
     digits = re.sub(r"\D", "", s)
-    return digits or None
+    if not digits:
+        return None
+
+    if len(digits) > 11:
+        return None
+
+    return digits.zfill(11)
 
 
 def _parse_data(val) -> str | None:
@@ -101,7 +139,7 @@ def _parse_data(val) -> str | None:
 
 def _buscar_ou_criar_aluno(
     nome: str,
-    cpf: str | None,
+    cpf: str,
     rg: str | None,
     data_nasc: str | None,
     email: str | None,
@@ -109,10 +147,9 @@ def _buscar_ou_criar_aluno(
 ) -> str:
     aluno_id = None
 
-    if cpf:
-        res = supabase.table("alunos").select("id").eq("cpf", cpf).execute()
-        if res and res.data:
-            aluno_id = res.data[0]["id"]
+    res = supabase.table("alunos").select("id").eq("cpf", cpf).execute()
+    if res and res.data:
+        aluno_id = res.data[0]["id"]
 
     if not aluno_id:
         res = supabase.table("alunos").select("id").ilike("name", nome).execute()
@@ -120,9 +157,7 @@ def _buscar_ou_criar_aluno(
             aluno_id = res.data[0]["id"]
 
     if aluno_id:
-        payload_upd: dict[str, Any] = {"name": nome}
-        if cpf:
-            payload_upd["cpf"] = cpf
+        payload_upd: dict[str, Any] = {"name": nome, "cpf": cpf}
         if rg:
             payload_upd["rg"] = rg
         if data_nasc:
@@ -151,8 +186,8 @@ def processar_lista_lote(arquivo_bytes: bytes, nome_arquivo: str) -> dict:
     """
     Le a planilha e matricula alunos em lote por ID TURMA.
 
-    Obrigatorios: ID TURMA, NOME
-    Opcionais: CPF, RG, NASC, DATA TREINAMENTO, EMAIL ALUNO
+    Obrigatorios: ID TURMA, NOME, CPF
+    Opcionais: RG, NASC, DATA TREINAMENTO, EMAIL ALUNO
     """
     try:
         if nome_arquivo.lower().endswith(".csv"):
@@ -170,11 +205,12 @@ def processar_lista_lote(arquivo_bytes: bytes, nome_arquivo: str) -> dict:
 
     df = _normalizar_colunas(df)
 
-    if "ID TURMA" not in df.columns or "NOME" not in df.columns:
+    faltando = [c for c in ("ID TURMA", "NOME", "CPF") if c not in df.columns]
+    if faltando:
         return {
             "sucesso": False,
             "mensagem": (
-                "A planilha precisa das colunas ID TURMA e NOME. "
+                f"A planilha precisa das colunas obrigatorias: {', '.join(faltando)}. "
                 "Baixe o modelo oficial e preencha."
             ),
             "alunos_processados": 0,
@@ -191,14 +227,22 @@ def processar_lista_lote(arquivo_bytes: bytes, nome_arquivo: str) -> dict:
         linha_n = int(idx) + 2
 
         turma_id = _limpar_texto(row.get("ID TURMA"))
-        nome = _limpar_texto(row.get("NOME"))
+        nome = _normalizar_nome(row.get("NOME"))
+        cpf = _normalizar_cpf(row.get("CPF"))
 
-        if not turma_id or not nome:
-            erros.append(f"Linha {linha_n}: ID TURMA e NOME sao obrigatorios.")
+        if not turma_id or not nome or not cpf:
+            partes = []
+            if not turma_id:
+                partes.append("ID TURMA")
+            if not nome:
+                partes.append("NOME")
+            if not cpf:
+                partes.append("CPF (apenas numeros, max 11 digitos)")
+            erros.append(
+                f"Linha {linha_n}: campo(s) obrigatorio(s) invalido(s): {', '.join(partes)}."
+            )
             continue
 
-        nome = nome.upper()
-        cpf = _limpar_cpf(row.get("CPF")) if "CPF" in df.columns else None
         rg = _limpar_texto(row.get("RG")) if "RG" in df.columns else None
         data_nasc = _parse_data(row.get("NASC")) if "NASC" in df.columns else None
         data_trein_planilha = (
