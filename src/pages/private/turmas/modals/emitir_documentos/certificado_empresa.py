@@ -44,7 +44,7 @@ def gerar_certificado_empresa(
 
             turma_cert = {
                 "modalidade": turma_data.get("modalidade", "Presencial"),
-                "nivel": turma_data.get("nivel", "Básico"),
+                "nivel": turma_data.get("nivel", "Formação"),
                 "carga_horaria": carga,
                 "resp_tecnico": dados_resp.get("nome", ""),
                 "cpf_resp_tecnico": dados_resp.get("cpf", ""),
