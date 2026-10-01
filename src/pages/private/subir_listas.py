@@ -70,20 +70,24 @@ with st.expander("🔎 Ver IDs das turmas recentes (para preencher a planilha)")
                     }
                 )
             df_turmas = pd.DataFrame(rows)
-            st.dataframe(df_turmas, use_container_width=True, hide_index=True)
 
+            # Botão Excel PRIMEIRO — evita usar o download CSV nativo do dataframe
             st.download_button(
                 label="📥 Baixar lista de turmas em Excel (.xlsx)",
                 data=gerar_export_turmas_excel(rows),
                 file_name="ids_turmas.xlsx",
                 mime=MIME_XLSX,
+                type="primary",
                 use_container_width=True,
                 key="dl_export_turmas",
             )
             st.caption(
-                "Use o botão acima para baixar em Excel. "
-                "Evite o download automático da tabela (pode vir como CSV)."
+                f"**{len(rows)}** turma(s). Baixe pelo botão acima (arquivo Excel). "
+                "Não use ícones de download da tabela — esses geram CSV."
             )
+
+            # st.table NÃO tem botão de export CSV (diferente do st.dataframe)
+            st.table(df_turmas)
         else:
             st.info("Nenhuma turma cadastrada.")
     except Exception as e:
