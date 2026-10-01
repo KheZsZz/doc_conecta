@@ -35,9 +35,19 @@ ALIASES: dict[str, list[str]] = {
     "EMAIL ALUNO": ["email aluno", "email", "e-mail", "e-mail aluno"],
 }
 
+_MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+def _df_para_excel_bytes(df: pd.DataFrame, sheet_name: str = "Dados") -> bytes:
+    """Gera bytes de arquivo Excel (.xlsx) a partir de um DataFrame."""
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name=sheet_name)
+    return buffer.getvalue()
+
 
 def gerar_template_excel() -> bytes:
-    """Gera o modelo .xlsx para download."""
+    """Gera o modelo de lista de alunos em .xlsx."""
     df = pd.DataFrame(columns=COLUNAS_MODELO)
     df.loc[0] = [
         "uuid-da-turma-aqui",
@@ -48,10 +58,36 @@ def gerar_template_excel() -> bytes:
         "01/10/2026",
         "joao@email.com",
     ]
-    buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Lista")
-    return buffer.getvalue()
+    return _df_para_excel_bytes(df, sheet_name="Lista")
+
+
+def gerar_export_turmas_excel(turmas: list[dict]) -> bytes:
+    """
+    Exporta lista de turmas (ID, titulo, data, empresa) em Excel (.xlsx).
+    Aceita linhas ja montadas ou registros crus do Supabase.
+    """
+    rows = []
+    for t in turmas or []:
+        if "ID TURMA" in t:
+            rows.append(
+                {
+                    "ID TURMA": t.get("ID TURMA"),
+                    "Titulo": t.get("Título") or t.get("Titulo") or "",
+                    "Data": t.get("Data") or "",
+                    "Empresa": t.get("Empresa") or "",
+                }
+            )
+        else:
+            rows.append(
+                {
+                    "ID TURMA": t.get("id"),
+                    "Titulo": t.get("titulo") or "",
+                    "Data": str(t.get("data_treinamento") or "")[:10],
+                    "Empresa": (t.get("clients") or {}).get("name") or "—",
+                }
+            )
+    df = pd.DataFrame(rows, columns=["ID TURMA", "Titulo", "Data", "Empresa"])
+    return _df_para_excel_bytes(df, sheet_name="Turmas")
 
 
 def _normalizar_colunas(df: pd.DataFrame) -> pd.DataFrame:
@@ -80,11 +116,6 @@ def _limpar_texto(val) -> str | None:
 
 
 def _normalizar_nome(val) -> str | None:
-    """
-    Nome em MAIUSCULAS, sem acentos, sem caracteres especiais,
-    sem espacos no inicio/fim e com espacos internos colapsados.
-    Ex.: "  José  da  Conceição " -> "JOSE DA CONCEICAO"
-    """
     s = _limpar_texto(val)
     if not s:
         return None
@@ -99,11 +130,6 @@ def _normalizar_nome(val) -> str | None:
 
 
 def _normalizar_cpf(val) -> str | None:
-    """
-    Apenas digitos, exatamente 11 posicoes.
-    Se tiver menos de 11, preenche com zeros a esquerda.
-    Se tiver mais de 11 digitos apos limpeza, retorna None (invalido).
-    """
     s = _limpar_texto(val)
     if not s:
         return None
@@ -138,7 +164,6 @@ def _buscar_ou_criar_aluno(
     data_nasc: str | None,
     email: str | None,
 ) -> str:
-    """Cria ou atualiza aluno. Tabela alunos NAO tem client_id."""
     aluno_id = None
 
     res = supabase.table("alunos").select("id").eq("cpf", cpf).execute()
@@ -181,9 +206,11 @@ def processar_lista_lote(arquivo_bytes: bytes, nome_arquivo: str) -> dict:
     Opcionais: RG, NASC, DATA TREINAMENTO, EMAIL ALUNO
     """
     try:
-        if nome_arquivo.lower().endswith(".csv"):
+        nome_lower = nome_arquivo.lower()
+        if nome_lower.endswith(".csv"):
             df = pd.read_csv(io.BytesIO(arquivo_bytes), dtype=str)
         else:
+            # .xlsx, .xls, .xlsm
             df = pd.read_excel(io.BytesIO(arquivo_bytes), dtype=str)
     except Exception as e:
         return {

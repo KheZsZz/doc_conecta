@@ -2,7 +2,14 @@ import streamlit as st
 import pandas as pd
 
 from src.config.database import supabase
-from src.utils.lista_lote import gerar_template_excel, processar_lista_lote, COLUNAS_MODELO
+from src.utils.lista_lote import (
+    gerar_template_excel,
+    gerar_export_turmas_excel,
+    processar_lista_lote,
+    COLUNAS_MODELO,
+)
+
+MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 st.title("📤 Subir Listas")
 st.markdown(
@@ -12,7 +19,7 @@ st.markdown(
 )
 
 # ---------------------------------------------------------------------------
-# 1. Modelo para download
+# 1. Modelo para download (Excel)
 # ---------------------------------------------------------------------------
 st.subheader("1. Baixe o modelo")
 st.caption(
@@ -32,14 +39,15 @@ st.download_button(
     label="📥 Baixar modelo Excel (.xlsx)",
     data=gerar_template_excel(),
     file_name="modelo_lista_alunos.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    mime=MIME_XLSX,
     use_container_width=True,
+    key="dl_modelo_lista",
 )
 
 st.markdown("---")
 
 # ---------------------------------------------------------------------------
-# 2. Ajuda: listar IDs de turmas recentes
+# 2. Ajuda: listar IDs de turmas recentes + export Excel
 # ---------------------------------------------------------------------------
 with st.expander("🔎 Ver IDs das turmas recentes (para preencher a planilha)"):
     try:
@@ -47,7 +55,7 @@ with st.expander("🔎 Ver IDs das turmas recentes (para preencher a planilha)")
             supabase.table("turmas")
             .select("id, titulo, data_treinamento, clients(name)")
             .order("data_treinamento", desc=True)
-            .limit(30)
+            .limit(50)
             .execute()
         )
         if res and res.data:
@@ -61,7 +69,21 @@ with st.expander("🔎 Ver IDs das turmas recentes (para preencher a planilha)")
                         "Empresa": (t.get("clients") or {}).get("name", "—"),
                     }
                 )
-            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+            df_turmas = pd.DataFrame(rows)
+            st.dataframe(df_turmas, use_container_width=True, hide_index=True)
+
+            st.download_button(
+                label="📥 Baixar lista de turmas em Excel (.xlsx)",
+                data=gerar_export_turmas_excel(rows),
+                file_name="ids_turmas.xlsx",
+                mime=MIME_XLSX,
+                use_container_width=True,
+                key="dl_export_turmas",
+            )
+            st.caption(
+                "Use o botão acima para baixar em Excel. "
+                "Evite o download automático da tabela (pode vir como CSV)."
+            )
         else:
             st.info("Nenhuma turma cadastrada.")
     except Exception as e:
@@ -75,17 +97,14 @@ st.markdown("---")
 st.subheader("2. Envie a planilha preenchida")
 
 arquivo = st.file_uploader(
-    "Arquivo Excel ou CSV",
-    type=["xlsx", "xls", "csv"],
+    "Arquivo Excel (.xlsx, .xls ou .xlsm)",
+    type=["xlsx", "xls", "xlsm"],
     key="upload_lista_lote",
 )
 
 if arquivo:
     try:
-        if arquivo.name.lower().endswith(".csv"):
-            df_preview = pd.read_csv(arquivo)
-        else:
-            df_preview = pd.read_excel(arquivo)
+        df_preview = pd.read_excel(arquivo)
 
         st.write("📊 Pré-visualização (primeiras linhas):")
         st.dataframe(df_preview.head(10), use_container_width=True)
