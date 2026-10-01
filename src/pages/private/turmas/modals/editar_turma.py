@@ -65,7 +65,7 @@ def modal_editar_turma(tid: str):
         return 0
 
     modalidades = ["In Company", "Presencial (No CT)", "EAD", "Semipresencial"]
-    niveis = ["Básico", "Intermediário", "Avançado", "Reciclagem", "Único"]
+    niveis = ["Básico", "Intermediário", "Avançado", "Reciclagem", "Formação"]
 
     with st.form(f"form_editar_turma_{tid}"):
         titulo = st.text_input(
@@ -148,7 +148,7 @@ def modal_editar_turma(tid: str):
             else:
                 try:
                     carga_final_str = (
-                        f"{carga_horaria_num} Horas" if carga_horaria_num > 1 else "1 Hora"
+                        f"{carga_horaria_num} Horas" if carga_horaria_num > 1 else "8 Hora"
                     )
                     payload = {
                         "titulo": titulo.strip(),
