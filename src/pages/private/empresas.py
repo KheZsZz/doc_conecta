@@ -52,46 +52,74 @@ def modal_editar_empresa(empresa_id, nome_atual, sigla_atual, cnpj_atual, endere
 # ==========================================
 with tab_listar:
     st.subheader("Empresas e Clientes")
+
+    busca = st.text_input(
+        "🔍 Buscar por nome, sigla ou CNPJ",
+        placeholder="Ex: KBPX, 33504169000138...",
+        key="busca_empresa",
+    )
     
     try:
         response = supabase.table("clients").select("*").order("name").execute()
         
         if response and isinstance(response.data, list) and len(response.data) > 0:
-            for emp in response.data:
-                eid = emp.get("id")
-                nome = emp.get("name", "Sem Nome")
-                sigla = emp.get("sigla", "")
-                cnpj = emp.get("cnpj", "")
-                endereco = emp.get("full_address", "")
-                responsavel = emp.get("responsavel", "")
-                phone = emp.get("phone", "")
-                email = emp.get("email", "")
-                
-                sigla_display = f" [{sigla}]" if sigla else ""
-                
-                # --- CARD EM LINHA COMPACTO ---
-                with st.container(border=True):
-                    col_info, col_acoes = st.columns([5, 1])
+            lista = response.data
+            if busca.strip():
+                q = busca.strip().lower()
+                q_digits = "".join(ch for ch in q if ch.isdigit())
+                filtradas = []
+                for emp in lista:
+                    nome = str(emp.get("name") or "").lower()
+                    sigla = str(emp.get("sigla") or "").lower()
+                    cnpj = str(emp.get("cnpj") or "")
+                    cnpj_digits = "".join(ch for ch in cnpj if ch.isdigit())
+                    if (
+                        q in nome
+                        or q in sigla
+                        or q in cnpj.lower()
+                        or (q_digits and q_digits in cnpj_digits)
+                    ):
+                        filtradas.append(emp)
+                lista = filtradas
+
+            if not lista:
+                st.info("Nenhuma empresa encontrada com esse filtro.")
+            else:
+                st.caption(f"Exibindo **{len(lista)}** empresa(s).")
+                for emp in lista:
+                    eid = emp.get("id")
+                    nome = emp.get("name", "Sem Nome")
+                    sigla = emp.get("sigla", "")
+                    cnpj = emp.get("cnpj", "")
+                    endereco = emp.get("full_address", "")
+                    responsavel = emp.get("responsavel", "")
+                    phone = emp.get("phone", "")
+                    email = emp.get("email", "")
                     
-                    with col_info:
-                        st.markdown(f"**{nome}**{sigla_display}")
+                    sigla_display = f" [{sigla}]" if sigla else ""
+                    
+                    with st.container(border=True):
+                        col_info, col_acoes = st.columns([5, 1])
                         
-                        detalhes = []
-                        if cnpj: detalhes.append(f"**CNPJ:** {cnpj}")
-                        if responsavel: detalhes.append(f"**Resp.:** {responsavel}")
-                        if phone: detalhes.append(f"**Tel:** {phone}")
-                        if email: detalhes.append(f"**E-mail:** {email}")
-                        
-                        if detalhes:
-                            st.caption(" | ".join(detalhes))
+                        with col_info:
+                            st.markdown(f"**{nome}**{sigla_display}")
                             
-                        if endereco:
-                            st.caption(f"📍 {endereco}")
-                        
-                    with col_acoes:
-                        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-                        if st.button("✏️", key=f"edit_emp_{eid}", help="Editar informações da empresa", use_container_width=True):
-                            modal_editar_empresa(eid, nome, sigla, cnpj, endereco, responsavel, phone, email)
+                            detalhes = []
+                            if cnpj: detalhes.append(f"**CNPJ:** {cnpj}")
+                            if responsavel: detalhes.append(f"**Resp.:** {responsavel}")
+                            if phone: detalhes.append(f"**Tel:** {phone}")
+                            if email: detalhes.append(f"**E-mail:** {email}")
+                            
+                            if detalhes:
+                                st.caption(" | ".join(detalhes))
+                                
+                            if endereco:
+                                st.caption(f"📍 {endereco}")
+                            
+                        with col_acoes:
+                            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+                            if st.button("✏️", key=f"edit_emp_{eid}", help="Editar informações da empresa", use_container_width=True):
+                                modal_editar_empresa(eid, nome, sigla, cnpj, endereco, responsavel, phone, email)
         else:
             st.info("ℹ️ Nenhuma empresa cadastrada no momento.")
             

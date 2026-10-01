@@ -72,7 +72,6 @@ def modal_editar_instrutor(instrutor_id, nome_atual, cpf_atual, email_atual, pho
                 try:
                     caminho_assinatura_final = assinatura_atual
                     
-                    # Se um novo arquivo foi enviado, faz upload pro bucket e usa a URL pública
                     if arquivo_assinatura is not None:
                         url_nova = fazer_upload_assinatura(arquivo_assinatura, novo_cpf.strip())
                         if url_nova:
@@ -98,49 +97,67 @@ def modal_editar_instrutor(instrutor_id, nome_atual, cpf_atual, email_atual, pho
 # ==========================================
 with tab_listar:
     st.subheader("Equipe de Instrutores")
+
+    busca = st.text_input(
+        "🔍 Buscar por nome",
+        placeholder="Digite o nome do instrutor...",
+        key="busca_instrutor",
+    )
     
     try:
         response = supabase.table("instrutores").select("*").order("name").execute()
         
         if response and isinstance(response.data, list) and len(response.data) > 0:
-            for i in response.data:
-                iid = i.get("id")
-                nome = i.get("name", "Sem Nome")
-                cpf = i.get("cpf", "")
-                email = i.get("email", "")
-                phone = i.get("phone", "")
-                cbo = i.get("cbo", "")
-                assinatura = i.get("assinatura", "")
-                is_active = i.get("is_active", True)
-                
-                status_display = "🟢 **Ativo**" if is_active else "🔴 **Inativo**"
-                cpf_fmt = f"{cpf[:3]}.{cpf[3:6]}.{cpf[6:9]}-{cpf[9:]}" if len(cpf) == 11 else cpf
-                
-                # --- CARD EM LINHA COMPACTO ---
-                with st.container(border=True):
-                    col_info, col_acoes = st.columns([5, 1])
+            lista = response.data
+            if busca.strip():
+                q = busca.strip().lower()
+                lista = [
+                    i for i in lista
+                    if q in str(i.get("name") or "").lower()
+                    or q in str(i.get("cpf") or "").lower()
+                ]
+
+            if not lista:
+                st.info("Nenhum instrutor encontrado com esse filtro.")
+            else:
+                st.caption(f"Exibindo **{len(lista)}** instrutor(es).")
+                for i in lista:
+                    iid = i.get("id")
+                    nome = i.get("name", "Sem Nome")
+                    cpf = i.get("cpf", "")
+                    email = i.get("email", "")
+                    phone = i.get("phone", "")
+                    cbo = i.get("cbo", "")
+                    assinatura = i.get("assinatura", "")
+                    is_active = i.get("is_active", True)
                     
-                    with col_info:
-                        st.markdown(f"**{nome}** — Status: {status_display}")
+                    status_display = "🟢 **Ativo**" if is_active else "🔴 **Inativo**"
+                    cpf_fmt = f"{cpf[:3]}.{cpf[3:6]}.{cpf[6:9]}-{cpf[9:]}" if len(cpf) == 11 else cpf
+                    
+                    with st.container(border=True):
+                        col_info, col_acoes = st.columns([5, 1])
                         
-                        detalhes = []
-                        if cpf: detalhes.append(f"**CPF:** {cpf_fmt}")
-                        if cbo: detalhes.append(f"**CBO:** {cbo}")
-                        if phone: detalhes.append(f"**Tel:** {phone}")
-                        if email: detalhes.append(f"**E-mail:** {email}")
-                        
-                        if detalhes:
-                            st.caption(" | ".join(detalhes))
+                        with col_info:
+                            st.markdown(f"**{nome}** — Status: {status_display}")
                             
-                        if assinatura:
-                            st.caption("✍️ **Assinatura:** cadastrada")
-                        else:
-                            st.caption(f"⚠️ *Sem assinatura cadastrada*")
-                        
-                    with col_acoes:
-                        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-                        if st.button("✏️", key=f"edit_instr_{iid}", help="Editar informações do instrutor", use_container_width=True):
-                            modal_editar_instrutor(iid, nome, cpf, email, phone, cbo, assinatura, is_active)
+                            detalhes = []
+                            if cpf: detalhes.append(f"**CPF:** {cpf_fmt}")
+                            if cbo: detalhes.append(f"**CBO:** {cbo}")
+                            if phone: detalhes.append(f"**Tel:** {phone}")
+                            if email: detalhes.append(f"**E-mail:** {email}")
+                            
+                            if detalhes:
+                                st.caption(" | ".join(detalhes))
+                                
+                            if assinatura:
+                                st.caption("✍️ **Assinatura:** cadastrada")
+                            else:
+                                st.caption(f"⚠️ *Sem assinatura cadastrada*")
+                            
+                        with col_acoes:
+                            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+                            if st.button("✏️", key=f"edit_instr_{iid}", help="Editar informações do instrutor", use_container_width=True):
+                                modal_editar_instrutor(iid, nome, cpf, email, phone, cbo, assinatura, is_active)
         else:
             st.info("ℹ️ Nenhum instrutor cadastrado no momento.")
             

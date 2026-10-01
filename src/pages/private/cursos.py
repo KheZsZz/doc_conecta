@@ -64,37 +64,56 @@ def modal_editar_curso(curso_id, nome_atual, sigla_atual, normativa_atual, dizer
 # ==========================================
 with tab_listar:
     st.subheader("Cursos e Treinamentos Disponíveis")
+
+    busca = st.text_input(
+        "🔍 Buscar por nome ou sigla",
+        placeholder="Ex: CIPA, BRIGADA...",
+        key="busca_curso",
+    )
     
     try:
         response = supabase.table("cursos").select("*").order("name").execute()
         
         if response and isinstance(response.data, list) and len(response.data) > 0:
-            for c in response.data:
-                cid = c.get("id")
-                nome = c.get("name", "Sem Nome")
-                sigla = c.get("sigla", "")
-                normativa = c.get("normativa", "")
-                dizeres_aluno = c.get("dizeres_certificado_aluno", "")
-                dizeres_empresa = c.get("dizeres_certificado_empresa", "")
-                exige_atestado = c.get("exige_atestado", True)
-                
-                sigla_display = f" [{sigla}]" if sigla else ""
-                
-                with st.container(border=True):
-                    col_info, col_acoes = st.columns([5, 1])
+            lista = response.data
+            if busca.strip():
+                q = busca.strip().lower()
+                lista = [
+                    c for c in lista
+                    if q in str(c.get("name") or "").lower()
+                    or q in str(c.get("sigla") or "").lower()
+                ]
+
+            if not lista:
+                st.info("Nenhum curso encontrado com esse filtro.")
+            else:
+                st.caption(f"Exibindo **{len(lista)}** curso(s).")
+                for c in lista:
+                    cid = c.get("id")
+                    nome = c.get("name", "Sem Nome")
+                    sigla = c.get("sigla", "")
+                    normativa = c.get("normativa", "")
+                    dizeres_aluno = c.get("dizeres_certificado_aluno", "")
+                    dizeres_empresa = c.get("dizeres_certificado_empresa", "")
+                    exige_atestado = c.get("exige_atestado", True)
                     
-                    with col_info:
-                        st.markdown(f"**{nome}**{sigla_display}")
-                        tags = []
-                        if normativa: tags.append(f"📜 Normativa: {normativa}")
-                        if not exige_atestado: tags.append("🚫 Sem Atestado")
-                        if tags:
-                            st.caption(" | ".join(tags))
+                    sigla_display = f" [{sigla}]" if sigla else ""
+                    
+                    with st.container(border=True):
+                        col_info, col_acoes = st.columns([5, 1])
                         
-                    with col_acoes:
-                        st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-                        if st.button("✏️", key=f"edit_curso_{cid}", help="Editar curso", use_container_width=True):
-                            modal_editar_curso(cid, nome, sigla, normativa, dizeres_aluno, dizeres_empresa, exige_atestado)
+                        with col_info:
+                            st.markdown(f"**{nome}**{sigla_display}")
+                            tags = []
+                            if normativa: tags.append(f"📜 Normativa: {normativa}")
+                            if not exige_atestado: tags.append("🚫 Sem Atestado")
+                            if tags:
+                                st.caption(" | ".join(tags))
+                            
+                        with col_acoes:
+                            st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
+                            if st.button("✏️", key=f"edit_curso_{cid}", help="Editar curso", use_container_width=True):
+                                modal_editar_curso(cid, nome, sigla, normativa, dizeres_aluno, dizeres_empresa, exige_atestado)
         else:
             st.info("ℹ️ Nenhum curso cadastrado no momento.")
             
