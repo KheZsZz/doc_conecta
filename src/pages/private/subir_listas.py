@@ -1,13 +1,20 @@
+import io
+
 import streamlit as st
 import pandas as pd
 
 from src.config.database import supabase
-from src.utils.lista_lote import (
-    gerar_template_excel,
-    gerar_export_turmas_excel,
-    processar_lista_lote,
-    COLUNAS_MODELO,
-)
+
+try:
+    from src.utils.lista_lote import (
+        gerar_template_excel,
+        gerar_export_turmas_excel,
+        processar_lista_lote,
+        COLUNAS_MODELO,
+    )
+except Exception as e:
+    st.error(f"Erro ao carregar modulo de listas: {type(e).__name__}: {e}")
+    st.stop()
 
 MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
@@ -35,14 +42,21 @@ st.info(
 """
 )
 
-st.download_button(
-    label="📥 Baixar modelo Excel (.xlsx)",
-    data=gerar_template_excel(),
-    file_name="modelo_lista_alunos.xlsx",
-    mime=MIME_XLSX,
-    use_container_width=True,
-    key="dl_modelo_lista",
-)
+try:
+    _bytes_modelo = gerar_template_excel()
+except Exception as e:
+    st.error(f"Não foi possível gerar o modelo Excel: {e}")
+    _bytes_modelo = None
+
+if _bytes_modelo:
+    st.download_button(
+        label="📥 Baixar modelo Excel (.xlsx)",
+        data=_bytes_modelo,
+        file_name="modelo_lista_alunos.xlsx",
+        mime=MIME_XLSX,
+        use_container_width=True,
+        key="dl_modelo_lista",
+    )
 
 st.markdown("---")
 
@@ -71,22 +85,23 @@ with st.expander("🔎 Ver IDs das turmas recentes (para preencher a planilha)")
                 )
             df_turmas = pd.DataFrame(rows)
 
-            # Botão Excel PRIMEIRO — evita usar o download CSV nativo do dataframe
-            st.download_button(
-                label="📥 Baixar lista de turmas em Excel (.xlsx)",
-                data=gerar_export_turmas_excel(rows),
-                file_name="ids_turmas.xlsx",
-                mime=MIME_XLSX,
-                type="primary",
-                use_container_width=True,
-                key="dl_export_turmas",
-            )
-            st.caption(
-                f"**{len(rows)}** turma(s). Baixe pelo botão acima (arquivo Excel). "
-                "Não use ícones de download da tabela — esses geram CSV."
-            )
+            try:
+                bytes_turmas = gerar_export_turmas_excel(rows)
+                st.download_button(
+                    label="📥 Baixar lista de turmas em Excel (.xlsx)",
+                    data=bytes_turmas,
+                    file_name="ids_turmas.xlsx",
+                    mime=MIME_XLSX,
+                    use_container_width=True,
+                    key="dl_export_turmas",
+                )
+            except Exception as e:
+                st.warning(f"Não foi possível gerar o Excel das turmas: {e}")
 
-            # st.table NÃO tem botão de export CSV (diferente do st.dataframe)
+            st.caption(
+                f"**{len(rows)}** turma(s). Use o botão acima para baixar em Excel "
+                "(não use export da tabela — gera CSV)."
+            )
             st.table(df_turmas)
         else:
             st.info("Nenhuma turma cadastrada.")
