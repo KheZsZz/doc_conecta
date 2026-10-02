@@ -79,6 +79,7 @@ def gerar_certificado_html(
         f"{cpf_inst[:3]}.{cpf_inst[3:6]}.{cpf_inst[6:9]}-{cpf_inst[9:]}"
         if len(cpf_inst) == 11 else cpf_inst
     )
+    re_inst = (instrutor.get("re") or "").strip()
 
     data_nasc_raw = aluno.get("data_nasc") or aluno.get("data_nascimento") or aluno.get("birth_date") or ""
     data_nasc_fmt = ""
@@ -94,6 +95,7 @@ def gerar_certificado_html(
         f"{cpf_resp_raw[:3]}.{cpf_resp_raw[3:6]}.{cpf_resp_raw[6:9]}-{cpf_resp_raw[9:]}" 
         if len(cpf_resp_raw) == 11 else cpf_resp_raw
     )
+    re_resp = (turma.get("re_resp_tecnico") or "").strip()
 
     dizeres = turma.get("dizeres_certificado_aluno")
     if not dizeres:
@@ -122,8 +124,10 @@ def gerar_certificado_html(
         ASSINATURA_INSTRUTOR=assinatura_instrutor,
         NOME_INSTRUTOR=instrutor.get("name", ""),
         CPF_INSTRUTOR=cpf_inst_fmt,
+        RE_INSTRUTOR=re_inst,
         RESP_TECNICO=turma.get("resp_tecnico", ""),
         CPF_RESP=cpf_resp_fmt,
+        RE_RESP=re_resp,
         ASSINATURA_RESP_TECNICO=assinatura_resp_tecnico,
         CURSO_NOME=turma.get("curso_nome", ""),
         DIZERES_CERTIFICADO=dizeres

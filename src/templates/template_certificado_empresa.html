@@ -24,7 +24,6 @@
         z-index: 0;
       }
 
-      /* Area de texto — sem as assinaturas (elas ficam absolutas no rodape) */
       .conteudo {
         position: absolute;
         top: 0; left: 0;
@@ -33,7 +32,7 @@
         padding-left: 150px;
         padding-right: 40px;
         padding-top: 148px;
-        padding-bottom: 95px; /* reserva espaco para as assinaturas no rodape */
+        padding-bottom: 95px;
       }
 
       .linha {
@@ -49,43 +48,23 @@
         line-height: 1.5;
         text-align: justify;
       }
-      .texto-certificado p {
-        margin: 0;
-        padding: 0;
-        line-height: 1.5;
-      }
-      .texto-certificado strong {
-        font-size: 11pt;
-        color: #1a2a5e;
-      }
-      .texto-certificado .espaco-dizeres {
-        margin-top: 70px;
-      }
+      .texto-certificado p { margin: 0; padding: 0; line-height: 1.5; }
+      .texto-certificado strong { font-size: 11pt; color: #1a2a5e; }
+      .texto-certificado .espaco-dizeres { margin-top: 70px; }
       .texto-certificado .normativa-extra {
         display: block;
         margin-top: 8px;
         font-style: italic;
       }
 
-      /*
-        Campos em um unico bloco de texto — line-height unico,
-        evita o "buraco" visual entre Modalidade e Carga Horaria.
-      */
       .campos {
         margin-top: 14px;
         font-size: 9.5pt;
         color: #333;
         line-height: 1.45;
       }
-      .campos .linha-campo {
-        margin: 0;
-        padding: 0;
-        line-height: 1.45;
-      }
-      .campos .campo-label {
-        font-weight: bold;
-        color: #1a2a5e;
-      }
+      .campos .linha-campo { margin: 0; padding: 0; line-height: 1.45; }
+      .campos .campo-label { font-weight: bold; color: #1a2a5e; }
 
       .data {
         margin-top: 12px;
@@ -93,10 +72,6 @@
         color: #333;
       }
 
-      /*
-        Assinaturas SEMPRE no rodape da pagina,
-        uma a esquerda e outra a direita da area de conteudo.
-      */
       .assinaturas {
         position: absolute;
         z-index: 2;
@@ -197,6 +172,9 @@
           {% if CPF_INSTRUTOR %}
           <div class="assinatura-doc">CPF: {{ CPF_INSTRUTOR }}</div>
           {% endif %}
+          {% if RE_INSTRUTOR %}
+          <div class="assinatura-doc">RE: {{ RE_INSTRUTOR }}</div>
+          {% endif %}
         </div>
 
         {% if RESP_TECNICO %}
@@ -211,6 +189,9 @@
           <div class="assinatura-cargo">Responsável Técnico</div>
           {% if CPF_RESP %}
           <div class="assinatura-doc">CPF: {{ CPF_RESP }}</div>
+          {% endif %}
+          {% if RE_RESP %}
+          <div class="assinatura-doc">RE: {{ RE_RESP }}</div>
           {% endif %}
         </div>
         {% endif %}

@@ -61,19 +61,10 @@ def gerar_atestado_pdf_de_arquivo(
     ct: dict | None = None,
     curso: dict | None = None,
     cidade_data_formatada: str = "",
-    # aliases legados
     alunos_matriculas: list | None = None,
     dados_turma: dict | None = None,
     caminho_pasta_templates: str = "src/templates",
 ) -> bytes:
-    """
-    Gera o PDF do atestado.
-
-    Modularidade por TURMA:
-    - Coluna RG so aparece se ALGUM aluno da turma tiver RG
-    - Coluna DATA NASC so aparece se ALGUM aluno tiver data_nasc
-    - Coluna DATA TREINAMENTO so aparece se houver mais de uma data distinta
-    """
     alunos_lista = alunos if alunos is not None else (alunos_matriculas or [])
     turma = turma or dados_turma or {}
     empresa = empresa or {}
@@ -83,7 +74,6 @@ def gerar_atestado_pdf_de_arquivo(
     env = Environment(loader=FileSystemLoader(caminho_pasta_templates))
     template = env.get_template("template_atestado_corrigido.html")
 
-    # --- Modularidade por turma ---
     mostrar_coluna_rg = any(_tem_valor(a.get("rg")) for a in alunos_lista)
     mostrar_coluna_nasc = any(_tem_valor(a.get("data_nasc")) for a in alunos_lista)
 
@@ -156,6 +146,8 @@ def gerar_atestado_pdf_de_arquivo(
     normativa = turma.get("normativa") or curso.get("normativa") or ""
     cidade_data = cidade_data_formatada or turma.get("cidade_data") or ""
 
+    re_instrutor = (instrutor.get("re") or "").strip()
+
     html_renderizado = template.render(
         LOGO_CT=ct_logo_resolvida,
         LOGO_CONECTA="https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/logo_conecta.png",
@@ -174,6 +166,7 @@ def gerar_atestado_pdf_de_arquivo(
         ASSINATURA_IMG=assinatura_resolvida,
         NOME_INSTRUTOR=instrutor.get("name") or "",
         DOC_INSTRUTOR=instrutor.get("cpf") or "",
+        RE_INSTRUTOR=re_instrutor,
         mostrar_coluna_rg=mostrar_coluna_rg,
         mostrar_coluna_nasc=mostrar_coluna_nasc,
         mostrar_coluna_data=mostrar_coluna_data,

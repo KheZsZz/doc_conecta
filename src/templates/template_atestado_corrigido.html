@@ -8,11 +8,7 @@
         size: A4 portrait;
         margin: 10mm 10mm 5mm 10mm;
       }
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
       body {
         font-family: "Arial", "Helvetica", sans-serif;
         color: #000000;
@@ -76,9 +72,7 @@
         font-size: 8pt;
         border: 1px solid #000000;
       }
-      thead {
-        display: table-header-group;
-      }
+      thead { display: table-header-group; }
       tr {
         page-break-inside: avoid;
         break-inside: avoid;
@@ -97,12 +91,8 @@
         background-color: #ffffff;
         text-align: center;
       }
-      table.tabela-alunos td {
-        text-align: center;
-      }
-      table.tabela-alunos td:first-child {
-        text-align: left;
-      }
+      table.tabela-alunos td { text-align: center; }
+      table.tabela-alunos td:first-child { text-align: left; }
       .norma {
         text-align: justify;
         font-size: 11pt;
@@ -121,19 +111,15 @@
         page-break-inside: avoid;
         break-inside: avoid;
       }
-      
-      /* =========== TAMANHO IDEAL DA ASSINATURA =========== */
       .assinatura-img {
-        height: 60px;         /* Trava a altura exata da "caixa" */
-        width: 180px;         /* Trava a largura exata da "caixa" */
-        object-fit: contain;  /* Obriga a imagem a caber na caixa sem distorcer/amassar */
+        height: 60px;
+        width: 180px;
+        object-fit: contain;
         margin-bottom: 5px;
         display: block;
         margin-left: auto;
         margin-right: auto;
       }
-      /* =================================================== */
-
       .nome-instrutor {
         font-weight: bold;
         font-size: 11pt;
@@ -223,7 +209,7 @@
               <th><strong>CPF</strong></th>
               {% if mostrar_coluna_nasc %}
               <th><strong>DATA NASC.</strong></th>
-              {% endif %} 
+              {% endif %}
               {% if mostrar_coluna_data %}
               <th><strong>DATA TREINAMENTO</strong></th>
               {% endif %}
@@ -235,21 +221,16 @@
             {% for aluno in pagina %}
             <tr>
               <td>{{ aluno.nome }}</td>
-              
               {% if mostrar_coluna_rg %}
               <td>{{ aluno.rg }}</td>
               {% endif %}
-              
               <td>{{ aluno.cpf }}</td>
-              
               {% if mostrar_coluna_nasc %}
               <td>{{ aluno.data_nasc }}</td>
-              {% endif %} 
-              
+              {% endif %}
               {% if mostrar_coluna_data %}
               <td>{{ aluno.data_matricula }}</td>
               {% endif %}
-              
               <td>{{ aluno.Treinamento }}</td>
               <td>{{ aluno.horas }}</td>
             </tr>
@@ -272,7 +253,12 @@
         {% endif %}
         <div class="nome-instrutor">{{ NOME_INSTRUTOR }}</div>
         <div class="cargo-instrutor">Instrutor/Resp. Técnico.</div>
+        {% if DOC_INSTRUTOR %}
         <div class="doc-instrutor">CPF: {{ DOC_INSTRUTOR }}</div>
+        {% endif %}
+        {% if RE_INSTRUTOR %}
+        <div class="doc-instrutor">RE: {{ RE_INSTRUTOR }}</div>
+        {% endif %}
       </div>
 
       <div class="rodape">

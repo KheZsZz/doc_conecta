@@ -15,21 +15,9 @@
       .linha { width: 100%; height: 1px; background-color: #c8c0a0; margin-bottom: 16px; }
       .texto-certificado { font-size: 10pt; color: #222; line-height: 1.6; margin-bottom: 14px; text-align: justify; }
       .texto-certificado strong { font-size: 11pt; color: #1a2a5e; }
-      .campos {
-        margin-top: 14px;
-        font-size: 9.5pt;
-        color: #333;
-        line-height: 1.45;
-      }
-      .campos .linha-campo {
-        margin: 0;
-        padding: 0;
-        line-height: 1.45;
-      }
-      .campos .campo-label {
-        font-weight: bold;
-        color: #1a2a5e;
-      }
+      .campos { margin-top: 14px; font-size: 9.5pt; color: #333; line-height: 1.45; }
+      .campos .linha-campo { margin: 0; padding: 0; line-height: 1.45; }
+      .campos .campo-label { font-weight: bold; color: #1a2a5e; }
       .data { font-size: 9.5pt; color: #333; margin-bottom: 18px; }
       .assinaturas { display: flex; justify-content: flex-start; gap: 50px; margin-top: auto; }
       .assinatura-bloco { text-align: center; min-width: 160px; }
@@ -45,8 +33,6 @@
       <img class="fundo" src="{{ IMAGEM_FUNDO }}" alt="Fundo Certificado" />
 
       <div class="conteudo">
-        <!-- <div class="subtitulo-treino">Treinamento de {{ CURSO_NOME }}</div> -->
-
         <div class="linha"></div>
 
         <div class="texto-certificado">
@@ -61,10 +47,7 @@
           <p>Endereço: <strong>{{ ENDERECO_EMPRESA }}</strong></p>
           {% endif %}
           <br />
-          
-          <!-- 🚀 Declaração Dinâmica Injetada -->
           <p>{{ DIZERES_CERTIFICADO }}</p>
-          
         </div>
 
         <div class="campos">
@@ -89,6 +72,9 @@
             {% if CPF_INSTRUTOR %}
             <div class="assinatura-doc">CPF: {{ CPF_INSTRUTOR }}</div>
             {% endif %}
+            {% if RE_INSTRUTOR %}
+            <div class="assinatura-doc">RE: {{ RE_INSTRUTOR }}</div>
+            {% endif %}
           </div>
 
           <div class="assinatura-bloco">
@@ -110,6 +96,9 @@
             <div class="assinatura-cargo">Responsável Técnico</div>
             {% if CPF_RESP %}
             <div class="assinatura-doc">CPF: {{ CPF_RESP }}</div>
+            {% endif %}
+            {% if RE_RESP %}
+            <div class="assinatura-doc">RE: {{ RE_RESP }}</div>
             {% endif %}
           </div>
           {% endif %}
