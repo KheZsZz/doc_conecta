@@ -141,6 +141,7 @@ def gerar_documentacao_completa(
                 "carga_horaria": carga,
                 "resp_tecnico": dados_resp.get("nome", ""),
                 "cpf_resp_tecnico": dados_resp.get("cpf", ""),
+                "re_resp_tecnico": dados_resp.get("re", ""),
                 "assinatura_resp_url": dados_resp.get("assinatura_url"),
                 "curso_nome": curso_nome,
                 "dizeres_certificado_empresa": curso_data.get(
@@ -205,7 +206,6 @@ def gerar_documentacao_completa(
                 except Exception as e:
                     erros.append(f"Certificados Individuais: {e}")
 
-                # ---- Carteirinhas ----
                 try:
                     pdf_cart = gerar_carteirinhas_pdf(
                         alunos=alunos_cert,
