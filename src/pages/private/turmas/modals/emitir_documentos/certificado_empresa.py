@@ -55,6 +55,7 @@ def gerar_certificado_empresa(
                 "carga_horaria": carga,
                 "resp_tecnico": dados_resp.get("nome", ""),
                 "cpf_resp_tecnico": dados_resp.get("cpf", ""),
+                "re_resp_tecnico": dados_resp.get("re", ""),
                 "assinatura_resp_url": dados_resp.get("assinatura_url"),
                 "curso_nome": curso_data.get("name", "Treinamento"),
                 "dizeres_certificado_empresa": curso_data.get(
