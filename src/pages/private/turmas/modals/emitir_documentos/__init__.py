@@ -9,6 +9,7 @@ from .certificado_empresa import gerar_certificado_empresa
 from .certificados_individuais import gerar_certificados_individuais
 from .lista_presenca import gerar_lista_presenca
 from .documentacao_completa import gerar_documentacao_completa
+from .carteirinhas import gerar_carteirinhas
 
 
 @st.dialog("📄 Emitir Documentos", width="large")
@@ -26,6 +27,7 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
         "📦 Documentação Completa (tudo em ZIP)",
         "Certificado da Empresa",
         "Certificados Individuais (Alunos)",
+        "🪪 Carteirinhas (Alunos)",
         "Lista de Presença",
     ]
     if exige_atestado:
@@ -69,6 +71,9 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
         gerar_certificados_individuais(
             tid, titulo_turma, client_id, ct_id, turma_data, curso_data, dados_resp
         )
+
+    elif tipo == "🪪 Carteirinhas (Alunos)":
+        gerar_carteirinhas(tid, titulo_turma, client_id, ct_id, turma_data, curso_data)
 
     elif tipo == "Lista de Presença":
         gerar_lista_presenca(tid, titulo_turma)
