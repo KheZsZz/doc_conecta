@@ -5,7 +5,7 @@ import streamlit as st
 from src.config.database import supabase
 
 st.title("👤 Gestão de Usuários")
-st.markdown("Cadastre, liste e pesquise os usuários com acesso ao sistema.")
+st.markdown("Cadastre, liste, edite e remova os usuários com acesso ao sistema.")
 
 tab_listar, tab_cadastrar = st.tabs(["📋 Usuários Cadastrados", "➕ Cadastrar Usuário"])
 
@@ -15,14 +15,10 @@ tab_listar, tab_cadastrar = st.tabs(["📋 Usuários Cadastrados", "➕ Cadastra
 # ==========================================================================
 @st.dialog("✏️ Editar Usuário", width="medium")
 def modal_editar_usuario(usuario_id, nome_atual, email_atual, phone_atual, ativo_atual):
+    st.caption(f"E-mail de login: **{email_atual or '—'}** (não editável)")
+
     with st.form(f"form_edit_usuario_{usuario_id}"):
         novo_nome = st.text_input("Nome Completo*", value=nome_atual or "")
-        novo_email = st.text_input(
-            "E-mail",
-            value=email_atual or "",
-            disabled=True,
-            help="O e-mail de login não pode ser alterado por aqui.",
-        )
         novo_phone = st.text_input("Telefone", value=phone_atual or "")
         novo_ativo = st.checkbox("Usuário ativo", value=bool(ativo_atual))
 
@@ -51,6 +47,60 @@ def modal_editar_usuario(usuario_id, nome_atual, email_atual, phone_atual, ativo
 
 
 # ==========================================================================
+# Modal de remoção
+# ==========================================================================
+@st.dialog("🗑️ Remover Usuário", width="small")
+def modal_remover_usuario(usuario_id, nome, email):
+    st.warning(
+        f"Você está prestes a **remover permanentemente** o usuário:\n\n"
+        f"**{nome}**\n"
+        f"E-mail: `{email or '—'}`"
+    )
+    st.caption(
+        "Isso apaga o registro na tabela de usuários. "
+        "A conta de autenticação (login) pode continuar existindo no Supabase Auth."
+    )
+
+    confirmar = st.checkbox(
+        "Confirmo a exclusão deste usuário",
+        key=f"conf_del_user_{usuario_id}",
+    )
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button(
+            "Cancelar",
+            use_container_width=True,
+            key=f"btn_cancel_del_{usuario_id}",
+        ):
+            st.rerun()
+
+    with col2:
+        if st.button(
+            "🗑️ Remover",
+            type="primary",
+            disabled=not confirmar,
+            use_container_width=True,
+            key=f"btn_confirm_del_{usuario_id}",
+        ):
+            try:
+                # Remove registro da tabela usuarios
+                supabase.table("usuarios").delete().eq("id", usuario_id).execute()
+
+                # Tenta remover do Auth (só funciona com service_role / admin API)
+                try:
+                    if hasattr(supabase.auth, "admin"):
+                        supabase.auth.admin.delete_user(usuario_id)
+                except Exception:
+                    pass  # Auth pode exigir chave de serviço — ignora se falhar
+
+                st.success(f"✅ Usuário **{nome}** removido.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ Erro ao remover: {e}")
+
+
+# ==========================================================================
 # ABA 1 — Listagem + busca
 # ==========================================================================
 with tab_listar:
@@ -63,12 +113,7 @@ with tab_listar:
     )
 
     try:
-        res = (
-            supabase.table("usuarios")
-            .select("*")
-            .order("nome")
-            .execute()
-        )
+        res = supabase.table("usuarios").select("*").order("nome").execute()
 
         if res and isinstance(res.data, list) and len(res.data) > 0:
             lista = res.data
@@ -94,32 +139,43 @@ with tab_listar:
                     email = u.get("email") or "—"
                     phone = u.get("phone") or ""
                     ativo = u.get("is_active", True)
-                    status = "🟢 **Ativo**" if ativo else "🔴 **Inativo**"
+                    status = "🟢 Ativo" if ativo else "🔴 Inativo"
 
                     with st.container(border=True):
-                        col_info, col_acoes = st.columns([5, 1])
+                        col_info, col_edit, col_del = st.columns([4, 1.2, 1.2])
 
                         with col_info:
-                            st.markdown(f"**{nome}** — {status}")
-                            detalhes = [f"**E-mail:** {email}"]
+                            st.markdown(f"**{nome}** · {status}")
+                            detalhes = [f"📧 {email}"]
                             if phone:
-                                detalhes.append(f"**Tel:** {phone}")
-                            st.caption(" | ".join(detalhes))
+                                detalhes.append(f"📞 {phone}")
+                            st.caption(" · ".join(detalhes))
 
-                        with col_acoes:
+                        with col_edit:
                             st.markdown(
-                                "<div style='height: 8px;'></div>",
+                                "<div style='height: 6px;'></div>",
                                 unsafe_allow_html=True,
                             )
                             if st.button(
-                                "✏️",
+                                "✏️ Editar",
                                 key=f"edit_user_{uid}",
-                                help="Editar usuário",
                                 use_container_width=True,
                             ):
                                 modal_editar_usuario(
                                     uid, nome, email, phone, ativo
                                 )
+
+                        with col_del:
+                            st.markdown(
+                                "<div style='height: 6px;'></div>",
+                                unsafe_allow_html=True,
+                            )
+                            if st.button(
+                                "🗑️ Remover",
+                                key=f"del_user_{uid}",
+                                use_container_width=True,
+                            ):
+                                modal_remover_usuario(uid, nome, email)
         else:
             st.info("ℹ️ Nenhum usuário cadastrado ainda.")
 
