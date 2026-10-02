@@ -10,13 +10,19 @@ def ui_selecionar_responsavel(tid: str, tipo_documento: str) -> dict:
         return {
             "nome": "Cristiano Reis",
             "cpf": "214.135.358-01",
+            "re": None,
             "assinatura_url": None,
         }
 
-    opcoes = {
-        f"{r.get('nome', 'Sem Nome')} (CPF: {r.get('cpf', 'N/D')})": r
-        for r in responsaveis
-    }
+    opcoes = {}
+    for r in responsaveis:
+        re_val = (r.get("re") or "").strip()
+        label = f"{r.get('nome', 'Sem Nome')} (CPF: {r.get('cpf', 'N/D')}"
+        if re_val:
+            label += f" | RE: {re_val}"
+        label += ")"
+        opcoes[label] = r
+
     default_idx = next(
         (i for i, r in enumerate(responsaveis) if r.get("is_default")), 0
     )
@@ -27,4 +33,10 @@ def ui_selecionar_responsavel(tid: str, tipo_documento: str) -> dict:
         index=default_idx,
         key=f"sel_resp_{tipo_documento}_{tid}",
     )
-    return opcoes.get(selecionado, {})
+    r = opcoes.get(selecionado, {})
+    return {
+        "nome": r.get("nome") or "",
+        "cpf": r.get("cpf") or "",
+        "re": r.get("re") or "",
+        "assinatura_url": r.get("assinatura_url"),
+    }

@@ -3,77 +3,95 @@ import uuid
 from src.config.database import supabase
 
 st.title("👨‍🏫 Gestão de Instrutores")
-st.markdown("Cadastre os instrutores e gerencie suas informações profissionais, status e assinaturas.")
+st.markdown(
+    "Cadastre os instrutores e gerencie suas informações profissionais, status e assinaturas."
+)
 
-# ==========================================
-# FUNÇÃO AUXILIAR: UPLOAD DA ASSINATURA PRO BUCKET
-# ==========================================
+
 def fazer_upload_assinatura(arquivo_upload, cpf: str):
-    """
-    Faz upload da imagem de assinatura para o bucket público 'assinaturas' do Supabase Storage
-    e retorna a URL pública. Isso garante que a assinatura sobreviva a reinícios/redeploys
-    do app (diferente de salvar em disco local) e que o WeasyPrint consiga carregá-la
-    normalmente ao gerar o PDF (HTML montado como string, sem acesso a caminhos locais).
-    """
     if arquivo_upload is None:
         return None
     try:
-        extensao = arquivo_upload.name.split('.')[-1]
+        extensao = arquivo_upload.name.split(".")[-1]
         nome_arquivo = f"assinatura_{cpf}_{uuid.uuid4().hex}.{extensao}"
-
         file_bytes = arquivo_upload.getvalue()
-
         supabase.storage.from_("assinaturas").upload(
             file=file_bytes,
             path=nome_arquivo,
-            file_options={"content-type": arquivo_upload.type}
+            file_options={"content-type": arquivo_upload.type},
         )
-
-        url_publica = supabase.storage.from_("assinaturas").get_public_url(nome_arquivo)
-        return url_publica
-
+        return supabase.storage.from_("assinaturas").get_public_url(nome_arquivo)
     except Exception as e:
         st.error(f"❌ Erro ao fazer upload da assinatura: {e}")
         return None
 
+
 tab_listar, tab_cadastrar = st.tabs(["📋 Instrutores Cadastrados", "➕ Novo Instrutor"])
 
-# ==========================================
-# 1. MODAL / POPUP DE EDIÇÃO DO INSTRUTOR
-# ==========================================
+
 @st.dialog("✏️ Editar Instrutor", width="medium")
-def modal_editar_instrutor(instrutor_id, nome_atual, cpf_atual, email_atual, phone_atual, cbo_atual, assinatura_atual, ativo_atual):
+def modal_editar_instrutor(
+    instrutor_id,
+    nome_atual,
+    cpf_atual,
+    email_atual,
+    phone_atual,
+    cbo_atual,
+    re_atual,
+    assinatura_atual,
+    ativo_atual,
+):
     with st.form(f"form_edit_instrutor_{instrutor_id}"):
-        novo_nome = st.text_input("Nome Completo (name)*", value=nome_atual)
-        
+        novo_nome = st.text_input("Nome Completo*", value=nome_atual)
+
         col1, col2 = st.columns(2)
         with col1:
-            novo_cpf = st.text_input("CPF (11 dígitos)*", value=cpf_atual if cpf_atual else "", max_chars=11)
-            novo_phone = st.text_input("Telefone (phone)", value=phone_atual if phone_atual else "", max_chars=11)
+            novo_cpf = st.text_input(
+                "CPF (11 dígitos)*",
+                value=cpf_atual if cpf_atual else "",
+                max_chars=11,
+            )
+            novo_phone = st.text_input(
+                "Telefone",
+                value=phone_atual if phone_atual else "",
+                max_chars=11,
+            )
             novo_cbo = st.text_input("CBO", value=cbo_atual if cbo_atual else "")
         with col2:
             novo_email = st.text_input("E-mail", value=email_atual if email_atual else "")
-            
+            novo_re = st.text_input(
+                "RE (Registro)",
+                value=re_atual if re_atual else "",
+                help="Registro profissional. Aparece junto da assinatura nos documentos.",
+            )
+
         st.markdown("---")
         st.write("✍️ **Assinatura do Instrutor**")
         if assinatura_atual:
             st.image(assinatura_atual, width=180, caption="Assinatura atual")
-            
-        arquivo_assinatura = st.file_uploader("Enviar nova imagem de assinatura (PNG/JPG)", type=["png", "jpg", "jpeg"], key=f"up_edit_{instrutor_id}")
-            
-        novo_status = st.checkbox("Instrutor Ativo (is_active)", value=ativo_atual)
-        
-        salvar = st.form_submit_button("💾 Salvar Alterações", type="primary", use_container_width=True)
-        
+
+        arquivo_assinatura = st.file_uploader(
+            "Enviar nova imagem de assinatura (PNG/JPG)",
+            type=["png", "jpg", "jpeg"],
+            key=f"up_edit_{instrutor_id}",
+        )
+
+        novo_status = st.checkbox("Instrutor Ativo", value=ativo_atual)
+
+        salvar = st.form_submit_button(
+            "💾 Salvar Alterações", type="primary", use_container_width=True
+        )
+
         if salvar:
             if not novo_nome.strip() or not novo_cpf.strip():
                 st.warning("⚠️ Nome e CPF são campos obrigatórios.")
             else:
                 try:
                     caminho_assinatura_final = assinatura_atual
-                    
                     if arquivo_assinatura is not None:
-                        url_nova = fazer_upload_assinatura(arquivo_assinatura, novo_cpf.strip())
+                        url_nova = fazer_upload_assinatura(
+                            arquivo_assinatura, novo_cpf.strip()
+                        )
                         if url_nova:
                             caminho_assinatura_final = url_nova
 
@@ -83,18 +101,24 @@ def modal_editar_instrutor(instrutor_id, nome_atual, cpf_atual, email_atual, pho
                         "email": novo_email.strip() if novo_email else None,
                         "phone": novo_phone.strip() if novo_phone else None,
                         "cbo": novo_cbo.strip() if novo_cbo else None,
+                        "re": novo_re.strip() if novo_re else None,
                         "assinatura": caminho_assinatura_final,
-                        "is_active": novo_status
+                        "is_active": novo_status,
                     }
-                    supabase.table("instrutores").update(payload).eq("id", instrutor_id).execute()
+                    supabase.table("instrutores").update(payload).eq(
+                        "id", instrutor_id
+                    ).execute()
                     st.success("✅ Instrutor atualizado com sucesso!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"❌ Erro ao atualizar instrutor: {e}")
+                    if "re" in str(e).lower():
+                        st.info(
+                            "Execute no Supabase:\n"
+                            "`ALTER TABLE instrutores ADD COLUMN IF NOT EXISTS re text;`"
+                        )
 
-# ==========================================
-# ABA 1: LISTAGEM DE INSTRUTORES (EM CARDS)
-# ==========================================
+
 with tab_listar:
     st.subheader("Equipe de Instrutores")
 
@@ -103,18 +127,20 @@ with tab_listar:
         placeholder="Digite o nome do instrutor...",
         key="busca_instrutor",
     )
-    
+
     try:
         response = supabase.table("instrutores").select("*").order("name").execute()
-        
+
         if response and isinstance(response.data, list) and len(response.data) > 0:
             lista = response.data
             if busca.strip():
                 q = busca.strip().lower()
                 lista = [
-                    i for i in lista
+                    i
+                    for i in lista
                     if q in str(i.get("name") or "").lower()
                     or q in str(i.get("cpf") or "").lower()
+                    or q in str(i.get("re") or "").lower()
                 ]
 
             if not lista:
@@ -128,76 +154,112 @@ with tab_listar:
                     email = i.get("email", "")
                     phone = i.get("phone", "")
                     cbo = i.get("cbo", "")
+                    re_val = i.get("re", "") or ""
                     assinatura = i.get("assinatura", "")
                     is_active = i.get("is_active", True)
-                    
+
                     status_display = "🟢 **Ativo**" if is_active else "🔴 **Inativo**"
-                    cpf_fmt = f"{cpf[:3]}.{cpf[3:6]}.{cpf[6:9]}-{cpf[9:]}" if len(cpf) == 11 else cpf
-                    
+                    cpf_fmt = (
+                        f"{cpf[:3]}.{cpf[3:6]}.{cpf[6:9]}-{cpf[9:]}"
+                        if len(cpf) == 11
+                        else cpf
+                    )
+
                     with st.container(border=True):
                         col_info, col_acoes = st.columns([5, 1])
-                        
+
                         with col_info:
                             st.markdown(f"**{nome}** — Status: {status_display}")
-                            
+
                             detalhes = []
-                            if cpf: detalhes.append(f"**CPF:** {cpf_fmt}")
-                            if cbo: detalhes.append(f"**CBO:** {cbo}")
-                            if phone: detalhes.append(f"**Tel:** {phone}")
-                            if email: detalhes.append(f"**E-mail:** {email}")
-                            
+                            if cpf:
+                                detalhes.append(f"**CPF:** {cpf_fmt}")
+                            if re_val:
+                                detalhes.append(f"**RE:** {re_val}")
+                            if cbo:
+                                detalhes.append(f"**CBO:** {cbo}")
+                            if phone:
+                                detalhes.append(f"**Tel:** {phone}")
+                            if email:
+                                detalhes.append(f"**E-mail:** {email}")
+
                             if detalhes:
                                 st.caption(" | ".join(detalhes))
-                                
+
                             if assinatura:
                                 st.caption("✍️ **Assinatura:** cadastrada")
                             else:
-                                st.caption(f"⚠️ *Sem assinatura cadastrada*")
-                            
+                                st.caption("⚠️ *Sem assinatura cadastrada*")
+
                         with col_acoes:
-                            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-                            if st.button("✏️", key=f"edit_instr_{iid}", help="Editar informações do instrutor", use_container_width=True):
-                                modal_editar_instrutor(iid, nome, cpf, email, phone, cbo, assinatura, is_active)
+                            st.markdown(
+                                "<div style='height: 10px;'></div>",
+                                unsafe_allow_html=True,
+                            )
+                            if st.button(
+                                "✏️",
+                                key=f"edit_instr_{iid}",
+                                help="Editar",
+                                use_container_width=True,
+                            ):
+                                modal_editar_instrutor(
+                                    iid,
+                                    nome,
+                                    cpf,
+                                    email,
+                                    phone,
+                                    cbo,
+                                    re_val,
+                                    assinatura,
+                                    is_active,
+                                )
         else:
             st.info("ℹ️ Nenhum instrutor cadastrado no momento.")
-            
+
     except Exception as e:
         st.error(f"Erro ao carregar instrutores: {e}")
 
-# ==========================================
-# ABA 2: CADASTRO DE NOVO INSTRUTOR
-# ==========================================
+
 with tab_cadastrar:
     st.subheader("Cadastrar Novo Instrutor")
-    
+
     with st.form("form_novo_instrutor", clear_on_submit=True):
-        nome_instrutor = st.text_input("Nome Completo (name)*")
-        
+        nome_instrutor = st.text_input("Nome Completo*")
+
         col1, col2 = st.columns(2)
         with col1:
             cpf_instrutor = st.text_input("CPF (11 dígitos)*", max_chars=11)
-            phone_instrutor = st.text_input("Telefone (phone)", max_chars=11)
+            phone_instrutor = st.text_input("Telefone", max_chars=11)
             cbo_instrutor = st.text_input("CBO")
         with col2:
             email_instrutor = st.text_input("E-mail")
-            
+            re_instrutor = st.text_input(
+                "RE (Registro)",
+                help="Registro profissional. Aparece junto da assinatura nos documentos.",
+            )
+
         st.markdown("---")
         st.write("✍️ **Assinatura do Instrutor**")
-        arquivo_assinatura_novo = st.file_uploader("Enviar imagem de assinatura (PNG/JPG)", type=["png", "jpg", "jpeg"], key="up_novo_instr")
-            
-        status_instrutor = st.checkbox("Tornar instrutor ativo imediatamente (is_active)", value=True)
-        
+        arquivo_assinatura_novo = st.file_uploader(
+            "Enviar imagem de assinatura (PNG/JPG)",
+            type=["png", "jpg", "jpeg"],
+            key="up_novo_instr",
+        )
+
+        status_instrutor = st.checkbox("Tornar instrutor ativo imediatamente", value=True)
+
         submit_btn = st.form_submit_button("Criar Instrutor", type="primary")
-        
+
         if submit_btn:
             if not nome_instrutor.strip() or not cpf_instrutor.strip():
                 st.warning("⚠️ Nome e CPF são campos obrigatórios.")
             else:
                 try:
                     url_assinatura_salva = None
-                    
                     if arquivo_assinatura_novo is not None:
-                        url_assinatura_salva = fazer_upload_assinatura(arquivo_assinatura_novo, cpf_instrutor.strip())
+                        url_assinatura_salva = fazer_upload_assinatura(
+                            arquivo_assinatura_novo, cpf_instrutor.strip()
+                        )
 
                     novo_payload = {
                         "name": nome_instrutor.strip(),
@@ -205,8 +267,9 @@ with tab_cadastrar:
                         "email": email_instrutor.strip() if email_instrutor else None,
                         "phone": phone_instrutor.strip() if phone_instrutor else None,
                         "cbo": cbo_instrutor.strip() if cbo_instrutor else None,
+                        "re": re_instrutor.strip() if re_instrutor else None,
                         "assinatura": url_assinatura_salva,
-                        "is_active": status_instrutor
+                        "is_active": status_instrutor,
                     }
                     supabase.table("instrutores").insert(novo_payload).execute()
                     st.success(f"✅ Instrutor '{nome_instrutor}' criado com sucesso!")
@@ -214,3 +277,8 @@ with tab_cadastrar:
                     st.rerun()
                 except Exception as e:
                     st.error(f"❌ Erro ao criar instrutor: {e}")
+                    if "re" in str(e).lower():
+                        st.info(
+                            "Execute no Supabase:\n"
+                            "`ALTER TABLE instrutores ADD COLUMN IF NOT EXISTS re text;`"
+                        )
