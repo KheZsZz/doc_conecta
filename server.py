@@ -20,7 +20,7 @@ pagina_atual = query_params.get("page")
 
 # Páginas
 login_page = st.Page("src/pages/public/login.py", title="Login", icon="🔑")
-signup_page = st.Page("src/pages/private/signup.py", title="Cadastro Admin", icon="📝")
+signup_page = st.Page("src/pages/private/signup.py", title="Cadastrar Usuário", icon="👤")
 checkin_page = st.Page("src/pages/public/cadastro_aluno.py", title="Check-in Aluno", icon="📱")
 
 home_page = st.Page("src/pages/private/home.py", title="Home", icon="🏠", default=True)
@@ -43,8 +43,8 @@ else:
     pg = st.navigation({
         "Principal": [home_page],
         "Operacional": [clients_page, cursos_page, turmas_page, instrutores_page, cts_page, responsaveis_page],
-        "cadastro": [signup_page, alunos_page, subir_listas_page],
-        "especificos": [mc_page]
+        "Cadastro": [signup_page, alunos_page, subir_listas_page],
+        "Específicos": [mc_page]
     })
     
     with st.sidebar:
