@@ -1,6 +1,6 @@
 import streamlit as st
 
-from src.config.database import supabase
+from src.auth.local_auth import atualizar_senha, autenticar
 from src.auth.permissions import ROLE_LABELS, role_atual
 
 st.title("⚙️ Configurações")
@@ -8,8 +8,9 @@ st.markdown("Ajustes da sua conta e preferências do sistema.")
 
 usuario = st.session_state.get("user")
 email_logado = getattr(usuario, "email", None) if usuario else None
+uid = getattr(usuario, "id", None) if usuario else None
 
-if not email_logado:
+if not email_logado or not uid:
     st.warning("Sessão inválida. Faça login novamente.")
     st.stop()
 
@@ -26,16 +27,12 @@ st.info(
 
 st.markdown("---")
 st.subheader("🔑 Alterar minha senha")
-st.caption(
-    "Informe a senha atual e a nova senha. Após salvar, use a nova senha no próximo login."
-)
+st.caption("A senha fica na tabela de usuários (login local).")
 
 with st.form("form_alterar_senha", clear_on_submit=True):
     senha_atual = st.text_input("Senha atual*", type="password")
     nova_senha = st.text_input(
-        "Nova senha*",
-        type="password",
-        help="Mínimo de 6 caracteres.",
+        "Nova senha*", type="password", help="Mínimo de 6 caracteres."
     )
     confirmar = st.text_input("Confirmar nova senha*", type="password")
 
@@ -53,29 +50,22 @@ with st.form("form_alterar_senha", clear_on_submit=True):
         elif nova_senha == senha_atual:
             st.warning("⚠️ A nova senha deve ser diferente da atual.")
         else:
-            try:
-                supabase.auth.sign_in_with_password(
-                    {"email": email_logado, "password": senha_atual}
-                )
-                supabase.auth.update_user({"password": nova_senha})
-                st.success("✅ Senha alterada com sucesso!")
-                st.caption("No próximo login, use a nova senha.")
-            except Exception as e:
-                msg = str(e).lower()
-                if "invalid" in msg or "credentials" in msg or "password" in msg:
-                    st.error("❌ Senha atual incorreta.")
+            # Confere senha atual via auth local
+            _, _, erro = autenticar(email_logado, senha_atual)
+            if erro:
+                st.error("❌ Senha atual incorreta.")
+            else:
+                ok, msg = atualizar_senha(str(uid), nova_senha)
+                if ok:
+                    st.success("✅ Senha alterada com sucesso!")
                 else:
-                    st.error(f"❌ Não foi possível alterar a senha: {e}")
+                    st.error(f"❌ {msg}")
 
 st.markdown("---")
 st.subheader("🚪 Sair do sistema")
 st.caption("Encerra a sessão atual e volta para a tela de login.")
 
 if st.button("🚪 Logout", type="primary", use_container_width=True):
-    try:
-        supabase.auth.sign_out()
-    except Exception:
-        pass
     st.session_state.user = None
     st.session_state.perfil = None
     st.session_state.role = None

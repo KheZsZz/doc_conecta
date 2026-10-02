@@ -3,9 +3,8 @@ from datetime import datetime
 import streamlit as st
 
 from src.config.database import supabase
+from src.auth.local_auth import atualizar_senha, criar_usuario
 from src.auth.permissions import (
-    ROLE_ADMIN,
-    ROLE_CONSULTA,
     ROLE_HELP,
     ROLE_LABELS,
     ROLE_OPERACIONAL,
@@ -18,9 +17,11 @@ from src.auth.permissions import (
 exigir_permissao("usuarios")
 
 st.title("👤 Gestão de Usuários")
-st.markdown("Cadastre, liste, edite e defina o **perfil de acesso** de cada usuário.")
+st.markdown(
+    "Cadastre, liste, edite e defina o **perfil de acesso** de cada usuário. "
+    "O login **não depende** do Auth do Supabase (sem confirmação de e-mail)."
+)
 
-# Explicação dos papéis
 with st.expander("ℹ️ O que cada perfil pode fazer", expanded=False):
     for r in ROLES:
         st.markdown(f"- **{ROLE_LABELS[r]}** (`{r}`): {ROLE_HELP[r]}")
@@ -39,10 +40,6 @@ def _label_para_role(label: str) -> str:
     return ROLE_OPERACIONAL
 
 
-def _role_para_label(role: str | None) -> str:
-    return ROLE_LABELS.get(normalizar_role(role), ROLE_LABELS[ROLE_OPERACIONAL])
-
-
 # ==========================================================================
 # Modal de edição
 # ==========================================================================
@@ -50,7 +47,7 @@ def _role_para_label(role: str | None) -> str:
 def modal_editar_usuario(
     usuario_id, nome_atual, email_atual, phone_atual, ativo_atual, role_atual_user
 ):
-    st.caption(f"E-mail de login: **{email_atual or '—'}** (não editável)")
+    st.caption(f"E-mail de login: **{email_atual or '—'}**")
 
     with st.form(f"form_edit_usuario_{usuario_id}"):
         novo_nome = st.text_input("Nome Completo*", value=nome_atual or "")
@@ -63,9 +60,13 @@ def modal_editar_usuario(
             "Perfil de acesso*",
             options=_opcoes_role(),
             index=idx,
-            help="Define o que este usuário pode ver e fazer no sistema.",
         )
         st.caption(ROLE_HELP.get(_label_para_role(novo_role_label), ""))
+
+        st.markdown("---")
+        st.caption("Deixe em branco para **manter** a senha atual.")
+        nova_senha = st.text_input("Nova senha (opcional)", type="password")
+        conf_senha = st.text_input("Confirmar nova senha", type="password")
 
         salvar = st.form_submit_button(
             "💾 Salvar Alterações", type="primary", use_container_width=True
@@ -74,6 +75,10 @@ def modal_editar_usuario(
         if salvar:
             if not novo_nome.strip():
                 st.warning("⚠️ O nome é obrigatório.")
+            elif nova_senha and len(nova_senha) < 6:
+                st.warning("⚠️ A nova senha deve ter no mínimo 6 caracteres.")
+            elif nova_senha and nova_senha != conf_senha:
+                st.warning("⚠️ Confirmação de senha não confere.")
             else:
                 try:
                     payload = {
@@ -86,15 +91,21 @@ def modal_editar_usuario(
                     supabase.table("usuarios").update(payload).eq(
                         "id", usuario_id
                     ).execute()
+
+                    if nova_senha:
+                        ok, msg = atualizar_senha(usuario_id, nova_senha)
+                        if not ok:
+                            st.error(f"Dados salvos, mas senha falhou: {msg}")
+                            return
+
                     st.success("✅ Usuário atualizado com sucesso!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"❌ Erro ao atualizar: {e}")
-                    st.info(
-                        "Se o erro mencionar a coluna **role**, execute no Supabase:\n\n"
-                        "```sql\n"
+                    st.code(
                         "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS role text DEFAULT 'operacional';\n"
-                        "```"
+                        "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS password_hash text;",
+                        language="sql",
                     )
 
 
@@ -104,13 +115,7 @@ def modal_editar_usuario(
 @st.dialog("🗑️ Remover Usuário", width="small")
 def modal_remover_usuario(usuario_id, nome, email):
     st.warning(
-        f"Você está prestes a **remover permanentemente** o usuário:\n\n"
-        f"**{nome}**\n"
-        f"E-mail: `{email or '—'}`"
-    )
-    st.caption(
-        "Isso apaga o registro na tabela de usuários. "
-        "A conta de autenticação (login) pode continuar existindo no Supabase Auth."
+        f"Remover permanentemente:\n\n**{nome}**\n`{email or '—'}`"
     )
 
     confirmar = st.checkbox(
@@ -120,13 +125,8 @@ def modal_remover_usuario(usuario_id, nome, email):
 
     col1, col2 = st.columns(2)
     with col1:
-        if st.button(
-            "Cancelar",
-            use_container_width=True,
-            key=f"btn_cancel_del_{usuario_id}",
-        ):
+        if st.button("Cancelar", use_container_width=True, key=f"btn_cancel_del_{usuario_id}"):
             st.rerun()
-
     with col2:
         if st.button(
             "🗑️ Remover",
@@ -137,11 +137,6 @@ def modal_remover_usuario(usuario_id, nome, email):
         ):
             try:
                 supabase.table("usuarios").delete().eq("id", usuario_id).execute()
-                try:
-                    if hasattr(supabase.auth, "admin"):
-                        supabase.auth.admin.delete_user(usuario_id)
-                except Exception:
-                    pass
                 st.success(f"✅ Usuário **{nome}** removido.")
                 st.rerun()
             except Exception as e:
@@ -149,7 +144,7 @@ def modal_remover_usuario(usuario_id, nome, email):
 
 
 # ==========================================================================
-# ABA 1 — Listagem + busca
+# ABA 1 — Listagem
 # ==========================================================================
 with tab_listar:
     st.subheader("Usuários do sistema")
@@ -189,15 +184,17 @@ with tab_listar:
                     phone = u.get("phone") or ""
                     ativo = u.get("is_active", True)
                     role_u = normalizar_role(u.get("role"))
+                    tem_senha = bool(u.get("password_hash"))
                     status = "🟢 Ativo" if ativo else "🔴 Inativo"
                     role_badge = ROLE_LABELS.get(role_u, role_u)
+                    senha_flag = "🔑 OK" if tem_senha else "⚠️ Sem senha local"
 
                     with st.container(border=True):
                         col_info, col_edit, col_del = st.columns([4, 1.2, 1.2])
 
                         with col_info:
                             st.markdown(
-                                f"**{nome}** · {status} · 🏷️ **{role_badge}**"
+                                f"**{nome}** · {status} · 🏷️ **{role_badge}** · {senha_flag}"
                             )
                             detalhes = [f"📧 {email}"]
                             if phone:
@@ -246,7 +243,8 @@ with tab_cadastrar:
 
     st.subheader("Cadastrar Usuário")
     st.caption(
-        "Cria a conta de acesso (login) e o registro na tabela de usuários."
+        "Cria o usuário na tabela local. Ele já consegue logar na hora, "
+        "sem e-mail de confirmação."
     )
 
     with st.form("form_cadastro_usuario", clear_on_submit=True):
@@ -257,17 +255,12 @@ with tab_cadastrar:
         role_label = st.selectbox(
             "Perfil de acesso*",
             options=_opcoes_role(),
-            index=1,  # operacional por padrão
-            help="Define o que este usuário poderá fazer no sistema.",
+            index=1,
         )
         st.caption(ROLE_HELP.get(_label_para_role(role_label), ""))
 
         st.markdown("---")
-        senha = st.text_input(
-            "Senha*",
-            type="password",
-            help="A senha deve ter no mínimo 6 caracteres.",
-        )
+        senha = st.text_input("Senha*", type="password", help="Mínimo 6 caracteres.")
         confirmar_senha = st.text_input("Confirmar Senha*", type="password")
 
         submit = st.form_submit_button(
@@ -282,50 +275,24 @@ with tab_cadastrar:
             elif len(senha) < 6:
                 st.warning("⚠️ A senha deve ter no mínimo 6 caracteres.")
             else:
-                try:
-                    response = supabase.auth.sign_up(
-                        {"email": email.strip(), "password": senha}
+                registro, erro = criar_usuario(
+                    nome=nome,
+                    email=email,
+                    senha=senha,
+                    phone=phone,
+                    role=_label_para_role(role_label),
+                )
+                if erro:
+                    st.error(f"❌ {erro}")
+                    if "ALTER TABLE" in erro:
+                        st.code(
+                            "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS role text DEFAULT 'operacional';\n"
+                            "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS password_hash text;",
+                            language="sql",
+                        )
+                else:
+                    st.success(
+                        f"✅ Usuário **{nome}** cadastrado como **{role_label}**. "
+                        f"Já pode fazer login com **{email.strip().lower()}**."
                     )
-
-                    if response.user:
-                        dados_usuario = {
-                            "id": response.user.id,
-                            "nome": nome.strip(),
-                            "email": email.strip(),
-                            "phone": phone.strip() if phone else None,
-                            "is_active": True,
-                            "role": _label_para_role(role_label),
-                            "updated_at": datetime.now().isoformat(),
-                        }
-                        try:
-                            supabase.table("usuarios").insert(dados_usuario).execute()
-                        except Exception as insert_err:
-                            # Fallback se a coluna role ainda não existir
-                            if "role" in str(insert_err).lower():
-                                dados_usuario.pop("role", None)
-                                supabase.table("usuarios").insert(
-                                    dados_usuario
-                                ).execute()
-                                st.warning(
-                                    "Usuário criado, mas a coluna **role** ainda não existe no banco. "
-                                    "Execute o SQL indicado abaixo."
-                                )
-                                st.code(
-                                    "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS role text DEFAULT 'operacional';",
-                                    language="sql",
-                                )
-                            else:
-                                raise
-
-                        st.success(
-                            f"✅ Usuário **{nome}** cadastrado como "
-                            f"**{role_label}**!"
-                        )
-                        st.balloons()
-                    else:
-                        st.error(
-                            "Erro desconhecido ao criar usuário. Tente novamente."
-                        )
-
-                except Exception as e:
-                    st.error(f"❌ Erro ao criar conta: {e}")
+                    st.balloons()

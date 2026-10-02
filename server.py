@@ -10,7 +10,6 @@ from src.auth.permissions import (
     tem_permissao,
 )
 
-# Adiciona a raiz do projeto ao path do Python
 root_dir = Path(__file__).resolve().parent
 if str(root_dir) not in sys.path:
     sys.path.append(str(root_dir))
@@ -29,7 +28,6 @@ if "role" not in st.session_state:
 query_params = st.query_params
 pagina_atual = query_params.get("page")
 
-# Páginas
 login_page = st.Page("src/pages/public/login.py", title="Login", icon="🔑")
 checkin_page = st.Page(
     "src/pages/public/cadastro_aluno.py", title="Check-in Aluno", icon="📱"
@@ -58,7 +56,6 @@ subir_listas_page = st.Page(
 mc_page = st.Page("src/pages/private/mcDonalds.py", title="mcDonalds", icon="💻")
 configs_page = st.Page("src/pages/private/configs.py", title="Configs", icon="⚙️")
 
-# Mapa pagina_key -> st.Page
 PAGINAS = {
     "home": home_page,
     "empresas": clients_page,
@@ -74,7 +71,6 @@ PAGINAS = {
     "configs": configs_page,
 }
 
-# Agrupamento do menu (ordem de exibição)
 GRUPOS = {
     "Principal": ["home"],
     "Operacional": [
@@ -97,19 +93,17 @@ def montar_navegacao_por_permissao() -> dict:
         paginas = [PAGINAS[k] for k in chaves if tem_permissao(k) and k in PAGINAS]
         if paginas:
             nav[grupo] = paginas
-    # Garante pelo menos Home se algo der errado
     if not nav:
         nav = {"Principal": [home_page], "Configs": [configs_page]}
     return nav
 
 
-# Roteamento
 if pagina_atual == "checkin":
     pg = st.navigation([checkin_page])
 elif st.session_state.user is None:
     pg = st.navigation({"Acesso": [login_page]})
 else:
-    # Garante perfil/role na sessão (ex.: reload da página)
+    # Se tem user mas não tem perfil/role, recarrega do banco
     if not st.session_state.get("role"):
         sincronizar_perfil_sessao(st.session_state.user)
 
@@ -122,10 +116,6 @@ else:
         st.write(f"👤 {email}")
         st.caption(f"Perfil: **{label}**")
         if st.button("Sair"):
-            try:
-                supabase.auth.sign_out()
-            except Exception:
-                pass
             st.session_state.user = None
             st.session_state.perfil = None
             st.session_state.role = None
