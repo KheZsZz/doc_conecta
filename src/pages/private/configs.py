@@ -1,6 +1,7 @@
 import streamlit as st
 
 from src.config.database import supabase
+from src.auth.permissions import ROLE_LABELS, role_atual
 
 st.title("⚙️ Configurações")
 st.markdown("Ajustes da sua conta e preferências do sistema.")
@@ -12,7 +13,16 @@ if not email_logado:
     st.warning("Sessão inválida. Faça login novamente.")
     st.stop()
 
-st.info(f"Conta logada: **{email_logado}**")
+perfil = st.session_state.get("perfil") or {}
+role = role_atual()
+label = ROLE_LABELS.get(role, role)
+nome = perfil.get("nome") or "—"
+
+st.info(
+    f"**Conta:** {email_logado}  \n"
+    f"**Nome:** {nome}  \n"
+    f"**Perfil:** {label}"
+)
 
 st.markdown("---")
 st.subheader("🔑 Alterar minha senha")
@@ -44,17 +54,12 @@ with st.form("form_alterar_senha", clear_on_submit=True):
             st.warning("⚠️ A nova senha deve ser diferente da atual.")
         else:
             try:
-                # Confirma a senha atual reautenticando
                 supabase.auth.sign_in_with_password(
                     {"email": email_logado, "password": senha_atual}
                 )
-
-                # Atualiza a senha da sessão atual
                 supabase.auth.update_user({"password": nova_senha})
-
                 st.success("✅ Senha alterada com sucesso!")
                 st.caption("No próximo login, use a nova senha.")
-
             except Exception as e:
                 msg = str(e).lower()
                 if "invalid" in msg or "credentials" in msg or "password" in msg:
@@ -72,4 +77,6 @@ if st.button("🚪 Logout", type="primary", use_container_width=True):
     except Exception:
         pass
     st.session_state.user = None
+    st.session_state.perfil = None
+    st.session_state.role = None
     st.rerun()

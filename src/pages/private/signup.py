@@ -3,24 +3,69 @@ from datetime import datetime
 import streamlit as st
 
 from src.config.database import supabase
+from src.auth.permissions import (
+    ROLE_ADMIN,
+    ROLE_CONSULTA,
+    ROLE_HELP,
+    ROLE_LABELS,
+    ROLE_OPERACIONAL,
+    ROLES,
+    exigir_permissao,
+    is_admin,
+    normalizar_role,
+)
+
+exigir_permissao("usuarios")
 
 st.title("👤 Gestão de Usuários")
-st.markdown("Cadastre, liste, edite e remova os usuários com acesso ao sistema.")
+st.markdown("Cadastre, liste, edite e defina o **perfil de acesso** de cada usuário.")
+
+# Explicação dos papéis
+with st.expander("ℹ️ O que cada perfil pode fazer", expanded=False):
+    for r in ROLES:
+        st.markdown(f"- **{ROLE_LABELS[r]}** (`{r}`): {ROLE_HELP[r]}")
 
 tab_listar, tab_cadastrar = st.tabs(["📋 Usuários Cadastrados", "➕ Cadastrar Usuário"])
+
+
+def _opcoes_role() -> list[str]:
+    return [ROLE_LABELS[r] for r in ROLES]
+
+
+def _label_para_role(label: str) -> str:
+    for r, lab in ROLE_LABELS.items():
+        if lab == label:
+            return r
+    return ROLE_OPERACIONAL
+
+
+def _role_para_label(role: str | None) -> str:
+    return ROLE_LABELS.get(normalizar_role(role), ROLE_LABELS[ROLE_OPERACIONAL])
 
 
 # ==========================================================================
 # Modal de edição
 # ==========================================================================
 @st.dialog("✏️ Editar Usuário", width="medium")
-def modal_editar_usuario(usuario_id, nome_atual, email_atual, phone_atual, ativo_atual):
+def modal_editar_usuario(
+    usuario_id, nome_atual, email_atual, phone_atual, ativo_atual, role_atual_user
+):
     st.caption(f"E-mail de login: **{email_atual or '—'}** (não editável)")
 
     with st.form(f"form_edit_usuario_{usuario_id}"):
         novo_nome = st.text_input("Nome Completo*", value=nome_atual or "")
         novo_phone = st.text_input("Telefone", value=phone_atual or "")
         novo_ativo = st.checkbox("Usuário ativo", value=bool(ativo_atual))
+
+        role_norm = normalizar_role(role_atual_user)
+        idx = ROLES.index(role_norm) if role_norm in ROLES else 1
+        novo_role_label = st.selectbox(
+            "Perfil de acesso*",
+            options=_opcoes_role(),
+            index=idx,
+            help="Define o que este usuário pode ver e fazer no sistema.",
+        )
+        st.caption(ROLE_HELP.get(_label_para_role(novo_role_label), ""))
 
         salvar = st.form_submit_button(
             "💾 Salvar Alterações", type="primary", use_container_width=True
@@ -35,6 +80,7 @@ def modal_editar_usuario(usuario_id, nome_atual, email_atual, phone_atual, ativo
                         "nome": novo_nome.strip(),
                         "phone": novo_phone.strip() if novo_phone else None,
                         "is_active": novo_ativo,
+                        "role": _label_para_role(novo_role_label),
                         "updated_at": datetime.now().isoformat(),
                     }
                     supabase.table("usuarios").update(payload).eq(
@@ -44,6 +90,12 @@ def modal_editar_usuario(usuario_id, nome_atual, email_atual, phone_atual, ativo
                     st.rerun()
                 except Exception as e:
                     st.error(f"❌ Erro ao atualizar: {e}")
+                    st.info(
+                        "Se o erro mencionar a coluna **role**, execute no Supabase:\n\n"
+                        "```sql\n"
+                        "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS role text DEFAULT 'operacional';\n"
+                        "```"
+                    )
 
 
 # ==========================================================================
@@ -84,16 +136,12 @@ def modal_remover_usuario(usuario_id, nome, email):
             key=f"btn_confirm_del_{usuario_id}",
         ):
             try:
-                # Remove registro da tabela usuarios
                 supabase.table("usuarios").delete().eq("id", usuario_id).execute()
-
-                # Tenta remover do Auth (só funciona com service_role / admin API)
                 try:
                     if hasattr(supabase.auth, "admin"):
                         supabase.auth.admin.delete_user(usuario_id)
                 except Exception:
-                    pass  # Auth pode exigir chave de serviço — ignora se falhar
-
+                    pass
                 st.success(f"✅ Usuário **{nome}** removido.")
                 st.rerun()
             except Exception as e:
@@ -126,6 +174,7 @@ with tab_listar:
                     if q in str(u.get("nome") or "").lower()
                     or q in str(u.get("email") or "").lower()
                     or q in str(u.get("phone") or "").lower()
+                    or q in str(u.get("role") or "").lower()
                 ]
 
             if not lista:
@@ -139,13 +188,17 @@ with tab_listar:
                     email = u.get("email") or "—"
                     phone = u.get("phone") or ""
                     ativo = u.get("is_active", True)
+                    role_u = normalizar_role(u.get("role"))
                     status = "🟢 Ativo" if ativo else "🔴 Inativo"
+                    role_badge = ROLE_LABELS.get(role_u, role_u)
 
                     with st.container(border=True):
                         col_info, col_edit, col_del = st.columns([4, 1.2, 1.2])
 
                         with col_info:
-                            st.markdown(f"**{nome}** · {status}")
+                            st.markdown(
+                                f"**{nome}** · {status} · 🏷️ **{role_badge}**"
+                            )
                             detalhes = [f"📧 {email}"]
                             if phone:
                                 detalhes.append(f"📞 {phone}")
@@ -162,7 +215,7 @@ with tab_listar:
                                 use_container_width=True,
                             ):
                                 modal_editar_usuario(
-                                    uid, nome, email, phone, ativo
+                                    uid, nome, email, phone, ativo, role_u
                                 )
 
                         with col_del:
@@ -187,6 +240,10 @@ with tab_listar:
 # ABA 2 — Cadastro
 # ==========================================================================
 with tab_cadastrar:
+    if not is_admin():
+        st.error("Apenas administradores podem cadastrar usuários.")
+        st.stop()
+
     st.subheader("Cadastrar Usuário")
     st.caption(
         "Cria a conta de acesso (login) e o registro na tabela de usuários."
@@ -196,6 +253,14 @@ with tab_cadastrar:
         nome = st.text_input("Nome Completo*")
         phone = st.text_input("Telefone")
         email = st.text_input("E-mail*")
+
+        role_label = st.selectbox(
+            "Perfil de acesso*",
+            options=_opcoes_role(),
+            index=1,  # operacional por padrão
+            help="Define o que este usuário poderá fazer no sistema.",
+        )
+        st.caption(ROLE_HELP.get(_label_para_role(role_label), ""))
 
         st.markdown("---")
         senha = st.text_input(
@@ -229,11 +294,32 @@ with tab_cadastrar:
                             "email": email.strip(),
                             "phone": phone.strip() if phone else None,
                             "is_active": True,
+                            "role": _label_para_role(role_label),
                             "updated_at": datetime.now().isoformat(),
                         }
-                        supabase.table("usuarios").insert(dados_usuario).execute()
+                        try:
+                            supabase.table("usuarios").insert(dados_usuario).execute()
+                        except Exception as insert_err:
+                            # Fallback se a coluna role ainda não existir
+                            if "role" in str(insert_err).lower():
+                                dados_usuario.pop("role", None)
+                                supabase.table("usuarios").insert(
+                                    dados_usuario
+                                ).execute()
+                                st.warning(
+                                    "Usuário criado, mas a coluna **role** ainda não existe no banco. "
+                                    "Execute o SQL indicado abaixo."
+                                )
+                                st.code(
+                                    "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS role text DEFAULT 'operacional';",
+                                    language="sql",
+                                )
+                            else:
+                                raise
+
                         st.success(
-                            f"✅ Usuário **{nome}** cadastrado com sucesso!"
+                            f"✅ Usuário **{nome}** cadastrado como "
+                            f"**{role_label}**!"
                         )
                         st.balloons()
                     else:
