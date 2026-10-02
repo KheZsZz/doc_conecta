@@ -3,7 +3,7 @@ from datetime import datetime
 import streamlit as st
 
 from src.config.database import supabase
-from src.auth.local_auth import SQL_SETUP, atualizar_senha, criar_usuario
+from src.auth.local_auth import atualizar_senha, criar_usuario
 from src.auth.permissions import (
     ROLE_HELP,
     ROLE_LABELS,
@@ -17,17 +17,11 @@ from src.auth.permissions import (
 exigir_permissao("usuarios")
 
 st.title("👤 Gestão de Usuários")
-st.markdown(
-    "Cadastre usuários com **login imediato** (senha na tabela `usuarios`). "
-    "Não depende de confirmação de e-mail."
-)
+st.markdown("Cadastre, liste e defina o perfil de acesso de cada usuário.")
 
-with st.expander("ℹ️ Perfis de acesso", expanded=False):
+with st.expander("O que cada perfil pode fazer", expanded=False):
     for r in ROLES:
         st.markdown(f"- **{ROLE_LABELS[r]}**: {ROLE_HELP[r]}")
-
-with st.expander("🛠️ Se cadastro/login falhar — rode no Supabase", expanded=False):
-    st.code(SQL_SETUP, language="sql")
 
 tab_listar, tab_cadastrar = st.tabs(["📋 Usuários Cadastrados", "➕ Cadastrar Usuário"])
 
@@ -59,7 +53,7 @@ def modal_editar_usuario(
         novo_role_label = st.selectbox("Perfil de acesso*", options=_opcoes_role(), index=idx)
 
         st.markdown("---")
-        st.caption("Preencha só se quiser **trocar a senha** (obrigatório se aparecer “Sem senha local”).")
+        st.caption("Preencha apenas se quiser trocar a senha.")
         nova_senha = st.text_input("Nova senha", type="password")
         conf_senha = st.text_input("Confirmar nova senha", type="password")
 
@@ -87,17 +81,16 @@ def modal_editar_usuario(
                         if not ok:
                             st.error(msg)
                             return
-                    st.success("✅ Salvo!")
+                    st.success("Usuário atualizado.")
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Erro: {e}")
-                    st.code(SQL_SETUP, language="sql")
+                    st.error(f"Erro ao atualizar: {e}")
 
 
 @st.dialog("🗑️ Remover Usuário", width="small")
 def modal_remover_usuario(usuario_id, nome, email):
     st.warning(f"Remover **{nome}** (`{email}`)?")
-    confirmar = st.checkbox("Confirmo", key=f"conf_del_{usuario_id}")
+    confirmar = st.checkbox("Confirmo a exclusão", key=f"conf_del_{usuario_id}")
     c1, c2 = st.columns(2)
     with c1:
         if st.button("Cancelar", key=f"c_{usuario_id}", use_container_width=True):
@@ -112,7 +105,7 @@ def modal_remover_usuario(usuario_id, nome, email):
         ):
             try:
                 supabase.table("usuarios").delete().eq("id", usuario_id).execute()
-                st.success("Removido.")
+                st.success("Usuário removido.")
                 st.rerun()
             except Exception as e:
                 st.error(str(e))
@@ -148,13 +141,13 @@ with tab_listar:
                 role_u = normalizar_role(u.get("role"))
                 tem_senha = bool(u.get("password_hash"))
                 status = "🟢 Ativo" if ativo else "🔴 Inativo"
-                senha_flag = "🔑 OK" if tem_senha else "⚠️ Sem senha local"
+                senha_flag = "🔑" if tem_senha else "⚠️ Sem senha"
 
                 with st.container(border=True):
                     c1, c2, c3 = st.columns([4, 1.2, 1.2])
                     with c1:
                         st.markdown(
-                            f"**{nome}** · {status} · 🏷️ **{ROLE_LABELS.get(role_u, role_u)}** · {senha_flag}"
+                            f"**{nome}** · {status} · **{ROLE_LABELS.get(role_u, role_u)}** · {senha_flag}"
                         )
                         st.caption(
                             " · ".join(
@@ -168,16 +161,16 @@ with tab_listar:
                         if st.button("🗑️ Remover", key=f"r_{uid}", use_container_width=True):
                             modal_remover_usuario(uid, nome, email)
     except Exception as e:
-        st.error(f"Erro ao listar: {e}")
-        st.code(SQL_SETUP, language="sql")
+        st.error(f"Erro ao listar usuários: {e}")
 
 
 with tab_cadastrar:
     if not is_admin():
-        st.error("Apenas administradores podem cadastrar.")
+        st.error("Apenas administradores podem cadastrar usuários.")
         st.stop()
 
     st.subheader("Cadastrar Usuário")
+
     with st.form("form_novo_user", clear_on_submit=True):
         nome = st.text_input("Nome Completo*")
         phone = st.text_input("Telefone")
@@ -205,10 +198,5 @@ with tab_cadastrar:
                 )
                 if erro:
                     st.error(erro)
-                    st.code(SQL_SETUP, language="sql")
                 else:
-                    st.success(
-                        f"✅ **{nome}** cadastrado. Login: `{email.strip().lower()}` "
-                        f"como **{role_label}**."
-                    )
-                    st.balloons()
+                    st.success(f"Usuário **{nome}** cadastrado como **{role_label}**.")

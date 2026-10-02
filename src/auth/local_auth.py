@@ -13,13 +13,6 @@ from src.config.database import supabase
 
 _APP_PEPPER = "doc_conecta_v1"
 
-SQL_SETUP = (
-    "ALTER TABLE public.usuarios ADD COLUMN IF NOT EXISTS role text DEFAULT 'operacional';\n"
-    "ALTER TABLE public.usuarios ADD COLUMN IF NOT EXISTS password_hash text;\n"
-    "ALTER TABLE public.usuarios DROP CONSTRAINT IF EXISTS users_id_fkey;\n"
-    "ALTER TABLE public.usuarios DISABLE ROW LEVEL SECURITY;\n"
-)
-
 
 def hash_senha(senha: str, salt: str | None = None) -> str:
     if salt is None:
@@ -57,7 +50,7 @@ def listar_usuarios() -> tuple[list[dict[str, Any]], str | None]:
         rows = res.data if res and isinstance(res.data, list) else []
         return rows, None
     except Exception as e:
-        return [], f"Erro ao ler tabela usuarios: {e}"
+        return [], str(e)
 
 
 def buscar_por_email(email: str) -> tuple[dict[str, Any] | None, str | None]:
@@ -65,7 +58,6 @@ def buscar_por_email(email: str) -> tuple[dict[str, Any] | None, str | None]:
     if not email_n:
         return None, "E-mail vazio."
 
-    # 1) filtro direto no PostgREST
     try:
         res = (
             supabase.table("usuarios")
@@ -79,7 +71,6 @@ def buscar_por_email(email: str) -> tuple[dict[str, Any] | None, str | None]:
     except Exception:
         pass
 
-    # 2) tenta com o texto original (caso esteja salvo com maiúsculas)
     try:
         res = (
             supabase.table("usuarios")
@@ -93,68 +84,37 @@ def buscar_por_email(email: str) -> tuple[dict[str, Any] | None, str | None]:
     except Exception:
         pass
 
-    # 3) varredura completa (normalizando)
     rows, err = listar_usuarios()
     if err:
-        return None, err
+        return None, "Não foi possível acessar os usuários. Verifique a conexão com o banco."
 
     if not rows:
-        return (
-            None,
-            "Nenhum usuário visível na tabela usuarios (0 registros retornados). "
-            "Isso costuma ser RLS ou SUPABASE_URL/KEY diferentes no Streamlit Cloud. "
-            "Confira os Secrets do app e rode:\n\n" + SQL_SETUP,
-        )
+        return None, "Nenhum usuário encontrado no sistema."
 
     for row in rows:
         if _normalize_email(str(row.get("email") or "")) == email_n:
             return row, None
 
-    # ajuda a achar typo sem expor senha
-    emails = sorted(
-        {
-            _normalize_email(str(r.get("email") or ""))
-            for r in rows
-            if r.get("email")
-        }
-    )
-    amostra = ", ".join(emails[:8])
-    extra = f" (+{len(emails) - 8} outros)" if len(emails) > 8 else ""
-    return (
-        None,
-        f"E-mail não encontrado. Digitou: `{email_n}`. "
-        f"Há {len(emails)} e-mail(s) cadastrado(s): {amostra}{extra}.",
-    )
+    return None, "E-mail ou senha incorretos."
 
 
 def autenticar(
     email: str, senha: str
 ) -> tuple[SimpleNamespace | None, dict | None, str | None]:
     perfil, err = buscar_por_email(email)
-    if err and perfil is None and "Digitou:" not in (err or "") and "Nenhum usuário" not in (err or ""):
-        # erro tecnico de leitura
-        if "Erro ao ler" in err or "0 registros" in err:
-            return None, None, err
-
-    if err and perfil is None:
-        return None, None, err
 
     if not perfil:
-        return None, None, "E-mail não encontrado na tabela usuarios."
+        return None, None, err or "E-mail ou senha incorretos."
 
     if perfil.get("is_active") is False:
         return None, None, "Usuário inativo. Contate o administrador."
 
     pwd_hash = perfil.get("password_hash")
     if not pwd_hash:
-        return (
-            None,
-            None,
-            "Usuário sem senha local. Admin: Editar usuário e definir nova senha.",
-        )
+        return None, None, "Usuário sem senha definida. Contate o administrador."
 
     if not verificar_senha(senha, pwd_hash):
-        return None, None, "Senha incorreta."
+        return None, None, "E-mail ou senha incorretos."
 
     user = SimpleNamespace(id=perfil.get("id"), email=perfil.get("email"))
     return user, perfil, None
@@ -185,10 +145,9 @@ def criar_usuario(
     role: str = "operacional",
 ) -> tuple[dict | None, str | None]:
     email_n = _normalize_email(email)
-    existente, err_tech = buscar_por_email(email_n)
+    existente, _ = buscar_por_email(email_n)
 
-    # se o "erro" for so not found com lista, existente continua None
-    if existente:
+    if existente and existente.get("id"):
         if not existente.get("password_hash"):
             try:
                 supabase.table("usuarios").update(
@@ -203,11 +162,8 @@ def criar_usuario(
                 ).eq("id", existente["id"]).execute()
                 return existente, None
             except Exception as e:
-                return None, f"Usuário já existia sem senha e falhou ao atualizar: {e}"
+                return None, f"Não foi possível atualizar o usuário: {e}"
         return None, "Já existe um usuário com este e-mail."
-
-    if err_tech and ("Erro ao ler" in err_tech or "0 registros" in err_tech):
-        return None, err_tech
 
     uid = _criar_no_auth_supabase(email_n, senha) or str(uuid.uuid4())
 
@@ -227,10 +183,8 @@ def criar_usuario(
         if res and res.data:
             return res.data[0], None
         conf, _ = buscar_por_email(email_n)
-        if conf and not str(conf.get("email", "")).startswith("E-mail"):
-            # conf is user dict
-            if conf.get("id"):
-                return conf, None
+        if conf and conf.get("id"):
+            return conf, None
         return payload, None
     except Exception as e:
         msg = str(e).lower()
@@ -243,20 +197,9 @@ def criar_usuario(
                 if res2 and res2.data:
                     return res2.data[0], None
             except Exception as e2:
-                return (
-                    None,
-                    f"FK bloqueando insert: {e2}\n\nRode no SQL:\n"
-                    "ALTER TABLE public.usuarios DROP CONSTRAINT IF EXISTS users_id_fkey;\n\n"
-                    + SQL_SETUP,
-                )
+                return None, f"Não foi possível criar o usuário: {e2}"
 
-        if "password_hash" in msg or "role" in msg or "column" in msg:
-            return None, "Falta coluna.\n\n" + SQL_SETUP
-
-        if "row-level security" in msg or "rls" in msg or "42501" in msg:
-            return None, "RLS bloqueou INSERT.\n\n" + SQL_SETUP
-
-        return None, f"Erro ao inserir: {e}\n\n" + SQL_SETUP
+        return None, f"Não foi possível criar o usuário: {e}"
 
 
 def atualizar_senha(usuario_id: str, nova_senha: str) -> tuple[bool, str]:
@@ -269,4 +212,4 @@ def atualizar_senha(usuario_id: str, nova_senha: str) -> tuple[bool, str]:
         ).eq("id", usuario_id).execute()
         return True, "Senha atualizada."
     except Exception as e:
-        return False, f"{e}\n\n" + SQL_SETUP
+        return False, f"Não foi possível atualizar a senha: {e}"
