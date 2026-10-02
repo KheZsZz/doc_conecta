@@ -33,6 +33,7 @@ cts_page = st.Page("src/pages/private/cts.py", title="CTS", icon="📝")
 alunos_page = st.Page("src/pages/private/alunos.py", title="Alunos", icon="👨‍🎓")
 subir_listas_page = st.Page("src/pages/private/subir_listas.py", title="Subir Listas", icon="📤")
 mc_page = st.Page("src/pages/private/mcDonalds.py", title="mcDonalds", icon="💻")
+configs_page = st.Page("src/pages/private/configs.py", title="Configs", icon="⚙️")
 
 # Roteamento
 if pagina_atual == "checkin":
@@ -44,9 +45,10 @@ else:
         "Principal": [home_page],
         "Operacional": [clients_page, cursos_page, turmas_page, instrutores_page, cts_page, responsaveis_page],
         "Cadastro": [signup_page, alunos_page, subir_listas_page],
-        "Específicos": [mc_page]
+        "Específicos": [mc_page],
+        "Configs": [configs_page],
     })
-    
+
     with st.sidebar:
         st.write(f"👤 {st.session_state.user.email}")
         if st.button("Sair"):
