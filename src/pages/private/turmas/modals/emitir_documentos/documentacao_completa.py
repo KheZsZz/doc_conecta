@@ -10,6 +10,7 @@ import streamlit as st
 from src.utils.atestado import gerar_atestado_pdf_de_arquivo
 from src.utils.certificado_empresa import gerar_certificado_empresa_pdf
 from src.utils.certificado import gerar_certificados_pdf_zip
+from src.utils.carteirinha import gerar_carteirinhas_pdf
 from src.pages.private.turmas.helpers import formatar_data_extenso
 
 from .data import (
@@ -54,10 +55,13 @@ def gerar_documentacao_completa(
     modalidade = (turma_data.get("modalidade") or "").strip() or "Presencial"
     carga = (turma_data.get("carga_horaria") or "").strip() or "8 Horas"
     normativa = turma_data.get("normativa") or curso_data.get("normativa") or ""
+    curso_nome = curso_data.get("name") or "Treinamento"
+    data_trein = str(turma_data.get("data_treinamento") or "")
 
     incluidos = [
         "Certificado da Empresa",
         "Certificados Individuais (ZIP interno)",
+        "Carteirinhas (PDF)",
         "Lista de Presença (.xlsx)",
     ]
     if exige_atestado:
@@ -69,7 +73,6 @@ def gerar_documentacao_completa(
         + f"\n\n**Turma:** {nivel} | {modalidade} | {carga}"
     )
 
-    # ZIP já gerado nesta sessão → só mostra download (sem fechar o modal)
     zip_pronto = st.session_state.get(_ss_key(tid))
     meta = st.session_state.get(_ss_meta_key(tid)) or {}
 
@@ -139,7 +142,7 @@ def gerar_documentacao_completa(
                 "resp_tecnico": dados_resp.get("nome", ""),
                 "cpf_resp_tecnico": dados_resp.get("cpf", ""),
                 "assinatura_resp_url": dados_resp.get("assinatura_url"),
-                "curso_nome": curso_data.get("name", "Treinamento"),
+                "curso_nome": curso_nome,
                 "dizeres_certificado_empresa": curso_data.get(
                     "dizeres_certificado_empresa", ""
                 ),
@@ -202,6 +205,21 @@ def gerar_documentacao_completa(
                 except Exception as e:
                     erros.append(f"Certificados Individuais: {e}")
 
+                # ---- Carteirinhas ----
+                try:
+                    pdf_cart = gerar_carteirinhas_pdf(
+                        alunos=alunos_cert,
+                        curso_nome=curso_nome,
+                        carga_horaria=carga,
+                        data_conclusao=data_trein,
+                        instrutor=instrutor_data,
+                        ct=ct_data or None,
+                    )
+                    zf.writestr(f"{base}/04_carteirinhas.pdf", pdf_cart)
+                    gerados.append("Carteirinhas")
+                except Exception as e:
+                    erros.append(f"Carteirinhas: {e}")
+
                 try:
                     df = pd.DataFrame(alunos_lista)
                     xlsx_buf = io.BytesIO()
@@ -210,7 +228,7 @@ def gerar_documentacao_completa(
                             writer, index=False, sheet_name="Lista de Presença"
                         )
                     zf.writestr(
-                        f"{base}/04_lista_presenca.xlsx", xlsx_buf.getvalue()
+                        f"{base}/05_lista_presenca.xlsx", xlsx_buf.getvalue()
                     )
                     gerados.append("Lista de Presença")
                 except Exception as e:
@@ -228,8 +246,6 @@ def gerar_documentacao_completa(
             zip_buffer.seek(0)
             zip_bytes = zip_buffer.getvalue()
 
-            # Guarda na sessão para o botão continuar disponível
-            # se o Streamlit re-renderizar o dialog (sem fechar)
             st.session_state[_ss_key(tid)] = zip_bytes
             st.session_state[_ss_meta_key(tid)] = {
                 "gerados": gerados,
@@ -239,7 +255,6 @@ def gerar_documentacao_completa(
                 "erro_marca": None if ok_marca else msg_marca,
             }
 
-            # NÃO chama st.rerun() — mantém o modal aberto com o download
             st.success(
                 "✅ Documentação gerada: **" + "**, **".join(gerados) + "**."
             )
