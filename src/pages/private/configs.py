@@ -61,3 +61,15 @@ with st.form("form_alterar_senha", clear_on_submit=True):
                     st.error("❌ Senha atual incorreta.")
                 else:
                     st.error(f"❌ Não foi possível alterar a senha: {e}")
+
+st.markdown("---")
+st.subheader("🚪 Sair do sistema")
+st.caption("Encerra a sessão atual e volta para a tela de login.")
+
+if st.button("🚪 Logout", type="primary", use_container_width=True):
+    try:
+        supabase.auth.sign_out()
+    except Exception:
+        pass
+    st.session_state.user = None
+    st.rerun()
