@@ -84,17 +84,24 @@
     text-align: center;
     margin-top: 1mm;
   }
+  /* Logo CT — maior e centralizado */
   .logos-parceiros {
     margin-top: auto;
     display: flex;
-    gap: 3mm;
+    justify-content: center;
     align-items: center;
-    min-height: 8mm;
+    width: 100%;
+    min-height: 16mm;
+    padding: 1.5mm 0 0.5mm 0;
   }
   .logos-parceiros img {
-    max-height: 7mm;
-    max-width: 22mm;
+    max-height: 14mm;
+    max-width: 70%;
+    width: auto;
+    height: auto;
     object-fit: contain;
+    display: block;
+    margin: 0 auto;
   }
   .field-label {
     font-size: 6.5pt;
@@ -168,7 +175,7 @@
       <div class="curso-nome">{{ card.curso_nome }}</div>
       <div class="carga">Carga Horária: {{ card.carga_horaria }}</div>
       <div class="logos-parceiros">
-        {% if LOGO_CT %}<img src="{{ LOGO_CT }}" alt="logo"/>{% endif %}
+        {% if LOGO_CT %}<img src="{{ LOGO_CT }}" alt="logo CT"/>{% endif %}
       </div>
     </div>
     <!-- VERSO / DADOS -->
