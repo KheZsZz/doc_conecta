@@ -53,6 +53,9 @@ alunos_page = st.Page("src/pages/private/alunos.py", title="Alunos", icon="👨�
 subir_listas_page = st.Page(
     "src/pages/private/subir_listas.py", title="Subir Listas", icon="📤"
 )
+emissao_ead_page = st.Page(
+    "src/pages/private/emissao_ead.py", title="Emissão EAD", icon="🎓"
+)
 mc_page = st.Page("src/pages/private/mcDonalds.py", title="mcDonalds", icon="💻")
 configs_page = st.Page("src/pages/private/configs.py", title="Configs", icon="⚙️")
 
@@ -67,6 +70,7 @@ PAGINAS = {
     "usuarios": signup_page,
     "alunos": alunos_page,
     "subir_listas": subir_listas_page,
+    "emissao_ead": emissao_ead_page,
     "mcdonalds": mc_page,
     "configs": configs_page,
 }
@@ -81,7 +85,7 @@ GRUPOS = {
         "cts",
         "responsaveis",
     ],
-    "Cadastro": ["usuarios", "alunos", "subir_listas"],
+    "Cadastro": ["usuarios", "alunos", "subir_listas", "emissao_ead"],
     "Específicos": ["mcdonalds"],
     "Configs": ["configs"],
 }
@@ -103,7 +107,6 @@ if pagina_atual == "checkin":
 elif st.session_state.user is None:
     pg = st.navigation({"Acesso": [login_page]})
 else:
-    # Se tem user mas não tem perfil/role, recarrega do banco
     if not st.session_state.get("role"):
         sincronizar_perfil_sessao(st.session_state.user)
 
