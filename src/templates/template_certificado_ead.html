@@ -24,18 +24,16 @@
       z-index: 0;
     }
 
-    /* Espaço no topo para o "Certificado" do fundo (não repetir o título) */
     .conteudo {
       position: absolute;
       z-index: 1;
       top: 0; left: 0;
       width: 100%; height: 100%;
-      padding: 42mm 22mm 22mm 48mm;
+      padding: 42mm 22mm 18mm 48mm;
       display: flex;
       flex-direction: column;
     }
 
-    /* Label azul negrito + valor texto normal */
     .campo {
       font-size: 10.5pt;
       color: #222;
@@ -61,7 +59,6 @@
       max-width: 210mm;
     }
 
-    /* Carga / Modalidade à esquerda e datas à direita, mesma altura */
     .meta-row {
       display: flex;
       justify-content: space-between;
@@ -89,36 +86,58 @@
       min-width: 55mm;
     }
 
+    /*
+      Assinaturas: estrutura identica nas duas colunas
+      para a LINHA ficar na mesma altura.
+    */
     .assinaturas {
       margin-top: auto;
       display: flex;
       justify-content: space-between;
-      align-items: flex-end;
+      align-items: flex-start;
       padding-right: 10mm;
-      padding-bottom: 4mm;
+      padding-bottom: 2mm;
+      gap: 10mm;
     }
 
     .assinatura-bloco {
       text-align: center;
       width: 45%;
       max-width: 95mm;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* Area fixa da imagem/assinatura — mesma altura nos dois lados */
+    .assinatura-topo {
+      height: 20mm;
+      width: 100%;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
     }
 
     .assinatura-img {
-      height: 18mm;
+      max-height: 18mm;
       max-width: 90mm;
+      width: auto;
+      height: auto;
       object-fit: contain;
       object-position: center bottom;
       display: block;
-      margin: 0 auto 1mm auto;
     }
-
-    .assinatura-placeholder { height: 18mm; }
 
     .assinatura-linha {
       border-top: 1px solid #333;
-      margin: 0 auto 2mm auto;
       width: 90%;
+      margin: 1.5mm auto 2.5mm auto;
+    }
+
+    /* Area de texto abaixo da linha — altura minima igual nos dois */
+    .assinatura-texto {
+      min-height: 18mm;
+      width: 100%;
     }
 
     .assinatura-nome {
@@ -126,6 +145,7 @@
       font-weight: 700;
       color: #1a2a6e;
       text-transform: uppercase;
+      line-height: 1.25;
     }
     .assinatura-cargo {
       font-size: 8pt;
@@ -135,6 +155,7 @@
     .assinatura-doc {
       font-size: 7.5pt;
       color: #333;
+      line-height: 1.25;
     }
 
     .pagina-conteudo {
@@ -185,8 +206,6 @@
     {% endif %}
 
     <div class="conteudo">
-      <!-- Título "Certificado" vem do fundo — não repetir -->
-
       <div class="campo">
         <span class="lbl">Nome do Aluno:</span>
         <span class="val"> {{ NOME_ALUNO }}</span>
@@ -242,28 +261,34 @@
       </div>
 
       <div class="assinaturas">
+        <!-- Instrutor / Resp. Técnico -->
         <div class="assinatura-bloco">
-          {% if ASSINATURA_IMG %}
-          <img class="assinatura-img" src="{{ ASSINATURA_IMG }}" alt="Assinatura" />
-          {% else %}
-          <div class="assinatura-placeholder"></div>
-          {% endif %}
+          <div class="assinatura-topo">
+            {% if ASSINATURA_IMG %}
+            <img class="assinatura-img" src="{{ ASSINATURA_IMG }}" alt="Assinatura" />
+            {% endif %}
+          </div>
           <div class="assinatura-linha"></div>
-          <div class="assinatura-nome">{{ NOME_ASSINANTE }}</div>
-          <div class="assinatura-cargo">{{ CARGO_ASSINANTE }}</div>
-          {% if CARGO_ASSINANTE_2 %}
-          <div class="assinatura-cargo">{{ CARGO_ASSINANTE_2 }}</div>
-          {% endif %}
-          <div class="assinatura-doc">
-            {% if CPF_ASSINANTE %}CPF: {{ CPF_ASSINANTE }}{% endif %}
-            {% if RE_ASSINANTE %}{% if CPF_ASSINANTE %} {% endif %}RE:{{ RE_ASSINANTE }}{% endif %}
+          <div class="assinatura-texto">
+            <div class="assinatura-nome">{{ NOME_ASSINANTE }}</div>
+            <div class="assinatura-cargo">{{ CARGO_ASSINANTE }}</div>
+            {% if CARGO_ASSINANTE_2 %}
+            <div class="assinatura-cargo">{{ CARGO_ASSINANTE_2 }}</div>
+            {% endif %}
+            <div class="assinatura-doc">
+              {% if CPF_ASSINANTE %}CPF: {{ CPF_ASSINANTE }}{% endif %}
+              {% if RE_ASSINANTE %}{% if CPF_ASSINANTE %} {% endif %}RE:{{ RE_ASSINANTE }}{% endif %}
+            </div>
           </div>
         </div>
 
+        <!-- Aluno — mesma estrutura (topo + linha + texto) -->
         <div class="assinatura-bloco">
-          <div class="assinatura-placeholder"></div>
+          <div class="assinatura-topo"></div>
           <div class="assinatura-linha"></div>
-          <div class="assinatura-nome">Aluno</div>
+          <div class="assinatura-texto">
+            <div class="assinatura-nome">Aluno</div>
+          </div>
         </div>
       </div>
     </div>
