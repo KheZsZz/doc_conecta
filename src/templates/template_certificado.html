@@ -32,7 +32,7 @@
         padding-left: 150px;
         padding-right: 40px;
         padding-top: 148px;
-        padding-bottom: 95px;
+        padding-bottom: 100px;
       }
 
       .linha {
@@ -66,47 +66,58 @@
         color: #333;
       }
 
-      /* Mesma lógica do certificado empresa: base, bem distribuídas */
+      /*
+        Assinaturas: 3 colunas iguais, estrutura fixa
+        (topo imagem → linha → texto) para alinhar as linhas.
+      */
       .assinaturas {
         position: absolute;
         z-index: 2;
         left: 150px;
         right: 40px;
-        bottom: 12mm;
+        bottom: 11mm;
         display: flex;
         justify-content: space-between;
-        align-items: flex-end;
-        gap: 12px;
+        align-items: flex-start;
+        gap: 16px;
       }
 
       .assinatura-bloco {
-        text-align: center;
         flex: 1 1 0;
-        max-width: 200px;
-        min-width: 0;
+        width: 33.33%;
+        max-width: 210px;
+        text-align: center;
+      }
+
+      /* Área da imagem: altura fixa, imagem colada na base */
+      .assinatura-topo {
+        height: 56px;
+        width: 100%;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        margin-bottom: 0;
       }
 
       .assinatura-img {
-        height: 58px;
-        width: 100%;
-        max-width: 180px;
+        height: 56px;
+        width: auto;
+        max-width: 170px;
         object-fit: contain;
         object-position: center bottom;
         display: block;
-        margin: 0 auto 2px auto;
-      }
-
-      .assinatura-placeholder {
-        height: 58px;
-        width: 100%;
-        max-width: 180px;
-        margin: 0 auto 2px auto;
       }
 
       .assinatura-linha {
         border-top: 1px solid #555;
-        width: 100%;
+        width: 90%;
         margin: 0 auto 4px auto;
+      }
+
+      /* Texto sob a linha: altura mínima igual nos 3 blocos */
+      .assinatura-texto {
+        min-height: 48px;
+        padding: 0 2px;
       }
 
       .assinatura-nome {
@@ -124,7 +135,7 @@
       .assinatura-doc {
         font-size: 7pt;
         color: #444;
-        line-height: 1.2;
+        line-height: 1.15;
       }
     </style>
   </head>
@@ -163,46 +174,55 @@
       </div>
 
       <div class="assinaturas">
+        <!-- Instrutor -->
         <div class="assinatura-bloco">
-          {% if ASSINATURA_INSTRUTOR %}
-          <img src="{{ ASSINATURA_INSTRUTOR }}" class="assinatura-img" alt="Assinatura Instrutor" />
-          {% else %}
-          <div class="assinatura-placeholder"></div>
-          {% endif %}
+          <div class="assinatura-topo">
+            {% if ASSINATURA_INSTRUTOR %}
+            <img src="{{ ASSINATURA_INSTRUTOR }}" class="assinatura-img" alt="Assinatura Instrutor" />
+            {% endif %}
+          </div>
           <div class="assinatura-linha"></div>
-          <div class="assinatura-nome">{{ NOME_INSTRUTOR }}</div>
-          <div class="assinatura-cargo">Instrutor</div>
-          {% if CPF_INSTRUTOR %}
-          <div class="assinatura-doc">CPF: {{ CPF_INSTRUTOR }}</div>
-          {% endif %}
-          {% if RE_INSTRUTOR %}
-          <div class="assinatura-doc">RE: {{ RE_INSTRUTOR }}</div>
-          {% endif %}
+          <div class="assinatura-texto">
+            <div class="assinatura-nome">{{ NOME_INSTRUTOR }}</div>
+            <div class="assinatura-cargo">Instrutor</div>
+            {% if CPF_INSTRUTOR %}
+            <div class="assinatura-doc">CPF: {{ CPF_INSTRUTOR }}</div>
+            {% endif %}
+            {% if RE_INSTRUTOR %}
+            <div class="assinatura-doc">RE: {{ RE_INSTRUTOR }}</div>
+            {% endif %}
+          </div>
         </div>
 
+        <!-- Aluno -->
         <div class="assinatura-bloco">
-          <div class="assinatura-placeholder"></div>
+          <div class="assinatura-topo"></div>
           <div class="assinatura-linha"></div>
-          <div class="assinatura-nome">{{ NOME_ALUNO }}</div>
-          <div class="assinatura-cargo">Aluno</div>
+          <div class="assinatura-texto">
+            <div class="assinatura-nome">{{ NOME_ALUNO }}</div>
+            <div class="assinatura-cargo">Aluno</div>
+          </div>
         </div>
 
+        <!-- Responsável técnico -->
         {% if RESP_TECNICO %}
         <div class="assinatura-bloco">
-          {% if ASSINATURA_RESP_TECNICO %}
-          <img src="{{ ASSINATURA_RESP_TECNICO }}" class="assinatura-img" alt="Assinatura Responsável Técnico" />
-          {% else %}
-          <div class="assinatura-placeholder"></div>
-          {% endif %}
+          <div class="assinatura-topo">
+            {% if ASSINATURA_RESP_TECNICO %}
+            <img src="{{ ASSINATURA_RESP_TECNICO }}" class="assinatura-img" alt="Assinatura Responsável Técnico" />
+            {% endif %}
+          </div>
           <div class="assinatura-linha"></div>
-          <div class="assinatura-nome">{{ RESP_TECNICO }}</div>
-          <div class="assinatura-cargo">Responsável Técnico</div>
-          {% if CPF_RESP %}
-          <div class="assinatura-doc">CPF: {{ CPF_RESP }}</div>
-          {% endif %}
-          {% if RE_RESP %}
-          <div class="assinatura-doc">RE: {{ RE_RESP }}</div>
-          {% endif %}
+          <div class="assinatura-texto">
+            <div class="assinatura-nome">{{ RESP_TECNICO }}</div>
+            <div class="assinatura-cargo">Responsável Técnico</div>
+            {% if CPF_RESP %}
+            <div class="assinatura-doc">CPF: {{ CPF_RESP }}</div>
+            {% endif %}
+            {% if RE_RESP %}
+            <div class="assinatura-doc">RE: {{ RE_RESP }}</div>
+            {% endif %}
+          </div>
         </div>
         {% endif %}
       </div>
