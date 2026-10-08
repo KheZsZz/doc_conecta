@@ -39,7 +39,7 @@
         width: 100%;
         height: 1px;
         background-color: #c8c0a0;
-        margin-bottom: 16px;
+        margin-bottom: 20px;
       }
 
       .texto-certificado {
@@ -48,28 +48,48 @@
         line-height: 1.5;
         text-align: justify;
       }
-      .texto-certificado p { margin: 0; padding: 0; line-height: 1.5; }
-      .texto-certificado strong { font-size: 11pt; color: #1a2a5e; }
+      .texto-certificado p {
+        margin: 0;
+        padding: 0;
+        line-height: 1.5;
+      }
+      .texto-certificado strong {
+        font-size: 11pt;
+        color: #1a2a5e;
+      }
+
+      /* Bloco dos dizeres: mais espaço e justificado (como no certificado empresa) */
+      .texto-certificado .espaco-dizeres {
+        display: block;
+        margin-top: 36px;
+        margin-bottom: 8px;
+        text-align: justify;
+        text-justify: inter-word;
+        max-width: 100%;
+      }
 
       .campos {
-        margin-top: 14px;
+        margin-top: 18px;
         font-size: 9.5pt;
         color: #333;
         line-height: 1.45;
       }
-      .campos .linha-campo { margin: 0; padding: 0; line-height: 1.45; }
-      .campos .campo-label { font-weight: bold; color: #1a2a5e; }
+      .campos .linha-campo {
+        margin: 0;
+        padding: 0;
+        line-height: 1.45;
+      }
+      .campos .campo-label {
+        font-weight: bold;
+        color: #1a2a5e;
+      }
 
       .data {
-        margin-top: 12px;
+        margin-top: 14px;
         font-size: 9.5pt;
         color: #333;
       }
 
-      /*
-        Assinaturas: 3 colunas iguais, estrutura fixa
-        (topo imagem → linha → texto) para alinhar as linhas.
-      */
       .assinaturas {
         position: absolute;
         z-index: 2;
@@ -89,14 +109,12 @@
         text-align: center;
       }
 
-      /* Área da imagem: altura fixa, imagem colada na base */
       .assinatura-topo {
         height: 56px;
         width: 100%;
         display: flex;
         align-items: flex-end;
         justify-content: center;
-        margin-bottom: 0;
       }
 
       .assinatura-img {
@@ -114,7 +132,6 @@
         margin: 0 auto 4px auto;
       }
 
-      /* Texto sob a linha: altura mínima igual nos 3 blocos */
       .assinatura-texto {
         min-height: 48px;
         padding: 0 2px;
@@ -160,8 +177,8 @@
           {% if ENDERECO_EMPRESA %}
           <p>Endereço: <strong>{{ ENDERECO_EMPRESA }}</strong></p>
           {% endif %}
-          <br />
-          <p>{{ DIZERES_CERTIFICADO }}</p>
+
+          <p class="espaco-dizeres">{{ DIZERES_CERTIFICADO }}</p>
         </div>
 
         <div class="campos">
@@ -174,7 +191,6 @@
       </div>
 
       <div class="assinaturas">
-        <!-- Instrutor -->
         <div class="assinatura-bloco">
           <div class="assinatura-topo">
             {% if ASSINATURA_INSTRUTOR %}
@@ -194,7 +210,6 @@
           </div>
         </div>
 
-        <!-- Aluno -->
         <div class="assinatura-bloco">
           <div class="assinatura-topo"></div>
           <div class="assinatura-linha"></div>
@@ -204,7 +219,6 @@
           </div>
         </div>
 
-        <!-- Responsável técnico -->
         {% if RESP_TECNICO %}
         <div class="assinatura-bloco">
           <div class="assinatura-topo">
