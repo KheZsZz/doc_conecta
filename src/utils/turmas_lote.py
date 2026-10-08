@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import re
+import unicodedata
 from datetime import datetime
 from typing import Any
 
@@ -35,7 +36,6 @@ def _pick_col(df: pd.DataFrame, candidates: list[str]) -> str | None:
     for cand in candidates:
         if cand.lower() in mapa:
             return mapa[cand.lower()]
-    # match parcial
     for key, orig in mapa.items():
         for cand in candidates:
             if cand.lower() in key or key in cand.lower():
@@ -57,33 +57,59 @@ def _cel(row, col) -> str:
 
 
 def _parse_data(val) -> str | None:
+    """
+    Aceita data no padrao brasileiro DD/MM/YYYY (preferencial),
+    alem de YYYY-MM-DD, datetime do Excel e serial.
+    Retorna ISO YYYY-MM-DD para gravar no banco.
+    """
     if val is None or (isinstance(val, float) and pd.isna(val)):
         return None
+
+    # datetime / Timestamp do pandas ou Excel
     if hasattr(val, "strftime"):
         try:
             return val.strftime("%Y-%m-%d")
         except Exception:
             pass
+
     s = str(val).strip()
     if not s or s.lower() in ("nan", "none", "nat"):
         return None
-    s10 = s.split("T")[0][:10]
-    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y"):
+
+    # remove hora se vier junto: "15/10/2026 00:00:00"
+    s = s.split(" ")[0].split("T")[0].strip()
+
+    # Padrao brasileiro primeiro
+    for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y", "%d/%m/%y", "%d-%m-%y"):
         try:
-            return datetime.strptime(s10 if fmt.startswith("%Y") else s[:10], fmt).strftime(
-                "%Y-%m-%d"
-            )
+            return datetime.strptime(s, fmt).strftime("%Y-%m-%d")
         except Exception:
             continue
-    # excel serial
+
+    # ISO
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(s[:10], fmt).strftime("%Y-%m-%d")
+        except Exception:
+            continue
+
+    # serial Excel
     try:
-        n = float(s)
+        n = float(str(val).strip())
         if 30000 < n < 60000:
             base = datetime(1899, 12, 30)
             return (base + pd.Timedelta(days=n)).strftime("%Y-%m-%d")
     except Exception:
         pass
+
     return None
+
+
+def data_iso_para_br(iso: str) -> str:
+    try:
+        return datetime.strptime(str(iso)[:10], "%Y-%m-%d").strftime("%d/%m/%Y")
+    except Exception:
+        return str(iso or "")
 
 
 def _parse_carga(val) -> str:
@@ -97,8 +123,16 @@ def _parse_carga(val) -> str:
     return s
 
 
+def _sem_acento(s: str) -> str:
+    nk = unicodedata.normalize("NFKD", s or "")
+    return "".join(ch for ch in nk if not unicodedata.combining(ch))
+
+
 def _norm_key(s: str) -> str:
-    return re.sub(r"\s+", " ", (s or "").strip().lower())
+    """Normaliza para comparacao de nomes (minusculo, sem acento, espacos simples)."""
+    s = _sem_acento(s or "")
+    s = re.sub(r"\s+", " ", s.strip().lower())
+    return s
 
 
 def ler_planilha_turmas(arquivo_bytes: bytes) -> tuple[list[dict[str, Any]], list[str]]:
@@ -123,7 +157,15 @@ def ler_planilha_turmas(arquivo_bytes: bytes) -> tuple[list[dict[str, Any]], lis
     col_carga = _pick_col(df, ["CARGA HORARIA", "CARGA", "CARGA_HORARIA", "HORAS"])
     col_mod = _pick_col(df, ["MODALIDADE", "MODALITY"])
     col_nivel = _pick_col(df, ["NIVEL", "NÍVEL", "LEVEL"])
-    col_inst = _pick_col(df, ["INSTRUTOR", "INSTRUTOR TITULAR"])
+    col_inst = _pick_col(
+        df,
+        [
+            "INSTRUTOR",
+            "INSTRUTOR TITULAR",
+            "NOME INSTRUTOR",
+            "NOME COMPLETO INSTRUTOR",
+        ],
+    )
     col_ct = _pick_col(df, ["CT", "CENTRO", "CT RESPONSAVEL", "LOCAL"])
     col_titulo = _pick_col(df, ["TITULO", "TÍTULO", "TITULO TURMA"])
 
@@ -147,22 +189,27 @@ def ler_planilha_turmas(arquivo_bytes: bytes) -> tuple[list[dict[str, Any]], lis
         cnpj = normalizar_cnpj(_cel(row, col_cnpj))
         nome_emp = _cel(row, col_emp)
         data = _parse_data(row.get(col_data) if col_data else None)
-        sigla = _cel(row, col_sigla).upper().replace(" ", "")
+        sigla = re.sub(r"[^A-Z0-9]", "", _cel(row, col_sigla).upper())
         curso_nome = _cel(row, col_curso)
+        instrutor_nome = _cel(row, col_inst)
 
         if not cnpj and not nome_emp and not data:
             continue
 
-        if not cnpj or len(cnpj) not in (14,):
-            # aceita 14 dígitos; se veio com formatação já limpou
-            if not cnpj or len(cnpj) < 11:
-                erros.append(f"Linha {nlinha}: CNPJ inválido ({cnpj or 'vazio'}).")
-                continue
+        if not cnpj or len(cnpj) < 11:
+            erros.append(f"Linha {nlinha}: CNPJ inválido ({cnpj or 'vazio'}).")
+            continue
+        cnpj = cnpj.zfill(14) if len(cnpj) <= 14 else cnpj[:14]
+
         if not nome_emp:
             erros.append(f"Linha {nlinha}: nome da empresa obrigatório.")
             continue
         if not data:
-            erros.append(f"Linha {nlinha}: data de treinamento inválida.")
+            raw = _cel(row, col_data)
+            erros.append(
+                f"Linha {nlinha}: data inválida ({raw or 'vazia'}). "
+                f"Use o padrão brasileiro DD/MM/AAAA (ex.: 15/10/2026)."
+            )
             continue
         if not sigla and not curso_nome:
             erros.append(f"Linha {nlinha}: informe SIGLA CURSO ou CURSO.")
@@ -171,7 +218,7 @@ def ler_planilha_turmas(arquivo_bytes: bytes) -> tuple[list[dict[str, Any]], lis
         linhas.append(
             {
                 "linha": nlinha,
-                "cnpj": cnpj.zfill(14) if len(cnpj) <= 14 else cnpj[:14],
+                "cnpj": cnpj,
                 "nome_empresa": nome_emp,
                 "endereco": _cel(row, col_end),
                 "responsavel": _cel(row, col_resp),
@@ -181,10 +228,13 @@ def ler_planilha_turmas(arquivo_bytes: bytes) -> tuple[list[dict[str, Any]], lis
                 "sigla_curso": sigla,
                 "curso_nome": curso_nome,
                 "data_treinamento": data,
-                "carga_horaria": _parse_carga(row.get(col_carga) if col_carga else None),
+                "data_treinamento_br": data_iso_para_br(data),
+                "carga_horaria": _parse_carga(
+                    row.get(col_carga) if col_carga else None
+                ),
                 "modalidade": _cel(row, col_mod) or "In Company",
                 "nivel": _cel(row, col_nivel) or "Formação",
-                "instrutor": _cel(row, col_inst),
+                "instrutor": instrutor_nome,
                 "ct": _cel(row, col_ct),
                 "titulo": _cel(row, col_titulo),
             }
@@ -207,7 +257,6 @@ def _cache_empresas_por_cnpj() -> dict[str, dict]:
 
 
 def _cache_cursos() -> tuple[dict[str, dict], dict[str, dict]]:
-    """sigla_norm -> curso, nome_norm -> curso"""
     by_sigla: dict[str, dict] = {}
     by_nome: dict[str, dict] = {}
     try:
@@ -229,7 +278,9 @@ def _cache_instrutores() -> dict[str, dict]:
     try:
         res = supabase.table("instrutores").select("*").execute()
         for r in res.data or []:
-            out[_norm_key(r.get("name") or "")] = r
+            key = _norm_key(r.get("name") or "")
+            if key:
+                out[key] = r
     except Exception:
         pass
     return out
@@ -240,7 +291,9 @@ def _cache_cts() -> dict[str, dict]:
     try:
         res = supabase.table("cts").select("*").execute()
         for r in res.data or []:
-            out[_norm_key(r.get("name") or "")] = r
+            key = _norm_key(r.get("name") or "")
+            if key:
+                out[key] = r
     except Exception:
         pass
     return out
@@ -250,11 +303,6 @@ def resolver_ou_criar_empresa(
     linha: dict,
     cache_cnpj: dict[str, dict],
 ) -> tuple[dict | None, str | None, bool]:
-    """
-    Retorna (empresa, erro, criada).
-    Se CNPJ existe, atualiza campos vazios opcionalmente nao — so reutiliza.
-    Se nao existe, cria.
-    """
     cnpj = linha["cnpj"]
     if cnpj in cache_cnpj:
         return cache_cnpj[cnpj], None, False
@@ -278,7 +326,6 @@ def resolver_ou_criar_empresa(
         return emp, None, True
     except Exception as e:
         msg = str(e)
-        # nome duplicado (unique name) — tenta com sufixo CNPJ
         if "clients_name_key" in msg or "duplicate" in msg.lower():
             payload["name"] = f"{nome} ({cnpj[-6:]})"
             try:
@@ -303,7 +350,6 @@ def resolver_curso(
     nome = _norm_key(linha.get("curso_nome") or "")
     if nome and nome in by_nome:
         return by_nome[nome], None
-    # match parcial por nome
     if nome:
         for k, v in by_nome.items():
             if nome in k or k in nome:
@@ -317,14 +363,34 @@ def resolver_instrutor(
     cache: dict[str, dict],
     fallback: dict | None,
 ) -> tuple[dict | None, str | None]:
+    """
+    Resolve pelo nome completo do instrutor (ignora acentos e maiúsculas).
+    Ex.: "Carlos Eduardo Morroni" == "CARLOS EDUARDO MORRONI"
+    """
+    nome = (nome or "").strip()
     if nome:
         key = _norm_key(nome)
+        # 1) match exato do nome completo
         if key in cache:
             return cache[key], None
+        # 2) planilha contém o nome cadastrado ou vice-versa
+        candidatos = []
         for k, v in cache.items():
-            if key in k or k in key:
+            if key == k:
                 return v, None
-        return None, f"Instrutor não encontrado: {nome}"
+            if key in k or k in key:
+                candidatos.append((len(k), v))
+        if len(candidatos) == 1:
+            return candidatos[0][1], None
+        if len(candidatos) > 1:
+            # pega o nome mais longo (mais específico)
+            candidatos.sort(key=lambda x: -x[0])
+            return candidatos[0][1], None
+        return (
+            None,
+            f"Instrutor não encontrado: '{nome}'. "
+            f"Use o nome completo igual ao cadastro de instrutores.",
+        )
     if fallback:
         return fallback, None
     return None, "Instrutor não informado e nenhum padrão disponível"
@@ -354,11 +420,9 @@ def montar_titulo(linha: dict, curso: dict) -> str:
     sig = curso.get("sigla") or ""
     nome_c = curso.get("name") or "Treinamento"
     emp = linha.get("nome_empresa") or ""
-    data = linha.get("data_treinamento") or ""
-    try:
-        data_br = datetime.strptime(data, "%Y-%m-%d").strftime("%d/%m/%Y")
-    except Exception:
-        data_br = data
+    data_br = linha.get("data_treinamento_br") or data_iso_para_br(
+        linha.get("data_treinamento") or ""
+    )
     base = f"{sig or nome_c} - {emp} - {data_br}"
     return base[:200]
 
@@ -369,10 +433,6 @@ def importar_turmas_lote(
     instrutor_padrao_id: str | None = None,
     ct_padrao_id: str | None = None,
 ) -> dict[str, Any]:
-    """
-    Processa linhas e insere turmas.
-    Retorna {criadas, empresas_novas, erros, detalhes}.
-    """
     cache_emp = _cache_empresas_por_cnpj()
     by_sigla, by_nome = _cache_cursos()
     cache_inst = _cache_instrutores()
@@ -394,7 +454,6 @@ def importar_turmas_lote(
                 fb_ct = v
                 break
     if not fb_ct and cache_ct:
-        # prefere Conecta
         for v in cache_ct.values():
             if "conecta" in (v.get("name") or "").lower():
                 fb_ct = v
@@ -421,7 +480,9 @@ def importar_turmas_lote(
             erros.append(f"Linha {n}: {err_c}")
             continue
 
-        inst, err_i = resolver_instrutor(linha.get("instrutor") or "", cache_inst, fb_inst)
+        inst, err_i = resolver_instrutor(
+            linha.get("instrutor") or "", cache_inst, fb_inst
+        )
         if err_i or not inst:
             erros.append(f"Linha {n}: {err_i}")
             continue
@@ -455,6 +516,9 @@ def importar_turmas_lote(
                     "empresa": emp.get("name"),
                     "empresa_nova": nova,
                     "curso": curso.get("sigla") or curso.get("name"),
+                    "instrutor": inst.get("name"),
+                    "data": linha.get("data_treinamento_br")
+                    or data_iso_para_br(linha["data_treinamento"]),
                 }
             )
         except Exception as e:
@@ -472,7 +536,7 @@ def gerar_modelo_planilha() -> bytes:
     df = pd.DataFrame(
         [
             {
-                "CNPJ": "42365296001085",
+                "CNPJ": "42.365.296/0010-85",
                 "NOME EMPRESA": "KION SOUTH AMERICA FABRICACAO DE EQUIPAMENTOS PARA ARMAZENAGEM LTDA",
                 "ENDERECO": "Rod. SP-075, Km 56, Indaiatuba - SP",
                 "RESPONSAVEL": "João Silva",
@@ -481,11 +545,11 @@ def gerar_modelo_planilha() -> bytes:
                 "UNIDADE": "Indaiatuba",
                 "SIGLA CURSO": "NR12",
                 "CURSO": "",
-                "DATA TREINAMENTO": "2026-10-15",
+                "DATA TREINAMENTO": "15/10/2026",
                 "CARGA HORARIA": "8",
                 "MODALIDADE": "In Company",
                 "NIVEL": "Formação",
-                "INSTRUTOR": "",
+                "INSTRUTOR": "CARLOS EDUARDO MORRONI",
                 "CT": "Conecta",
                 "TITULO": "",
             }

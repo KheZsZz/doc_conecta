@@ -25,20 +25,17 @@ def render_tab_lote():
 
 | Coluna | Obrigatório | Observação |
 |--------|-------------|------------|
-| CNPJ | sim | só números ou formatado |
+| CNPJ | sim | com ou sem pontuação |
 | NOME EMPRESA | sim | razão social |
-| DATA TREINAMENTO | sim | `YYYY-MM-DD` ou `DD/MM/YYYY` |
-| SIGLA CURSO ou CURSO | sim | deve existir no cadastro de cursos |
-| ENDERECO | não | usado se criar empresa |
-| RESPONSAVEL | não | contato da empresa |
-| TELEFONE / EMAIL | não | |
-| UNIDADE | não | campo unidade da empresa |
-| CARGA HORARIA | não | padrão 8 Horas |
-| MODALIDADE | não | padrão In Company |
-| NIVEL | não | padrão Formação |
-| INSTRUTOR | não | usa o padrão da tela se vazio |
-| CT | não | usa o padrão da tela se vazio |
+| DATA TREINAMENTO | sim | **padrão brasileiro** `DD/MM/AAAA` (ex.: `15/10/2026`) |
+| SIGLA CURSO ou CURSO | sim | deve existir no cadastro |
+| INSTRUTOR | recomendado | **nome completo** igual ao cadastro (ex.: `CARLOS EDUARDO MORRONI`) |
+| ENDERECO / RESPONSAVEL / TELEFONE / EMAIL / UNIDADE | não | usados se criar empresa |
+| CARGA HORARIA / MODALIDADE / NIVEL | não | padrões: 8 Horas, In Company, Formação |
+| CT | não | senão usa o padrão da tela |
 | TITULO | não | gerado automaticamente se vazio |
+
+A data também aceita célula de data do Excel. No banco grava em ISO; na tela aparece em `DD/MM/AAAA`.
             """
         )
         st.download_button(
@@ -49,7 +46,6 @@ def render_tab_lote():
             key="dl_modelo_turmas_lote",
         )
 
-    # Padrões para linhas sem instrutor/CT
     try:
         inst_res = (
             supabase.table("instrutores")
@@ -75,15 +71,11 @@ def render_tab_lote():
     col_p1, col_p2 = st.columns(2)
     with col_p1:
         labels_i = [i["name"] for i in instrutores]
-        idx_i = next(
-            (i for i, x in enumerate(instrutores) if "conecta" in (x.get("name") or "").lower()),
-            0,
-        )
         inst_label = st.selectbox(
-            "Instrutor padrão (se a planilha não trouxer)",
+            "Instrutor padrão (se a planilha não trouxer o nome)",
             labels_i,
-            index=min(idx_i, len(labels_i) - 1),
             key="lote_inst_padrao",
+            help="Usado só quando a coluna INSTRUTOR estiver vazia.",
         )
         inst_id = next(i["id"] for i in instrutores if i["name"] == inst_label)
     with col_p2:
@@ -127,7 +119,8 @@ def render_tab_lote():
             "CNPJ": L["cnpj"],
             "Empresa": L["nome_empresa"],
             "Curso": L.get("sigla_curso") or L.get("curso_nome"),
-            "Data": L["data_treinamento"],
+            "Data": L.get("data_treinamento_br") or L["data_treinamento"],
+            "Instrutor": L.get("instrutor") or "(padrão da tela)",
             "Carga": L["carga_horaria"],
             "Modalidade": L["modalidade"],
             "Nível": L["nivel"],
