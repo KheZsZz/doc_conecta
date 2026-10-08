@@ -57,43 +57,27 @@ def _cel(row, col) -> str:
 
 
 def _parse_data(val) -> str | None:
-    """
-    Aceita data no padrao brasileiro DD/MM/YYYY (preferencial),
-    alem de YYYY-MM-DD, datetime do Excel e serial.
-    Retorna ISO YYYY-MM-DD para gravar no banco.
-    """
     if val is None or (isinstance(val, float) and pd.isna(val)):
         return None
-
-    # datetime / Timestamp do pandas ou Excel
     if hasattr(val, "strftime"):
         try:
             return val.strftime("%Y-%m-%d")
         except Exception:
             pass
-
     s = str(val).strip()
     if not s or s.lower() in ("nan", "none", "nat"):
         return None
-
-    # remove hora se vier junto: "15/10/2026 00:00:00"
     s = s.split(" ")[0].split("T")[0].strip()
-
-    # Padrao brasileiro primeiro
     for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y", "%d/%m/%y", "%d-%m-%y"):
         try:
             return datetime.strptime(s, fmt).strftime("%Y-%m-%d")
         except Exception:
             continue
-
-    # ISO
     for fmt in ("%Y-%m-%d", "%Y/%m/%d"):
         try:
             return datetime.strptime(s[:10], fmt).strftime("%Y-%m-%d")
         except Exception:
             continue
-
-    # serial Excel
     try:
         n = float(str(val).strip())
         if 30000 < n < 60000:
@@ -101,7 +85,6 @@ def _parse_data(val) -> str | None:
             return (base + pd.Timedelta(days=n)).strftime("%Y-%m-%d")
     except Exception:
         pass
-
     return None
 
 
@@ -129,14 +112,19 @@ def _sem_acento(s: str) -> str:
 
 
 def _norm_key(s: str) -> str:
-    """Normaliza para comparacao de nomes (minusculo, sem acento, espacos simples)."""
     s = _sem_acento(s or "")
-    s = re.sub(r"\s+", " ", s.strip().lower())
-    return s
+    return re.sub(r"\s+", " ", s.strip().lower())
+
+
+def _norm_unidade(s: str) -> str:
+    return _norm_key(s or "")
+
+
+def _chave_empresa(cnpj: str, unidade: str) -> str:
+    return f"{normalizar_cnpj(cnpj)}|{_norm_unidade(unidade)}"
 
 
 def ler_planilha_turmas(arquivo_bytes: bytes) -> tuple[list[dict[str, Any]], list[str]]:
-    """Retorna (linhas, erros_leitura)."""
     df = pd.read_excel(io.BytesIO(arquivo_bytes))
     df.columns = [str(c).strip() for c in df.columns]
 
@@ -192,6 +180,7 @@ def ler_planilha_turmas(arquivo_bytes: bytes) -> tuple[list[dict[str, Any]], lis
         sigla = re.sub(r"[^A-Z0-9]", "", _cel(row, col_sigla).upper())
         curso_nome = _cel(row, col_curso)
         instrutor_nome = _cel(row, col_inst)
+        unidade = _cel(row, col_unid)
 
         if not cnpj and not nome_emp and not data:
             continue
@@ -215,6 +204,14 @@ def ler_planilha_turmas(arquivo_bytes: bytes) -> tuple[list[dict[str, Any]], lis
             erros.append(f"Linha {nlinha}: informe SIGLA CURSO ou CURSO.")
             continue
 
+        # UNIDADE recomendada quando ha multiplas plantas no mesmo CNPJ
+        if not unidade:
+            erros.append(
+                f"Linha {nlinha}: UNIDADE vazia — "
+                f"recomendado preencher para distinguir plantas com o mesmo CNPJ."
+            )
+            # nao bloqueia: segue com unidade vazia
+
         linhas.append(
             {
                 "linha": nlinha,
@@ -224,7 +221,7 @@ def ler_planilha_turmas(arquivo_bytes: bytes) -> tuple[list[dict[str, Any]], lis
                 "responsavel": _cel(row, col_resp),
                 "telefone": re.sub(r"\D", "", _cel(row, col_tel)) or _cel(row, col_tel),
                 "email": _cel(row, col_email),
-                "unidade": _cel(row, col_unid),
+                "unidade": unidade,
                 "sigla_curso": sigla,
                 "curso_nome": curso_nome,
                 "data_treinamento": data,
@@ -243,14 +240,17 @@ def ler_planilha_turmas(arquivo_bytes: bytes) -> tuple[list[dict[str, Any]], lis
     return linhas, erros
 
 
-def _cache_empresas_por_cnpj() -> dict[str, dict]:
+def _cache_empresas() -> dict[str, dict]:
+    """Chave: cnpj|unidade_normalizada -> cliente."""
     out: dict[str, dict] = {}
     try:
         res = supabase.table("clients").select("*").execute()
         for r in res.data or []:
             dig = normalizar_cnpj(r.get("cnpj"))
-            if dig:
-                out[dig] = r
+            if not dig:
+                continue
+            key = _chave_empresa(dig, r.get("sigla") or "")
+            out[key] = r
     except Exception:
         pass
     return out
@@ -301,41 +301,52 @@ def _cache_cts() -> dict[str, dict]:
 
 def resolver_ou_criar_empresa(
     linha: dict,
-    cache_cnpj: dict[str, dict],
+    cache: dict[str, dict],
 ) -> tuple[dict | None, str | None, bool]:
+    """
+    Resolve empresa por CNPJ + UNIDADE.
+    Mesmo CNPJ com unidades diferentes = registros distintos.
+    """
     cnpj = linha["cnpj"]
-    if cnpj in cache_cnpj:
-        return cache_cnpj[cnpj], None, False
+    unidade = (linha.get("unidade") or "").strip()
+    key = _chave_empresa(cnpj, unidade)
+
+    if key in cache:
+        return cache[key], None, False
 
     nome = linha["nome_empresa"].strip()
+    # Nome unico no banco: se unidade informada, sufixa no name para evitar clients_name_key
+    nome_gravar = f"{nome} - {unidade}" if unidade else nome
+
     payload = {
-        "name": nome,
+        "name": nome_gravar,
         "cnpj": cnpj,
         "full_address": linha.get("endereco") or None,
         "responsavel": linha.get("responsavel") or None,
         "phone": linha.get("telefone") or None,
         "email": linha.get("email") or None,
-        "sigla": linha.get("unidade") or None,
+        "sigla": unidade or None,
     }
 
     try:
         res = supabase.table("clients").insert(payload).execute()
         emp = res.data[0] if res and res.data else payload
         if emp.get("id"):
-            cache_cnpj[cnpj] = emp
+            cache[key] = emp
         return emp, None, True
     except Exception as e:
         msg = str(e)
-        if "clients_name_key" in msg or "duplicate" in msg.lower():
-            payload["name"] = f"{nome} ({cnpj[-6:]})"
+        if "duplicate" in msg.lower() or "unique" in msg.lower():
+            # tenta nome ainda mais especifico
+            payload["name"] = f"{nome} - {unidade or 'UN'} ({cnpj[-6:]})"
             try:
                 res = supabase.table("clients").insert(payload).execute()
                 emp = res.data[0] if res and res.data else payload
                 if emp.get("id"):
-                    cache_cnpj[cnpj] = emp
+                    cache[key] = emp
                 return emp, None, True
             except Exception as e2:
-                return None, f"Falha ao criar empresa: {e2}", False
+                return None, f"Falha ao criar empresa/unidade: {e2}", False
         return None, f"Falha ao criar empresa: {e}", False
 
 
@@ -363,17 +374,11 @@ def resolver_instrutor(
     cache: dict[str, dict],
     fallback: dict | None,
 ) -> tuple[dict | None, str | None]:
-    """
-    Resolve pelo nome completo do instrutor (ignora acentos e maiúsculas).
-    Ex.: "Carlos Eduardo Morroni" == "CARLOS EDUARDO MORRONI"
-    """
     nome = (nome or "").strip()
     if nome:
         key = _norm_key(nome)
-        # 1) match exato do nome completo
         if key in cache:
             return cache[key], None
-        # 2) planilha contém o nome cadastrado ou vice-versa
         candidatos = []
         for k, v in cache.items():
             if key == k:
@@ -383,7 +388,6 @@ def resolver_instrutor(
         if len(candidatos) == 1:
             return candidatos[0][1], None
         if len(candidatos) > 1:
-            # pega o nome mais longo (mais específico)
             candidatos.sort(key=lambda x: -x[0])
             return candidatos[0][1], None
         return (
@@ -420,11 +424,15 @@ def montar_titulo(linha: dict, curso: dict) -> str:
     sig = curso.get("sigla") or ""
     nome_c = curso.get("name") or "Treinamento"
     emp = linha.get("nome_empresa") or ""
+    unid = linha.get("unidade") or ""
     data_br = linha.get("data_treinamento_br") or data_iso_para_br(
         linha.get("data_treinamento") or ""
     )
-    base = f"{sig or nome_c} - {emp} - {data_br}"
-    return base[:200]
+    partes = [sig or nome_c, emp]
+    if unid:
+        partes.append(unid)
+    partes.append(data_br)
+    return " - ".join(partes)[:200]
 
 
 def importar_turmas_lote(
@@ -433,7 +441,7 @@ def importar_turmas_lote(
     instrutor_padrao_id: str | None = None,
     ct_padrao_id: str | None = None,
 ) -> dict[str, Any]:
-    cache_emp = _cache_empresas_por_cnpj()
+    cache_emp = _cache_empresas()
     by_sigla, by_nome = _cache_cursos()
     cache_inst = _cache_instrutores()
     cache_ct = _cache_cts()
@@ -514,6 +522,7 @@ def importar_turmas_lote(
                     "linha": n,
                     "titulo": titulo,
                     "empresa": emp.get("name"),
+                    "unidade": linha.get("unidade") or emp.get("sigla") or "",
                     "empresa_nova": nova,
                     "curso": curso.get("sigla") or curso.get("name"),
                     "instrutor": inst.get("name"),
@@ -536,23 +545,41 @@ def gerar_modelo_planilha() -> bytes:
     df = pd.DataFrame(
         [
             {
-                "CNPJ": "42.365.296/0010-85",
-                "NOME EMPRESA": "KION SOUTH AMERICA FABRICACAO DE EQUIPAMENTOS PARA ARMAZENAGEM LTDA",
-                "ENDERECO": "Rod. SP-075, Km 56, Indaiatuba - SP",
-                "RESPONSAVEL": "João Silva",
-                "TELEFONE": "11999999999",
-                "EMAIL": "contato@empresa.com",
-                "UNIDADE": "Indaiatuba",
-                "SIGLA CURSO": "NR12",
+                "CNPJ": "07.032.886/0001-02",
+                "NOME EMPRESA": "LOGISTICA AMBIENTAL DE SAO PAULO S.A. - LOGA",
+                "ENDERECO": "Av. do Estado, 300 - Bom Retiro, São Paulo/SP",
+                "RESPONSAVEL": "Ygor Danilo de Souza Silva",
+                "TELEFONE": "",
+                "EMAIL": "YDSilva@loga.com.br",
+                "UNIDADE": "ETPP",
+                "SIGLA CURSO": "NR23",
                 "CURSO": "",
-                "DATA TREINAMENTO": "15/10/2026",
+                "DATA TREINAMENTO": "16/07/2026",
                 "CARGA HORARIA": "8",
-                "MODALIDADE": "In Company",
-                "NIVEL": "Formação",
-                "INSTRUTOR": "CARLOS EDUARDO MORRONI",
-                "CT": "Conecta",
-                "TITULO": "",
-            }
+                "MODALIDADE": "Presencial (No CT)",
+                "NIVEL": "Intermediário",
+                "INSTRUTOR": "WILLIANS FELIX DA SILVA",
+                "CT": "Ecofire",
+                "TITULO": "LOGA - NR23 - ETPP - 08 Horas",
+            },
+            {
+                "CNPJ": "07.032.886/0001-02",
+                "NOME EMPRESA": "LOGISTICA AMBIENTAL DE SAO PAULO S.A. - LOGA",
+                "ENDERECO": "Av. Gonçalo Madeira, 600 - Ponte Pequena, São Paulo/SP",
+                "RESPONSAVEL": "Ygor Danilo de Souza Silva",
+                "TELEFONE": "",
+                "EMAIL": "YDSilva@loga.com.br",
+                "UNIDADE": "JAGUARÉ",
+                "SIGLA CURSO": "NR23",
+                "CURSO": "",
+                "DATA TREINAMENTO": "16/07/2026",
+                "CARGA HORARIA": "8",
+                "MODALIDADE": "Presencial (No CT)",
+                "NIVEL": "Intermediário",
+                "INSTRUTOR": "WILLIANS FELIX DA SILVA",
+                "CT": "Ecofire",
+                "TITULO": "LOGA - NR23 - JAGUARÉ - 08 Horas",
+            },
         ]
     )
     buf = io.BytesIO()
