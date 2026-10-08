@@ -10,7 +10,7 @@ def ui_selecionar_responsavel(tid: str, tipo_documento: str) -> dict:
         return {
             "nome": "Cristiano Reis",
             "cpf": "214.135.358-01",
-            "re": None,
+            "re": "0075191",
             "assinatura_url": None,
         }
 
@@ -37,6 +37,6 @@ def ui_selecionar_responsavel(tid: str, tipo_documento: str) -> dict:
     return {
         "nome": r.get("nome") or "",
         "cpf": r.get("cpf") or "",
-        "re": r.get("re") or "",
+        "re": (r.get("re") or "").strip(),
         "assinatura_url": r.get("assinatura_url"),
     }

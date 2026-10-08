@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import io
-import re
 import zipfile
 from datetime import date, datetime
 from typing import Any
@@ -71,7 +70,11 @@ def turmas_do_periodo(
     if not client_ids:
         return []
 
-    di = data_inicio.isoformat() if hasattr(data_inicio, "isoformat") else str(data_inicio)[:10]
+    di = (
+        data_inicio.isoformat()
+        if hasattr(data_inicio, "isoformat")
+        else str(data_inicio)[:10]
+    )
     df = data_fim.isoformat() if hasattr(data_fim, "isoformat") else str(data_fim)[:10]
 
     try:
@@ -90,24 +93,22 @@ def turmas_do_periodo(
 
 
 def responsavel_padrao() -> dict:
+    """Usa fetch_responsaveis (ja completa RE a partir do instrutor se precisar)."""
     resps = fetch_responsaveis()
     ativos = [r for r in resps if r.get("is_active", True)]
     if not ativos:
-        return {}
-    for r in ativos:
-        if r.get("is_default"):
-            return {
-                "nome": r.get("nome") or "",
-                "cpf": r.get("cpf") or "",
-                "re": r.get("re") or "",
-                "assinatura_url": r.get("assinatura_url"),
-            }
-    r = ativos[0]
+        return {
+            "nome": "Cristiano Reis",
+            "cpf": "214.135.358-01",
+            "re": "0075191",
+            "assinatura_url": None,
+        }
+    escolhido = next((r for r in ativos if r.get("is_default")), ativos[0])
     return {
-        "nome": r.get("nome") or "",
-        "cpf": r.get("cpf") or "",
-        "re": r.get("re") or "",
-        "assinatura_url": r.get("assinatura_url"),
+        "nome": escolhido.get("nome") or "",
+        "cpf": escolhido.get("cpf") or "",
+        "re": (escolhido.get("re") or "").strip(),
+        "assinatura_url": escolhido.get("assinatura_url"),
     }
 
 
@@ -133,10 +134,6 @@ def gerar_pacote_grupo(
     incluir_carteirinhas: bool = True,
     incluir_lista: bool = True,
 ) -> tuple[bytes, dict[str, Any]]:
-    """
-    Gera ZIP com pasta por turma.
-    Retorna (zip_bytes, meta) onde meta tem gerados/erros/resumo.
-    """
     dados_resp = dados_resp or responsavel_padrao()
     zip_buf = io.BytesIO()
     gerados: list[str] = []
@@ -247,7 +244,9 @@ def gerar_pacote_grupo(
                         normativa=normativa,
                         cidade_data=cidade_data,
                     )
-                    zf.writestr(f"{pasta}/03_certificados_individuais.zip", zip_alunos)
+                    zf.writestr(
+                        f"{pasta}/03_certificados_individuais.zip", zip_alunos
+                    )
                     gerados.append(f"{titulo}/cert_alunos")
                     docs_ok += 1
                 except Exception as e:
