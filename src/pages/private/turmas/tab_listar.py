@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import datetime
 
 import streamlit as st
 
@@ -30,10 +30,45 @@ def _parse_iso(data_str):
         return None
 
 
+def _excluir_turma(tid: str) -> tuple[bool, str]:
+    """Remove matrículas da turma e depois a turma."""
+    try:
+        supabase.table("matriculas").delete().eq("turma_id", tid).execute()
+        supabase.table("turmas").delete().eq("id", tid).execute()
+        return True, "Turma excluída com sucesso."
+    except Exception as e:
+        return False, str(e)
+
+
+@st.dialog("🗑️ Excluir turma", width="small")
+def modal_excluir_turma(tid: str, titulo: str, qtd_alunos: int):
+    st.warning(
+        f"Tem certeza que deseja excluir a turma **{titulo}**?\n\n"
+        f"Isso remove também as **{qtd_alunos}** matrícula(s) vinculadas. "
+        "Esta ação não pode ser desfeita."
+    )
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("Cancelar", use_container_width=True, key=f"cancel_del_{tid}"):
+            st.rerun()
+    with c2:
+        if st.button(
+            "Excluir definitivamente",
+            type="primary",
+            use_container_width=True,
+            key=f"confirm_del_{tid}",
+        ):
+            ok, msg = _excluir_turma(tid)
+            if ok:
+                st.success(msg)
+                st.rerun()
+            else:
+                st.error(f"Erro ao excluir: {msg}")
+
+
 def render_tab_listar():
     st.subheader("📋 Painel de Turmas e Emissão de Documentos")
 
-    # ---- Filtros ----
     col1, col2 = st.columns(2)
     with col1:
         busca_turma = st.text_input(
@@ -60,7 +95,6 @@ def render_tab_listar():
             key="filtro_data_ate",
         )
     with col5:
-        # Carrega instrutores para o filtro
         opcoes_instrutor = ["Todos"]
         mapa_instrutor: dict[str, str] = {}
         try:
@@ -95,8 +129,6 @@ def render_tab_listar():
         if filtro_instrutor != "Todos" and filtro_instrutor in mapa_instrutor:
             query = query.eq("instrutor_id", mapa_instrutor[filtro_instrutor])
 
-        # Busca ampla; ordenação fina e filtros de data no Python
-        # (Supabase order multi-coluna + nulls varia por versão)
         try:
             res_turmas = query.order("created_at", desc=True).execute()
         except Exception:
@@ -108,7 +140,6 @@ def render_tab_listar():
 
         turmas_exibir = list(res_turmas.data)
 
-        # Filtro por texto
         if busca_turma.strip():
             busca_lower = busca_turma.lower()
             turmas_exibir = [
@@ -119,7 +150,6 @@ def render_tab_listar():
                 or busca_lower in str(t.get("id", "")).lower()
             ]
 
-        # Filtro por intervalo de data do treinamento
         if data_de or data_ate:
             filtradas = []
             for t in turmas_exibir:
@@ -133,18 +163,6 @@ def render_tab_listar():
                 filtradas.append(t)
             turmas_exibir = filtradas
 
-        # Ordenação:
-        # 1) Pendentes (documento_emitido=False) no topo
-        # 2) Dentro de cada grupo: ordem de inclusão (created_at) — mais recentes primeiro
-        def _sort_key(t):
-            pendente = 0 if not t.get("documento_emitido") else 1
-            created = t.get("created_at") or ""
-            data_t = str(t.get("data_treinamento") or "")
-            # pendente primeiro; depois mais recente (string ISO ordena bem invertendo)
-            return (pendente, created or data_t)
-
-        turmas_exibir.sort(key=_sort_key, reverse=False)
-        # Dentro do mesmo status, queremos created_at DESC:
         pendentes = [t for t in turmas_exibir if not t.get("documento_emitido")]
         emitidos = [t for t in turmas_exibir if t.get("documento_emitido")]
 
@@ -155,7 +173,9 @@ def render_tab_listar():
                 reverse=True,
             )
 
-        turmas_exibir = _mais_recente_primeiro(pendentes) + _mais_recente_primeiro(emitidos)
+        turmas_exibir = _mais_recente_primeiro(pendentes) + _mais_recente_primeiro(
+            emitidos
+        )
 
         if not turmas_exibir:
             st.info("Nenhuma turma encontrada com os filtros aplicados.")
@@ -181,7 +201,6 @@ def render_tab_listar():
             icon_status = "✅" if status_doc else "⚠️"
             cor_status = "green" if status_doc else "orange"
 
-            # Card FECHADO: só data + empresa
             label_expander = f"{icon_status} **{data_br}** · {empresa_nome}"
 
             with st.expander(label_expander):
@@ -210,17 +229,21 @@ def render_tab_listar():
                 qtd_alunos = mat_count_res.count if mat_count_res else 0
                 st.info(f"👥 **Alunos Matriculados:** {qtd_alunos}")
 
-                col_btn1, col_btn2, col_btn3, col_btn4 = st.columns(4)
+                col_btn1, col_btn2, col_btn3, col_btn4, col_btn5 = st.columns(5)
 
                 with col_btn1:
                     if st.button(
-                        "✏️ Editar Turma", key=f"edt_turma_{tid}", use_container_width=True
+                        "✏️ Editar",
+                        key=f"edt_turma_{tid}",
+                        use_container_width=True,
                     ):
                         modal_editar_turma(tid)
 
                 with col_btn2:
                     if st.button(
-                        "➕ Adicionar Aluno", key=f"add_{tid}", use_container_width=True
+                        "➕ Aluno",
+                        key=f"add_{tid}",
+                        use_container_width=True,
                     ):
                         modal_adicionar_aluno(
                             tid, titulo, empresa_id, data_trein, t.get("carga_horaria")
@@ -228,18 +251,28 @@ def render_tab_listar():
 
                 with col_btn3:
                     if st.button(
-                        "👥 Ver / Editar Alunos", key=f"edit_{tid}", use_container_width=True
+                        "👥 Alunos",
+                        key=f"edit_{tid}",
+                        use_container_width=True,
                     ):
                         modal_editar_matriculas(tid, titulo)
 
                 with col_btn4:
                     if st.button(
-                        "📄 Gerar Documentos",
+                        "📄 Documentos",
                         key=f"doc_{tid}",
                         type="primary",
                         use_container_width=True,
                     ):
                         modal_emitir_documentacao(tid, titulo, empresa_id, ct_id)
+
+                with col_btn5:
+                    if st.button(
+                        "🗑️ Excluir",
+                        key=f"del_turma_{tid}",
+                        use_container_width=True,
+                    ):
+                        modal_excluir_turma(tid, titulo, qtd_alunos or 0)
 
     except Exception as e:
         st.error(f"Erro ao carregar turmas: {e}")
