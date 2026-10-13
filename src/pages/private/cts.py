@@ -1,5 +1,6 @@
 import mimetypes
 import uuid
+from io import BytesIO
 
 import streamlit as st
 
@@ -34,7 +35,6 @@ def _content_type(arquivo_upload) -> str:
 def fazer_upload_arquivo(arquivo_upload, bucket_name: str, prefixo: str):
     """
     Envia arquivo para o Storage do Supabase e devolve a URL pública.
-    Tenta a API path/file e, em falha, a variante com kwargs legados.
     """
     if arquivo_upload is None:
         return None
@@ -50,39 +50,48 @@ def fazer_upload_arquivo(arquivo_upload, bucket_name: str, prefixo: str):
             return None
 
         mime = _content_type(arquivo_upload)
-        options = {
-            "content-type": mime,
-            "upsert": "true",
-        }
-
         bucket = supabase.storage.from_(bucket_name)
 
-        # API atual do supabase-py: upload(path, file, file_options=...)
-        try:
-            bucket.upload(nome_arquivo, file_bytes, file_options=options)
-        except TypeError:
-            # Fallback kwargs antigos
-            bucket.upload(
-                path=nome_arquivo,
-                file=file_bytes,
-                file_options=options,
-            )
-        except Exception as e1:
-            # Segunda tentativa com upsert via header x-upsert
+        # supabase-py aceita bytes ou file-like; tenta várias formas
+        last_err = None
+        for options in (
+            {"content-type": mime, "upsert": "true"},
+            {"content-type": mime, "x-upsert": "true"},
+            {"content-type": mime},
+        ):
             try:
-                bucket.upload(
-                    nome_arquivo,
-                    file_bytes,
-                    file_options={
-                        "content-type": mime,
-                        "x-upsert": "true",
-                    },
-                )
-            except Exception:
-                raise e1
+                bucket.upload(nome_arquivo, file_bytes, file_options=options)
+                last_err = None
+                break
+            except TypeError:
+                try:
+                    bucket.upload(
+                        path=nome_arquivo,
+                        file=file_bytes,
+                        file_options=options,
+                    )
+                    last_err = None
+                    break
+                except Exception as e:
+                    last_err = e
+            except Exception as e:
+                last_err = e
+                try:
+                    bucket.upload(
+                        nome_arquivo, BytesIO(file_bytes), file_options=options
+                    )
+                    last_err = None
+                    break
+                except Exception as e2:
+                    last_err = e2
+
+        if last_err is not None:
+            raise last_err
 
         url = bucket.get_public_url(nome_arquivo)
-        # algumas versões devolvem string com query; ok para uso público
+        if isinstance(url, str):
+            # remove query string residual se houver
+            return url.split("?")[0]
         return url
     except Exception as e:
         msg = str(e)
@@ -90,19 +99,43 @@ def fazer_upload_arquivo(arquivo_upload, bucket_name: str, prefixo: str):
         if "Bucket not found" in msg or "not found" in msg.lower():
             st.info(
                 f"Confira no Supabase Storage se o bucket **`{bucket_name}`** existe "
-                "e está **público** (ou com policy de INSERT/SELECT para o app)."
+                "e está **público**."
             )
-        if "row-level security" in msg.lower() or "policy" in msg.lower():
+        if (
+            "row-level security" in msg.lower()
+            or "policy" in msg.lower()
+            or "403" in msg
+            or "401" in msg
+            or "unauthorized" in msg.lower()
+            or "permission" in msg.lower()
+        ):
             st.info(
-                "Policy do Storage bloqueando o upload. Em Storage → Policies, "
-                "libere INSERT (e SELECT) no bucket para o role usado pelo app."
+                "O Storage está bloqueando o upload (policy). "
+                "No Supabase → Storage → Policies do bucket, libere **INSERT** "
+                "(e SELECT) para o role do app (`anon` / `authenticated`)."
+            )
+            st.code(
+                f"""-- Policies sugeridas para o bucket {bucket_name}
+CREATE POLICY "public_read_{bucket_name}"
+ON storage.objects FOR SELECT
+USING (bucket_id = '{bucket_name}');
+
+CREATE POLICY "public_insert_{bucket_name}"
+ON storage.objects FOR INSERT
+WITH CHECK (bucket_id = '{bucket_name}');
+
+CREATE POLICY "public_update_{bucket_name}"
+ON storage.objects FOR UPDATE
+USING (bucket_id = '{bucket_name}');
+""",
+                language="sql",
             )
         if "413" in msg or "too large" in msg.lower():
             st.info("Arquivo muito grande. Use PNG/JPG com poucos MB.")
         return None
 
 
-@st.dialog("✏️ Editar Centro de Treinamento", width="medium")
+@st.dialog("✏️ Editar Centro de Treinamento", width="large")
 def modal_editar_ct(
     ct_id,
     name_atual,
@@ -114,51 +147,54 @@ def modal_editar_ct(
     fundo_cert_atual,
     fundo_cart_atual,
 ):
+    # Uploaders FORA do form — no Streamlit, file_uploader dentro de form
+    # frequentemente não envia o arquivo no submit.
+    st.markdown("**🏷️ Logomarca**")
+    if logo_atual:
+        st.image(logo_atual, width=160, caption="Logo atual")
+    nova_logo = st.file_uploader(
+        "Nova logomarca (PNG, JPG, WEBP)",
+        type=["png", "jpg", "jpeg", "webp"],
+        key=f"up_edit_logo_{ct_id}",
+    )
+    if nova_logo is not None:
+        st.image(nova_logo, width=160, caption="Prévia da nova logo")
+
+    st.markdown("---")
+    st.markdown("**🖼️ Fundo de certificado**")
+    if fundo_cert_atual:
+        st.image(fundo_cert_atual, width=160, caption="Fundo certificado atual")
+    novo_fundo_cert = st.file_uploader(
+        "Novo fundo de certificado",
+        type=["png", "jpg", "jpeg", "webp"],
+        key=f"up_edit_fundo_{ct_id}",
+    )
+
+    st.markdown("---")
+    st.markdown("**🪪 Fundo de carteirinha**")
+    if fundo_cart_atual:
+        st.image(fundo_cart_atual, width=160, caption="Fundo carteirinha atual")
+    novo_fundo_cart = st.file_uploader(
+        "Novo fundo de carteirinha",
+        type=["png", "jpg", "jpeg", "webp"],
+        key=f"up_edit_fundo_cart_{ct_id}",
+    )
+
+    st.markdown("---")
     with st.form(f"form_editar_ct_{ct_id}"):
         novo_name = st.text_input("Nome Fantasia / Apelido do CT*", value=name_atual)
         novo_full_name = st.text_input(
-            "Razão Social (Nome Completo)", value=full_name_atual
+            "Razão Social (Nome Completo)", value=full_name_atual or ""
         )
 
         col1, col2 = st.columns(2)
         with col1:
-            novo_cnpj = st.text_input("CNPJ", value=cnpj_atual)
+            novo_cnpj = st.text_input("CNPJ", value=cnpj_atual or "")
         with col2:
-            novo_phone = st.text_input("Telefone", value=phone_atual)
+            novo_phone = st.text_input("Telefone", value=phone_atual or "")
 
-        novo_address = st.text_area("Endereço Completo", value=address_atual)
-
-        st.markdown("---")
-        st.markdown("**🏷️ Logomarca do CT (Opcional)**")
-        if logo_atual:
-            st.image(logo_atual, width=150, caption="Logo atual")
-        nova_logo = st.file_uploader(
-            "Substituir logomarca (PNG, JPG)",
-            type=["png", "jpg", "jpeg", "webp"],
-            key=f"up_edit_logo_{ct_id}",
-        )
-
-        st.markdown("---")
-        st.markdown("**🖼️ Fundo de Certificado (Opcional)**")
-        if fundo_cert_atual:
-            st.image(fundo_cert_atual, width=150, caption="Fundo certificado atual")
-        novo_fundo_cert = st.file_uploader(
-            "Substituir fundo de certificado (PNG, JPG)",
-            type=["png", "jpg", "jpeg", "webp"],
-            key=f"up_edit_fundo_{ct_id}",
-        )
-
-        st.markdown("---")
-        st.markdown("**🪪 Fundo de Carteirinha (Opcional)**")
-        st.caption(
-            "Imagem de fundo usada nas carteirinhas dos alunos deste CT."
-        )
-        if fundo_cart_atual:
-            st.image(fundo_cart_atual, width=150, caption="Fundo carteirinha atual")
-        novo_fundo_cart = st.file_uploader(
-            "Substituir fundo de carteirinha (PNG, JPG)",
-            type=["png", "jpg", "jpeg", "webp"],
-            key=f"up_edit_fundo_cart_{ct_id}",
+        novo_address = st.text_area(
+            "Endereço Completo", value=address_atual or ""
         )
 
         salvar = st.form_submit_button(
@@ -166,44 +202,49 @@ def modal_editar_ct(
         )
 
         if salvar:
-            if not novo_name:
+            if not (novo_name or "").strip():
                 st.warning("O Nome Fantasia é obrigatório.")
             else:
                 try:
                     payload = {
                         "name": novo_name.strip(),
-                        "full_name": novo_full_name.strip() if novo_full_name else None,
-                        "cnpj": novo_cnpj.strip() if novo_cnpj else None,
-                        "phone": novo_phone.strip() if novo_phone else None,
-                        "full_address": novo_address.strip() if novo_address else None,
+                        "full_name": (novo_full_name or "").strip() or None,
+                        "cnpj": (novo_cnpj or "").strip() or None,
+                        "phone": (novo_phone or "").strip() or None,
+                        "full_address": (novo_address or "").strip() or None,
                     }
 
                     falhou_upload = False
+                    ok_logo = False
 
                     if nova_logo is not None:
-                        url_nova_logo = fazer_upload_arquivo(
-                            nova_logo, "logos", "ct_logo"
-                        )
+                        with st.spinner("Enviando logomarca..."):
+                            url_nova_logo = fazer_upload_arquivo(
+                                nova_logo, "logos", "ct_logo"
+                            )
                         if url_nova_logo:
                             payload["logo_url"] = url_nova_logo
+                            ok_logo = True
                         else:
                             falhou_upload = True
 
                     if novo_fundo_cert is not None:
-                        url_novo_fundo = fazer_upload_arquivo(
-                            novo_fundo_cert, "certificados_fundos", "ct_fundo"
-                        )
+                        with st.spinner("Enviando fundo de certificado..."):
+                            url_novo_fundo = fazer_upload_arquivo(
+                                novo_fundo_cert, "certificados_fundos", "ct_fundo"
+                            )
                         if url_novo_fundo:
                             payload["fundo_certificado_url"] = url_novo_fundo
                         else:
                             falhou_upload = True
 
                     if novo_fundo_cart is not None:
-                        url_fundo_cart = fazer_upload_arquivo(
-                            novo_fundo_cart,
-                            "certificados_fundos",
-                            "ct_fundo_carteirinha",
-                        )
+                        with st.spinner("Enviando fundo de carteirinha..."):
+                            url_fundo_cart = fazer_upload_arquivo(
+                                novo_fundo_cart,
+                                "certificados_fundos",
+                                "ct_fundo_carteirinha",
+                            )
                         if url_fundo_cart:
                             payload["fundo_carteirinha_url"] = url_fundo_cart
                         else:
@@ -213,11 +254,14 @@ def modal_editar_ct(
 
                     if falhou_upload:
                         st.warning(
-                            "CT atualizado, mas algum upload de imagem falhou. "
-                            "Veja a mensagem de erro acima."
+                            "Dados do CT salvos, mas **algum upload de imagem falhou**. "
+                            "Veja a mensagem de erro acima (muitas vezes é policy do Storage)."
                         )
                     else:
-                        st.success("✅ CT atualizado com sucesso!")
+                        msg = "✅ CT atualizado com sucesso!"
+                        if ok_logo:
+                            msg += " Nova logo gravada."
+                        st.success(msg)
                     st.rerun()
                 except Exception as e:
                     st.error(f"Erro ao atualizar CT: {e}")
@@ -299,6 +343,26 @@ with tab_listar:
 with tab_cadastrar:
     st.subheader("Cadastrar Novo CT")
 
+    # Uploaders fora do form também no cadastro
+    st.markdown("**🏷️ Logomarca**")
+    logo_file = st.file_uploader(
+        "Logomarca (PNG, JPG, WEBP)",
+        type=["png", "jpg", "jpeg", "webp"],
+        key="up_novo_logo",
+    )
+    st.markdown("**🖼️ Fundo de certificado**")
+    fundo_file = st.file_uploader(
+        "Fundo de certificado",
+        type=["png", "jpg", "jpeg", "webp"],
+        key="up_novo_fundo",
+    )
+    st.markdown("**🪪 Fundo de carteirinha**")
+    fundo_cart_file = st.file_uploader(
+        "Fundo de carteirinha",
+        type=["png", "jpg", "jpeg", "webp"],
+        key="up_novo_fundo_cart",
+    )
+
     with st.form("form_novo_ct", clear_on_submit=True):
         col1, col2 = st.columns(2)
 
@@ -311,36 +375,6 @@ with tab_cadastrar:
             phone = st.text_input("Telefone (Apenas números)")
 
         full_address = st.text_area("Endereço Completo")
-
-        st.markdown("---")
-        st.markdown("**🏷️ Logomarca do CT**")
-        logo_file = st.file_uploader(
-            "Selecione a imagem da logomarca (PNG, JPG)",
-            type=["png", "jpg", "jpeg", "webp"],
-            key="up_novo_logo",
-        )
-
-        st.markdown("---")
-        st.markdown("**🖼️ Fundo de Certificado**")
-        st.info(
-            "💡 Aplicado automaticamente nos certificados (individual e empresa) deste CT."
-        )
-        fundo_file = st.file_uploader(
-            "Selecione a imagem do fundo de certificado (PNG, JPG)",
-            type=["png", "jpg", "jpeg", "webp"],
-            key="up_novo_fundo",
-        )
-
-        st.markdown("---")
-        st.markdown("**🪪 Fundo de Carteirinha**")
-        st.info(
-            "💡 Aplicado nas carteirinhas dos alunos emitidas para turmas deste CT."
-        )
-        fundo_cart_file = st.file_uploader(
-            "Selecione a imagem do fundo de carteirinha (PNG, JPG)",
-            type=["png", "jpg", "jpeg", "webp"],
-            key="up_novo_fundo_cart",
-        )
 
         submit_novo_ct = st.form_submit_button(
             "🚀 Cadastrar CT", type="primary", use_container_width=True
