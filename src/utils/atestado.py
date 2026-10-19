@@ -85,18 +85,29 @@ def gerar_atestado_pdf_de_arquivo(
     datas_unicas.discard("")
     mostrar_coluna_data = len(datas_unicas) > 1
 
+    # UNIDADE: aparece se algum aluno tiver unidade preenchida
+    # (mesmo padrão da data de nascimento)
+    mostrar_coluna_unidade = any(_tem_valor(a.get("unidade")) for a in alunos_lista)
+
     nivel_padrao = turma.get("nivel") or turma.get("nivel_turma") or "Basico"
+    unidade_empresa = (
+        (empresa.get("sigla") or "").strip()
+        or (empresa.get("unit") or "").strip()
+        or ""
+    )
 
     alunos_processados = []
     for aluno in alunos_lista:
         data_raw = aluno.get("data_matricula") or aluno.get("data_treinamento") or ""
         data_formatada = formatar_data_br(data_raw)
+        unidade = (aluno.get("unidade") or "").strip() or unidade_empresa
 
         item = {
             "nome": aluno.get("nome") or aluno.get("name") or "Sem Nome",
             "rg": str(aluno.get("rg") or "").strip(),
             "cpf": str(aluno.get("cpf") or "").strip(),
             "data_nasc": formatar_data_br(aluno.get("data_nasc", "")),
+            "unidade": unidade,
             "Treinamento": aluno.get("Treinamento") or nivel_padrao,
             "horas": aluno.get("horas") or turma.get("carga_horaria") or "8 Horas",
             "data_matricula": data_formatada,
@@ -104,6 +115,12 @@ def gerar_atestado_pdf_de_arquivo(
             "data": data_formatada,
         }
         alunos_processados.append(item)
+
+    # reavalia unidade após fallback da empresa
+    if not mostrar_coluna_unidade:
+        mostrar_coluna_unidade = any(
+            _tem_valor(a.get("unidade")) for a in alunos_processados
+        )
 
     if ct and isinstance(ct, dict):
         ct_nome = ct.get("full_name") or ct.get("name") or ""
@@ -170,6 +187,7 @@ def gerar_atestado_pdf_de_arquivo(
         mostrar_coluna_rg=mostrar_coluna_rg,
         mostrar_coluna_nasc=mostrar_coluna_nasc,
         mostrar_coluna_data=mostrar_coluna_data,
+        mostrar_coluna_unidade=mostrar_coluna_unidade,
         paginas=paginas_alunos,
     )
 

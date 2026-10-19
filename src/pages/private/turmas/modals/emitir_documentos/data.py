@@ -60,16 +60,36 @@ def fetch_instrutor(instrutor_id: str | None) -> dict:
 
 
 def fetch_matriculas(tid: str) -> list[dict]:
+    """
+    Inclui client_id + clients(sigla/name) para unidade por aluno no atestado.
+    """
     try:
         res = (
             supabase.table("matriculas")
-            .select("data_treinamento, carga_horaria, alunos(name, rg, cpf, data_nasc)")
+            .select(
+                "id, data_treinamento, carga_horaria, client_id, "
+                "clients(id, name, cnpj, sigla), "
+                "alunos(name, rg, cpf, data_nasc)"
+            )
             .eq("turma_id", tid)
             .execute()
         )
         return res.data if res and res.data else []
     except Exception:
-        return []
+        # fallback sem join de clients (schema antigo)
+        try:
+            res = (
+                supabase.table("matriculas")
+                .select(
+                    "data_treinamento, carga_horaria, client_id, "
+                    "alunos(name, rg, cpf, data_nasc)"
+                )
+                .eq("turma_id", tid)
+                .execute()
+            )
+            return res.data if res and res.data else []
+        except Exception:
+            return []
 
 
 def _norm_nome(s: str) -> str:
@@ -83,10 +103,6 @@ def _cpf_digitos(val) -> str:
 
 
 def _mapa_re_instrutores() -> dict[str, str]:
-    """
-    Mapa cpf_digitos -> RE e nome_norm -> RE a partir da tabela instrutores.
-    Usado para completar RE do responsavel tecnico quando estiver vazio.
-    """
     by_cpf: dict[str, str] = {}
     by_nome: dict[str, str] = {}
     try:
@@ -107,10 +123,6 @@ def _mapa_re_instrutores() -> dict[str, str]:
 
 
 def fetch_responsaveis() -> list[dict]:
-    """
-    Lista responsaveis tecnicos e preenche RE a partir do cadastro de
-    instrutores (mesmo CPF ou mesmo nome) quando o campo re estiver vazio.
-    """
     try:
         res = supabase.table("responsaveis_tecnicos").select("*").execute()
         lista = res.data if res and res.data else []

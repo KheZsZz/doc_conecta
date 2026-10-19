@@ -30,6 +30,11 @@ def gerar_atestado(
         f"ℹ️ O atestado usara os dados oficiais da turma: "
         f"**{modalidade} | {nivel} | {carga}**"
     )
+    st.caption(
+        "A coluna **UNIDADE** aparece automaticamente quando a matrícula "
+        "(ou a empresa da turma) tiver unidade/sigla cadastrada — "
+        "mesmo padrão da data de nascimento."
+    )
 
     if not st.button(
         "🚀 Processar e Gerar Atestado", type="primary", use_container_width=True
@@ -47,7 +52,17 @@ def gerar_atestado(
             empresa_data = fetch_empresa(client_id)
             instrutor_data = fetch_instrutor(turma_data.get("instrutor_id"))
             matriculas = fetch_matriculas(tid)
-            alunos = alunos_para_atestado(matriculas, carga, nivel)
+
+            unidade_padrao = ""
+            if empresa_data:
+                unidade_padrao = (
+                    (empresa_data.get("sigla") or "").strip()
+                    or (empresa_data.get("unit") or "").strip()
+                )
+
+            alunos = alunos_para_atestado(
+                matriculas, carga, nivel, unidade_padrao=unidade_padrao
+            )
 
             if not alunos:
                 st.warning("⚠️ Nenhum aluno matriculado nesta turma.")
