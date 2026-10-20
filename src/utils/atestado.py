@@ -1,5 +1,6 @@
 import os
 import base64
+import re
 from datetime import datetime
 
 from jinja2 import Environment, FileSystemLoader
@@ -26,6 +27,30 @@ def _tem_valor(val) -> bool:
         return False
     s = str(val).strip()
     return bool(s) and s.lower() not in ("nan", "none", "nat", "-")
+
+
+def _cpf_somente_digitos(val) -> str:
+    return re.sub(r"\D", "", str(val or ""))
+
+
+def formatar_cpf_instrutor(instrutor: dict | None) -> str:
+    """
+    CPF do instrutor para a assinatura do atestado.
+    Nunca usa CBO, RE nem outro campo — só o CPF cadastrado.
+    """
+    if not instrutor:
+        return ""
+    # Apenas a chave cpf (ignora cbo de propósito)
+    digitos = _cpf_somente_digitos(instrutor.get("cpf"))
+    if not digitos:
+        return ""
+    # completa com zero à esquerda até 11 (mesmo critério da lista de alunos)
+    if len(digitos) < 11:
+        digitos = digitos.zfill(11)
+    if len(digitos) != 11:
+        # se ainda inválido, não imprime lixo / CBO curto
+        return ""
+    return f"{digitos[:3]}.{digitos[3:6]}.{digitos[6:9]}-{digitos[9:]}"
 
 
 def _imagem_para_data_uri(caminho: str) -> str:
@@ -85,8 +110,6 @@ def gerar_atestado_pdf_de_arquivo(
     datas_unicas.discard("")
     mostrar_coluna_data = len(datas_unicas) > 1
 
-    # UNIDADE: aparece se algum aluno tiver unidade preenchida
-    # (mesmo padrão da data de nascimento)
     mostrar_coluna_unidade = any(_tem_valor(a.get("unidade")) for a in alunos_lista)
 
     nivel_padrao = turma.get("nivel") or turma.get("nivel_turma") or "Basico"
@@ -116,7 +139,6 @@ def gerar_atestado_pdf_de_arquivo(
         }
         alunos_processados.append(item)
 
-    # reavalia unidade após fallback da empresa
     if not mostrar_coluna_unidade:
         mostrar_coluna_unidade = any(
             _tem_valor(a.get("unidade")) for a in alunos_processados
@@ -163,6 +185,8 @@ def gerar_atestado_pdf_de_arquivo(
     normativa = turma.get("normativa") or curso.get("normativa") or ""
     cidade_data = cidade_data_formatada or turma.get("cidade_data") or ""
 
+    # Assinatura: CPF formatado; CBO nunca entra aqui
+    cpf_instrutor = formatar_cpf_instrutor(instrutor)
     re_instrutor = (instrutor.get("re") or "").strip()
 
     html_renderizado = template.render(
@@ -182,7 +206,7 @@ def gerar_atestado_pdf_de_arquivo(
         NIVEL_TURMA=nivel,
         ASSINATURA_IMG=assinatura_resolvida,
         NOME_INSTRUTOR=instrutor.get("name") or "",
-        DOC_INSTRUTOR=instrutor.get("cpf") or "",
+        DOC_INSTRUTOR=cpf_instrutor,
         RE_INSTRUTOR=re_instrutor,
         mostrar_coluna_rg=mostrar_coluna_rg,
         mostrar_coluna_nasc=mostrar_coluna_nasc,

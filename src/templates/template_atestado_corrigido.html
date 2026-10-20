@@ -194,10 +194,13 @@
       <div class="declaracao">
         Atesto, para os devidos fins, que as pessoas abaixo relacionadas
         participaram com bom aproveitamento do treinamento de
-        <strong>{{ CURSO_NOME }}</strong>
-        {% if NIVEL_TURMA %}, nível <strong>{{ NIVEL_TURMA }}</strong>{% endif %}
-        {% if CARGA_HORARIA %}, com carga horária de <strong>{{ CARGA_HORARIA }} horas</strong>{% endif %}.
-        Os participantes foram aprovados nas avaliações teóricas e práticas. Desta forma,
+        <strong
+          >{{ CURSO_NOME }} {% if MODALIDADE_TURMA %}({{ MODALIDADE_TURMA }}){%
+          endif %}</strong
+        >{% if NIVEL_TURMA %}, nível <strong>{{ NIVEL_TURMA }}</strong>{% endif
+        %}{% if CARGA_HORARIA %}, com carga horária de
+        <strong>{{ CARGA_HORARIA }} horas</strong>{% endif %}. Os participantes
+        foram aprovados nas avaliações teóricas e práticas. Desta forma,
         declaramos que os concluintes estão aptos a atuar nas ações de prevenção
         e combate a princípios de incêndio, abandono de área e primeiros
         socorros.
@@ -272,7 +275,7 @@
         <div class="cargo-instrutor">Instrutor/Resp. Técnico.</div>
         {% if DOC_INSTRUTOR %}
         <div class="doc-instrutor">CPF: {{ DOC_INSTRUTOR }}</div>
-        {% endif %} 
+        {% endif %}
         {% if RE_INSTRUTOR %}
         <div class="doc-instrutor">RE: {{ RE_INSTRUTOR }}</div>
         {% endif %}
@@ -282,14 +285,11 @@
         <div class="rodape-info">
           {% if CT_NOME %}
           <p><strong>{{ CT_NOME }}</strong></p>
-          {% endif %} 
-          {% if CT_CNPJ %}
+          {% endif %} {% if CT_CNPJ %}
           <p><strong>CNPJ/MF n° {{ CT_CNPJ }}</strong></p>
-          {% endif %} 
-          {% if CT_ENDERECO %}
+          {% endif %} {% if CT_ENDERECO %}
           <p>{{ CT_ENDERECO }}</p>
-          {% endif %} 
-          {% if CT_TELEFONE %}
+          {% endif %} {% if CT_TELEFONE %}
           <p>Telefone: {{ CT_TELEFONE }}</p>
           {% endif %}
         </div>
