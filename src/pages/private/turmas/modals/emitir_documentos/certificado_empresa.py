@@ -4,6 +4,7 @@ from src.utils.certificado_empresa import gerar_certificado_empresa_pdf
 from src.pages.private.turmas.helpers import formatar_data_extenso
 
 from .data import (
+    fetch_ct,
     fetch_empresa,
     fetch_instrutor,
     fetch_matriculas,
@@ -11,6 +12,32 @@ from .data import (
     marcar_documento_emitido,
 )
 from .alunos import alunos_para_certificado
+
+
+FUNDO_TREINNAR = (
+    "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/Certificados_treinnar.jpg"
+)
+
+
+def _fundo_do_ct(ct: dict | None) -> str | None:
+    ct = ct or {}
+    for key in (
+        "fundo_certificado_url",
+        "fundo_certificado",
+        "certificado_fundo_url",
+        "fundo_url",
+        "url_fundo_certificado",
+    ):
+        val = (ct.get(key) or "").strip()
+        if val.startswith(("http://", "https://", "data:")):
+            return val
+    for k, v in ct.items():
+        if isinstance(v, str) and v.startswith("http") and "certificado" in v.lower():
+            return v.strip()
+    nome = f"{ct.get('name') or ''} {ct.get('full_name') or ''}".lower()
+    if "treinnar" in nome:
+        return FUNDO_TREINNAR
+    return None
 
 
 def gerar_certificado_empresa(
@@ -39,7 +66,11 @@ def gerar_certificado_empresa(
 
     try:
         with st.spinner("Gerando certificado corporativo..."):
-            cidade = resolver_cidade(ct_id, turma_data)
+            ct_id_resolvido = ct_id or turma_data.get("ct_id")
+            ct_data = fetch_ct(ct_id_resolvido) if ct_id_resolvido else {}
+            fundo = _fundo_do_ct(ct_data)
+
+            cidade = resolver_cidade(ct_id_resolvido, turma_data)
             cidade_data = formatar_data_extenso(
                 turma_data.get("data_treinamento", ""), cidade=cidade
             )
@@ -48,6 +79,14 @@ def gerar_certificado_empresa(
             instrutor_data = fetch_instrutor(turma_data.get("instrutor_id"))
             matriculas = fetch_matriculas(tid)
             alunos = alunos_para_certificado(matriculas, carga)
+
+            if fundo:
+                st.caption(f"🖼️ Fundo: `{fundo[:90]}{'…' if len(fundo) > 90 else ''}`")
+            else:
+                st.warning(
+                    "⚠️ CT sem fundo de certificado cadastrado "
+                    "(`fundo_certificado_url`). Será usado o fundo padrão Conecta."
+                )
 
             turma_cert = {
                 "modalidade": modalidade,
@@ -67,9 +106,11 @@ def gerar_certificado_empresa(
                 turma=turma_cert,
                 instrutor=instrutor_data,
                 empresa=empresa_data,
+                ct=ct_data or None,
                 alunos=alunos,
                 normativa=turma_data.get("normativa", "") or curso_data.get("normativa", ""),
                 cidade_data=cidade_data,
+                caminho_fundo=fundo,
             )
 
             ok, msg = marcar_documento_emitido(tid)
