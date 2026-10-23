@@ -11,7 +11,7 @@ from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML, CSS
 
 URL_LOGO_CONECTA = (
-    "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/logo_conecta_sem_fundo%20(2).png"
+    "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/logo_conecta_dourado_sem_fundo.png"
 )
 
 TEXTO_VERSO_BOMBEIRO = (
