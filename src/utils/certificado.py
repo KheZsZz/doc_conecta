@@ -52,6 +52,8 @@ def gerar_certificado_html(aluno, turma, instrutor, empresa=None, ct=None, norma
         except Exception: dn = str(raw)
     cr = turma.get("cpf_resp_tecnico","")
     crf = f"{cr[:3]}.{cr[3:6]}.{cr[6:9]}-{cr[9:]}" if len(cr)==11 else cr
+    formacao_i = (instrutor.get("formacao") or "").strip()
+    formacao_r = (turma.get("formacao_resp_tecnico") or "").strip()
     diz = turma.get("dizeres_certificado_aluno") or (
         f'Certificamos que o aluno acima identificado realizou o treinamento de "{turma.get("curso_nome","Treinamento")}"'
         + (f", em conformidade com as exigencias da {normativa}." if normativa else ".")
@@ -66,8 +68,10 @@ def gerar_certificado_html(aluno, turma, instrutor, empresa=None, ct=None, norma
         NORMATIVA=normativa, CIDADE_DATA=cidade_data,
         ASSINATURA_INSTRUTOR=ass_i, NOME_INSTRUTOR=instrutor.get("name",""),
         CPF_INSTRUTOR=cif, RE_INSTRUTOR=(instrutor.get("re") or "").strip(),
+        FORMACAO_INSTRUTOR=formacao_i,
         RESP_TECNICO=turma.get("resp_tecnico",""), CPF_RESP=crf,
         RE_RESP=(turma.get("re_resp_tecnico") or "").strip(),
+        FORMACAO_RESP=formacao_r,
         ASSINATURA_RESP_TECNICO=ass_r, CURSO_NOME=turma.get("curso_nome",""),
         DIZERES_CERTIFICADO=diz,
     )
