@@ -26,7 +26,7 @@ def _ss_meta_key(tid: str) -> str:
 
 
 def _persistir_re_alunos(alunos_com_re: list[dict]) -> int:
-    """Grava RE gerado no cadastro do aluno (formacao)."""
+    """Grava RE gerado no cadastro do aluno (formacao Bombeiro)."""
     gravados = 0
     for item in alunos_com_re or []:
         if not item.get("gerado"):
@@ -76,55 +76,43 @@ def gerar_carteirinhas(
     safe = (titulo_turma or "turma").replace(" ", "_")
 
     is_bombeiro = _eh_curso_bombeiro(curso_nome, curso_sigla)
-    modelo_auto = "bombeiro" if is_bombeiro else "padrao"
+    modelo = "bombeiro" if is_bombeiro else "padrao"
     reciclagem = _eh_reciclagem(nivel, curso_nome)
 
     st.info(
-        f"Carteirinhas em lote (**4 por página A4**).  \n"
+        f"Carteirinhas em lote (**layout ETEPS · 4 por página A4**).  \n"
         f"**Curso:** {curso_nome} · **Nível:** {nivel or '—'} · "
         f"**Carga:** {carga} · **Conclusão:** {str(data_trein)[:10]}"
     )
-
-    modelo = st.radio(
-        "Modelo da carteirinha",
-        options=["padrao", "bombeiro"],
-        index=0 if modelo_auto == "padrao" else 1,
-        format_func=lambda x: (
-            "Padrão (treinamento geral)"
-            if x == "padrao"
-            else "Bombeiro Profissional Civil (ETEPS)"
-        ),
-        horizontal=True,
-        key=f"modelo_cart_{tid}",
+    st.caption(
+        "Mesmo visual do Bombeiro Civil para todos os cursos. "
+        "Assinatura e dados do Responsável Técnico (quando selecionado) "
+        "aparecem no verso."
     )
 
-    dados_resp = {}
+    dados_resp = ui_selecionar_responsavel(tid, f"carteirinha_{tid}")
+
     numero_cartao_base = None
-
-    if modelo == "bombeiro":
-        st.caption(
-            "Layout especial ETEPS. A assinatura e os dados do "
-            "**Responsável Técnico** (nome, CPF e RE) aparecem no verso."
-        )
-        dados_resp = ui_selecionar_responsavel(tid, f"carteirinha_{tid}")
-
+    if is_bombeiro:
         if reciclagem:
             st.warning(
-                "**Reciclagem:** o RE/Cartão nº deve vir na lista do aluno "
-                "(coluna **RE** no Subir Listas). O sistema **não gera** RE novo."
+                "**Reciclagem (Bombeiro):** o RE/Cartão nº deve vir na lista "
+                "do aluno (coluna **RE** no Subir Listas). O sistema **não gera** RE novo."
             )
         else:
             st.info(
-                "**Formação:** se o aluno não tiver RE, o sistema **gera** o número "
-                "e grava no cadastro do aluno."
+                "**Formação (Bombeiro):** se o aluno não tiver RE, o sistema "
+                "**gera** o número e grava no cadastro do aluno."
             )
             numero_base = st.number_input(
                 "Número inicial do cartão / RE (opcional)",
                 min_value=0,
                 value=0,
                 step=1,
-                help="Se 0, usa os últimos 5 dígitos do CPF. "
-                "Se > 0, numera em sequência a partir desse valor.",
+                help=(
+                    "Se 0, usa os últimos 5 dígitos do CPF. "
+                    "Se > 0, numera em sequência a partir desse valor."
+                ),
                 key=f"num_cart_base_{tid}",
             )
             numero_cartao_base = (
@@ -132,8 +120,8 @@ def gerar_carteirinhas(
             )
     else:
         st.caption(
-            "O fundo vem do cadastro do CT (**Fundo de Carteirinha**). "
-            "Se não houver, a carteirinha sai com layout limpo."
+            "Para cursos gerais, o campo **Cartão nº / RE** usa o RE do aluno "
+            "se existir; caso contrário fica em branco."
         )
 
     pdf_pronto = st.session_state.get(_ss_key(tid))
@@ -190,7 +178,7 @@ def gerar_carteirinhas(
                 st.warning("⚠️ Nenhum aluno matriculado nesta turma.")
                 return
 
-            if modelo == "bombeiro" and reciclagem:
+            if is_bombeiro and reciclagem:
                 sem_re = [a for a in alunos if not (a.get("re") or "").strip()]
                 if sem_re:
                     st.error(
@@ -216,7 +204,7 @@ def gerar_carteirinhas(
             )
 
             re_gravados = 0
-            if modelo == "bombeiro" and not reciclagem:
+            if is_bombeiro and not reciclagem:
                 re_gravados = _persistir_re_alunos(alunos_com_re)
 
             ok, msg = marcar_documento_emitido(tid)
