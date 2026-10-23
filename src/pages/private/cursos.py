@@ -1,6 +1,7 @@
 import streamlit as st
 from src.config.database import supabase
 
+
 st.title("📚 Gestão de Cursos")
 st.markdown("Cadastre e gerencie os treinamentos oferecidos pela sua empresa.")
 
