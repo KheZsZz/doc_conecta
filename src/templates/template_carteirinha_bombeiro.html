@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<style>
+  @page { size: A4 portrait; margin: 6mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color: #1a1a2e;
+  }
+  .page {
+    width: 198mm;
+    min-height: 285mm;
+    display: flex;
+    flex-direction: column;
+    gap: 3.5mm;
+  }
+  .card {
+    width: 100%;
+    height: 68mm;
+    display: flex;
+    flex-direction: row;
+    border-radius: 1.5mm;
+    overflow: hidden;
+    border: 0.25mm solid #9aa8b8;
+  }
+  /* LADO ESQUERDO — dados do aluno */
+  .side-left {
+    width: 52%;
+    background: linear-gradient(180deg, #d6eef8 0%, #eef7fc 55%, #f7fbfd 100%);
+    padding: 2.5mm 3.5mm 2mm 3.5mm;
+    display: flex;
+    flex-direction: column;
+  }
+  .logos-row {
+    display: flex;
+    align-items: center;
+    gap: 2.5mm;
+    margin-bottom: 1mm;
+  }
+  .logos-row img {
+    max-height: 9mm;
+    max-width: 28mm;
+    object-fit: contain;
+  }
+  .escola-linha {
+    font-size: 6pt;
+    color: #2a4a62;
+    line-height: 1.15;
+    margin-bottom: 1.5mm;
+  }
+  .titulo-curso {
+    font-size: 11pt;
+    font-weight: 800;
+    color: #0b3d6e;
+    letter-spacing: 0.2px;
+    margin-bottom: 1.5mm;
+    text-transform: uppercase;
+  }
+  .linha-meta {
+    display: flex;
+    gap: 3mm;
+    margin-bottom: 1.2mm;
+    font-size: 7.5pt;
+  }
+  .linha-meta .item { flex: 1; }
+  .label {
+    font-size: 6.5pt;
+    color: #3a4a5a;
+    font-weight: 600;
+  }
+  .valor {
+    border-bottom: 0.35mm solid #6a7a8a;
+    min-height: 4.2mm;
+    font-size: 8pt;
+    font-weight: 600;
+    padding: 0.3mm 0;
+  }
+  .campo {
+    margin-bottom: 1.1mm;
+  }
+  /* LADO DIREITO — texto institucional */
+  .side-right {
+    width: 48%;
+    background: linear-gradient(180deg, #0a2f5c 0%, #0d3d72 40%, #124a86 100%);
+    color: #fff;
+    padding: 2.5mm 3mm;
+    display: flex;
+    flex-direction: column;
+  }
+  .right-title {
+    font-size: 8.5pt;
+    font-weight: 800;
+    text-align: center;
+    line-height: 1.2;
+    margin-bottom: 1.5mm;
+    text-transform: uppercase;
+  }
+  .right-text {
+    font-size: 6.2pt;
+    line-height: 1.25;
+    text-align: justify;
+    flex: 1;
+  }
+  .right-escola {
+    font-size: 6.5pt;
+    font-weight: 700;
+    margin-top: 1.5mm;
+    text-align: center;
+  }
+  .right-assinatura {
+    margin-top: 1mm;
+    text-align: center;
+  }
+  .right-assinatura img {
+    max-height: 9mm;
+    max-width: 40mm;
+    object-fit: contain;
+    filter: brightness(0) invert(1);
+  }
+  .right-assinatura .linha {
+    border-top: 0.3mm solid rgba(255,255,255,0.7);
+    width: 70%;
+    margin: 0.5mm auto 0 auto;
+  }
+</style>
+</head>
+<body>
+{% for pagina in paginas %}
+<div class="page">
+  {% for card in pagina %}
+  <div class="card">
+    <div class="side-left">
+      <div class="logos-row">
+        {% if LOGO_CONECTA %}
+        <img src="{{ LOGO_CONECTA }}" alt="Conecta"/>
+        {% endif %}
+        {% if LOGO_CT %}
+        <img src="{{ LOGO_CT }}" alt="CT / ETEPS"/>
+        {% endif %}
+      </div>
+      <div class="escola-linha">
+        {{ ESCOLA_LINHA or "Escola Técnica de Especialização e Profissionalização em Segurança" }}
+      </div>
+      <div class="titulo-curso">{{ card.titulo_curso or "BOMBEIRO PROFISSIONAL CIVIL" }}</div>
+
+      <div class="linha-meta">
+        <div class="item">
+          <span class="label">Cartão nº:</span>
+          <div class="valor">{{ card.numero_cartao }}</div>
+        </div>
+        <div class="item">
+          <span class="label">Data de validade</span>
+          <div class="valor">{{ card.validade }}</div>
+        </div>
+      </div>
+
+      <div class="campo">
+        <span class="label">Nome:</span>
+        <div class="valor">{{ card.nome }}</div>
+      </div>
+      <div class="linha-meta">
+        <div class="item">
+          <span class="label">RG:</span>
+          <div class="valor">{{ card.rg }}</div>
+        </div>
+        <div class="item">
+          <span class="label">CPF:</span>
+          <div class="valor">{{ card.cpf }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-right">
+      <div class="right-title">
+        {{ card.titulo_verso or "CENTRO DE FORMAÇÃO DE BOMBEIRO CIVIL" }}<br/>
+        {{ card.subtitulo_verso or "ETEPS Conecta" }}
+      </div>
+      <div class="right-text">
+        {{ card.texto_verso or TEXTO_VERSO }}
+      </div>
+      <div class="right-escola">
+        {{ card.escola_credenciada or ESCOLA_CREDENCIADA }}
+      </div>
+      <div class="right-assinatura">
+        {% if card.assinatura %}
+        <img src="{{ card.assinatura }}" alt="assinatura"/>
+        {% else %}
+        <div style="height: 8mm;"></div>
+        {% endif %}
+        <div class="linha"></div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% if not loop.last %}<div style="page-break-after: always;"></div>{% endif %}
+{% endfor %}
+</body>
+</html>

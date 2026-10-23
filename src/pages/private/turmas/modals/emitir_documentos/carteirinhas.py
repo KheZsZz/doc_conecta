@@ -1,6 +1,6 @@
 import streamlit as st
 
-from src.utils.carteirinha import gerar_carteirinhas_pdf
+from src.utils.carteirinha import gerar_carteirinhas_pdf, _eh_curso_bombeiro
 
 from .data import (
     fetch_ct,
@@ -29,19 +29,53 @@ def gerar_carteirinhas(
 ) -> None:
     carga = (turma_data.get("carga_horaria") or "").strip() or "8 Horas"
     curso_nome = curso_data.get("name") or "Treinamento"
+    curso_sigla = (curso_data.get("sigla") or "").strip()
     data_trein = turma_data.get("data_treinamento") or ""
     safe = (titulo_turma or "turma").replace(" ", "_")
+
+    is_bombeiro = _eh_curso_bombeiro(curso_nome, curso_sigla)
+    modelo_auto = "bombeiro" if is_bombeiro else "padrao"
 
     st.info(
         f"Carteirinhas em lote (**4 por página A4**).  \n"
         f"**Curso:** {curso_nome} · **Carga:** {carga} · **Conclusão:** {str(data_trein)[:10]}"
     )
-    st.caption(
-        "O fundo vem do cadastro do CT (**Fundo de Carteirinha**). "
-        "Se não houver, a carteirinha sai com layout limpo."
+
+    modelo = st.radio(
+        "Modelo da carteirinha",
+        options=["padrao", "bombeiro"],
+        index=0 if modelo_auto == "padrao" else 1,
+        format_func=lambda x: (
+            "Padrão (treinamento geral)"
+            if x == "padrao"
+            else "Bombeiro Profissional Civil (ETEPS)"
+        ),
+        horizontal=True,
+        key=f"modelo_cart_{tid}",
     )
 
-    # PDF já gerado nesta sessão — mantém download sem fechar o modal
+    if modelo == "bombeiro":
+        st.caption(
+            "Layout especial: frente com dados do aluno (Cartão nº, validade, RG, CPF) "
+            "e verso com texto institucional do Centro de Formação de Bombeiro Civil."
+        )
+        numero_base = st.number_input(
+            "Número inicial do cartão (opcional)",
+            min_value=0,
+            value=0,
+            step=1,
+            help="Se 0, usa os últimos 5 dígitos do CPF de cada aluno. "
+            "Se > 0, numera em sequência a partir desse valor.",
+            key=f"num_cart_base_{tid}",
+        )
+        numero_cartao_base = int(numero_base) if numero_base and numero_base > 0 else None
+    else:
+        st.caption(
+            "O fundo vem do cadastro do CT (**Fundo de Carteirinha**). "
+            "Se não houver, a carteirinha sai com layout limpo."
+        )
+        numero_cartao_base = None
+
     pdf_pronto = st.session_state.get(_ss_key(tid))
     meta = st.session_state.get(_ss_meta_key(tid)) or {}
 
@@ -99,6 +133,9 @@ def gerar_carteirinhas(
                 data_conclusao=str(data_trein),
                 instrutor=instrutor_data,
                 ct=ct_data or None,
+                curso_sigla=curso_sigla,
+                modelo=modelo,
+                numero_cartao_base=numero_cartao_base,
             )
 
             ok, msg = marcar_documento_emitido(tid)
