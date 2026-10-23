@@ -34,21 +34,14 @@ def _cpf_somente_digitos(val) -> str:
 
 
 def formatar_cpf_instrutor(instrutor: dict | None) -> str:
-    """
-    CPF do instrutor para a assinatura do atestado.
-    Nunca usa CBO, RE nem outro campo — só o CPF cadastrado.
-    """
     if not instrutor:
         return ""
-    # Apenas a chave cpf (ignora cbo de propósito)
     digitos = _cpf_somente_digitos(instrutor.get("cpf"))
     if not digitos:
         return ""
-    # completa com zero à esquerda até 11 (mesmo critério da lista de alunos)
     if len(digitos) < 11:
         digitos = digitos.zfill(11)
     if len(digitos) != 11:
-        # se ainda inválido, não imprime lixo / CBO curto
         return ""
     return f"{digitos[:3]}.{digitos[3:6]}.{digitos[6:9]}-{digitos[9:]}"
 
@@ -185,9 +178,9 @@ def gerar_atestado_pdf_de_arquivo(
     normativa = turma.get("normativa") or curso.get("normativa") or ""
     cidade_data = cidade_data_formatada or turma.get("cidade_data") or ""
 
-    # Assinatura: CPF formatado; CBO nunca entra aqui
     cpf_instrutor = formatar_cpf_instrutor(instrutor)
     re_instrutor = (instrutor.get("re") or "").strip()
+    formacao_instrutor = (instrutor.get("formacao") or "").strip()
 
     html_renderizado = template.render(
         LOGO_CT=ct_logo_resolvida,
@@ -208,6 +201,7 @@ def gerar_atestado_pdf_de_arquivo(
         NOME_INSTRUTOR=instrutor.get("name") or "",
         DOC_INSTRUTOR=cpf_instrutor,
         RE_INSTRUTOR=re_instrutor,
+        FORMACAO_INSTRUTOR=formacao_instrutor,
         mostrar_coluna_rg=mostrar_coluna_rg,
         mostrar_coluna_nasc=mostrar_coluna_nasc,
         mostrar_coluna_data=mostrar_coluna_data,
