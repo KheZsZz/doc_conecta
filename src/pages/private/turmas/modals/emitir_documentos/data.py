@@ -60,29 +60,25 @@ def fetch_instrutor(instrutor_id: str | None) -> dict:
 
 
 def fetch_matriculas(tid: str) -> list[dict]:
-    """
-    Inclui client_id + clients(sigla/name) para unidade por aluno no atestado.
-    """
     try:
         res = (
             supabase.table("matriculas")
             .select(
                 "id, data_treinamento, carga_horaria, client_id, "
                 "clients(id, name, cnpj, sigla), "
-                "alunos(name, rg, cpf, data_nasc)"
+                "alunos(id, name, rg, cpf, data_nasc, re)"
             )
             .eq("turma_id", tid)
             .execute()
         )
         return res.data if res and res.data else []
     except Exception:
-        # fallback sem join de clients (schema antigo)
         try:
             res = (
                 supabase.table("matriculas")
                 .select(
                     "data_treinamento, carga_horaria, client_id, "
-                    "alunos(name, rg, cpf, data_nasc)"
+                    "alunos(id, name, rg, cpf, data_nasc)"
                 )
                 .eq("turma_id", tid)
                 .execute()

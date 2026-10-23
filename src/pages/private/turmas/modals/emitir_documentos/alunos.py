@@ -9,17 +9,10 @@ def _v(val):
 
 
 def _unidade_da_matricula(m: dict, unidade_padrao: str = "") -> str:
-    """
-    Unidade do aluno na matrícula:
-    1) clients.sigla (via client_id da matrícula)
-    2) clients.name se sigla vazia
-    3) unidade padrão da turma/empresa
-    """
     cli = m.get("clients") or {}
     unid = _v(cli.get("sigla"))
     if unid:
         return unid
-    # fallback: nome curto da unidade/empresa vinculada à matrícula
     nome_cli = _v(cli.get("name"))
     if nome_cli:
         return nome_cli
@@ -32,11 +25,6 @@ def alunos_para_atestado(
     nivel: str,
     unidade_padrao: str = "",
 ) -> list[dict]:
-    """
-    Monta lista para o atestado.
-    Campos opcionais (rg, data_nasc, data_matricula, unidade) podem vir vazios;
-    a modularidade por TURMA decide se a coluna aparece no PDF.
-    """
     alunos = []
     for m in matriculas:
         info = m.get("alunos") or {}
@@ -50,6 +38,7 @@ def alunos_para_atestado(
                 "horas": _v(m.get("carga_horaria")) or carga_padrao,
                 "Treinamento": nivel,
                 "unidade": _unidade_da_matricula(m, unidade_padrao),
+                "re": _v(info.get("re")),
             }
         )
     return alunos
@@ -58,10 +47,6 @@ def alunos_para_atestado(
 def alunos_para_certificado(
     matriculas: list, carga_padrao: str, incluir_nasc: bool = False
 ) -> list[dict]:
-    """
-    Monta lista para certificados individuais.
-    RG / CPF / data_nasc vazios nao aparecem no template do certificado.
-    """
     alunos = []
     for m in matriculas:
         info = m.get("alunos") or {}
@@ -69,8 +54,10 @@ def alunos_para_certificado(
             "name": _v(info.get("name")),
             "cpf": _v(info.get("cpf")),
             "rg": _v(info.get("rg")),
+            "re": _v(info.get("re")),
             "horas": _v(m.get("carga_horaria")) or carga_padrao,
             "unidade": _unidade_da_matricula(m),
+            "aluno_id": (info.get("id") or m.get("aluno_id") or ""),
         }
         if incluir_nasc:
             item["data_nasc"] = _v(info.get("data_nasc"))
