@@ -1,4 +1,4 @@
-"""Geracao de carteirinhas de alunos (4 por pagina A4)."""
+"""Geracao de carteirinhas de alunos (4 por pagina A4) — layout ETEPS unificado."""
 from __future__ import annotations
 
 import base64
@@ -11,7 +11,8 @@ from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML, CSS
 
 URL_LOGO_CONECTA = (
-    "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/logo_conecta_dourado_sem_fundo.png"
+    "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/"
+    "logo_conecta_dourado_sem_fundo.png"
 )
 
 TEXTO_VERSO_BOMBEIRO = (
@@ -23,12 +24,23 @@ TEXTO_VERSO_BOMBEIRO = (
     "válido com apresentação de um documento de identidade."
 )
 
+TEXTO_VERSO_PADRAO = (
+    "Este cartão comprova que o portador identificado concluiu com "
+    "aproveitamento o curso indicado no anverso. O certificado de "
+    "conclusão contém a carga horária e demais dados do treinamento. "
+    "Só é válido com apresentação de um documento de identidade oficial."
+)
+
 
 def _imagem_para_data_uri(caminho: str) -> str:
     ext = os.path.splitext(caminho)[1].lower().lstrip(".")
-    mime = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "gif": "gif", "webp": "webp"}.get(
-        ext, "png"
-    )
+    mime = {
+        "jpg": "jpeg",
+        "jpeg": "jpeg",
+        "png": "png",
+        "gif": "gif",
+        "webp": "webp",
+    }.get(ext, "png")
     with open(caminho, "rb") as f:
         b64 = base64.b64encode(f.read()).decode()
     return f"data:image/{mime};base64,{b64}"
@@ -65,16 +77,6 @@ def _fmt_cpf(cpf: str) -> str:
     if len(d) == 11:
         return f"{d[:3]}.{d[3:6]}.{d[6:9]}-{d[9:]}"
     return cpf or ""
-
-
-def _documento_aluno(aluno: dict) -> str:
-    rg = (aluno.get("rg") or "").strip()
-    cpf = "".join(ch for ch in str(aluno.get("cpf") or "") if ch.isdigit())
-    if rg and cpf:
-        return f"{rg} / {cpf}"
-    if cpf:
-        return cpf
-    return rg
 
 
 def _validade_padrao(data_conclusao: str, anos: int = 1) -> str:
@@ -153,23 +155,22 @@ def gerar_carteirinhas_pdf(
     responsavel: dict | None = None,
     nivel: str = "",
 ) -> tuple[bytes, list[dict]]:
+    """
+    Layout unificado ETEPS (4 cards por A4) para TODOS os cursos.
+    - Bombeiro: títulos/texto específicos + geração de RE na formação.
+    - Demais: mesmo visual, título = nome do curso, texto genérico.
+    """
     instrutor = instrutor or {}
     ct = ct or {}
     responsavel = responsavel or {}
 
+    is_bombeiro = _eh_curso_bombeiro(curso_nome, curso_sigla)
     if modelo is None:
-        modelo = (
-            "bombeiro"
-            if _eh_curso_bombeiro(curso_nome, curso_sigla)
-            else "padrao"
-        )
+        modelo = "bombeiro" if is_bombeiro else "padrao"
 
+    # Layout visual sempre o unificado (ex-bombeiro)
     if nome_template is None:
-        nome_template = (
-            "template_carteirinha_bombeiro.html"
-            if modelo == "bombeiro"
-            else "template_carteirinha.html"
-        )
+        nome_template = "template_carteirinha.html"
 
     fundo = caminho_fundo or ct.get("fundo_carteirinha_url") or ""
     imagem_fundo = _resolver_imagem(fundo)
@@ -205,6 +206,19 @@ def gerar_carteirinhas_pdf(
     reciclagem = _eh_reciclagem(nivel, curso_nome)
     gerar_re = modelo == "bombeiro" and not reciclagem
 
+    if is_bombeiro or modelo == "bombeiro":
+        titulo_curso = "BOMBEIRO PROFISSIONAL CIVIL"
+        titulo_verso = "CENTRO DE FORMAÇÃO DE BOMBEIRO CIVIL"
+        subtitulo_verso = "ETEPS Conecta"
+        texto_verso = TEXTO_VERSO_BOMBEIRO
+        label_cartao = "Cartão nº / RE:"
+    else:
+        titulo_curso = (curso_nome or "TREINAMENTO").upper()
+        titulo_verso = "CENTRO DE FORMAÇÃO PROFISSIONAL"
+        subtitulo_verso = ct_nome or "Conecta"
+        texto_verso = TEXTO_VERSO_PADRAO
+        label_cartao = "Nº cartão / RE:"
+
     cards: list[dict[str, Any]] = []
     alunos_com_re: list[dict] = []
 
@@ -213,50 +227,45 @@ def gerar_carteirinhas_pdf(
         if not nome:
             continue
 
-        if modelo == "bombeiro":
-            re_val = _numero_cartao(
-                a, idx, numero_cartao_base, gerar_se_vazio=gerar_re
-            )
-            cards.append(
-                {
-                    "nome": nome,
-                    "rg": (a.get("rg") or "").strip(),
-                    "cpf": _fmt_cpf(a.get("cpf") or ""),
-                    "validade": val_br,
-                    "numero_cartao": re_val,
-                    "titulo_curso": "BOMBEIRO PROFISSIONAL CIVIL",
-                    "titulo_verso": "CENTRO DE FORMAÇÃO DE BOMBEIRO CIVIL",
-                    "subtitulo_verso": "ETEPS Conecta",
-                    "texto_verso": TEXTO_VERSO_BOMBEIRO,
-                    "escola_credenciada": escola_credenciada,
-                    "assinatura": assinatura_img,
-                    "rt_nome": rt_nome,
-                    "rt_cpf": rt_cpf,
-                    "rt_re": rt_re,
-                }
-            )
-            alunos_com_re.append(
-                {
-                    "aluno_id": a.get("aluno_id") or a.get("id") or "",
-                    "cpf": "".join(ch for ch in str(a.get("cpf") or "") if ch.isdigit()),
-                    "re": re_val,
-                    "gerado": gerar_re and not (a.get("re") or "").strip(),
-                }
-            )
-        else:
-            cards.append(
-                {
-                    "nome": nome,
-                    "documento": _documento_aluno(a),
-                    "data_conclusao": data_br,
-                    "validade": val_br,
-                    "curso_nome": curso_nome or "Treinamento",
-                    "carga_horaria": carga_horaria or "8 Horas",
-                    "nome_instrutor": nome_inst,
-                    "cpf_instrutor": cpf_inst,
-                    "assinatura_instrutor": assinatura_img,
-                }
-            )
+        re_val = _numero_cartao(
+            a, idx, numero_cartao_base, gerar_se_vazio=gerar_re
+        )
+
+        cards.append(
+            {
+                "nome": nome,
+                "rg": (a.get("rg") or "").strip(),
+                "cpf": _fmt_cpf(a.get("cpf") or ""),
+                "validade": val_br,
+                "numero_cartao": re_val,
+                "label_cartao": label_cartao,
+                "titulo_curso": titulo_curso,
+                "titulo_verso": titulo_verso,
+                "subtitulo_verso": subtitulo_verso,
+                "texto_verso": texto_verso,
+                "escola_credenciada": escola_credenciada,
+                "assinatura": assinatura_img,
+                "rt_nome": rt_nome,
+                "rt_cpf": rt_cpf,
+                "rt_re": rt_re,
+                "nome_instrutor": nome_inst,
+                "cpf_instrutor": cpf_inst,
+                "carga_horaria": carga_horaria or "",
+                "data_conclusao": data_br,
+            }
+        )
+        alunos_com_re.append(
+            {
+                "aluno_id": a.get("aluno_id") or a.get("id") or "",
+                "cpf": "".join(
+                    ch for ch in str(a.get("cpf") or "") if ch.isdigit()
+                ),
+                "re": re_val,
+                "gerado": bool(
+                    gerar_re and re_val and not (a.get("re") or "").strip()
+                ),
+            }
+        )
 
     if not cards:
         raise ValueError("Nenhum aluno para gerar carteirinha.")
@@ -272,8 +281,11 @@ def gerar_carteirinhas_pdf(
         IMAGEM_FUNDO=imagem_fundo,
         LOGO_CT=logo_ct,
         LOGO_CONECTA=logo_conecta,
-        ESCOLA_LINHA="Escola Técnica de Especialização e Profissionalização em Segurança",
-        TEXTO_VERSO=TEXTO_VERSO_BOMBEIRO,
+        ESCOLA_LINHA=(
+            "Escola Técnica de Especialização e "
+            "Profissionalização em Segurança"
+        ),
+        TEXTO_VERSO=texto_verso,
         ESCOLA_CREDENCIADA=escola_credenciada,
     )
 
