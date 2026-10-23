@@ -38,6 +38,7 @@ def modal_editar_instrutor(
     phone_atual,
     cbo_atual,
     re_atual,
+    formacao_atual,
     assinatura_atual,
     ativo_atual,
 ):
@@ -64,6 +65,13 @@ def modal_editar_instrutor(
                 value=re_atual if re_atual else "",
                 help="Registro profissional. Aparece junto da assinatura nos documentos.",
             )
+
+        nova_formacao = st.text_input(
+            "Formação / especialização",
+            value=formacao_atual if formacao_atual else "",
+            placeholder="Ex.: Engenheiro de Segurança do Trabalho · Técnico em Segurança do Trabalho",
+            help="Aparece sob a assinatura nos certificados, atestados e carteirinhas.",
+        )
 
         st.markdown("---")
         st.write("✍️ **Assinatura do Instrutor**")
@@ -102,12 +110,26 @@ def modal_editar_instrutor(
                         "phone": novo_phone.strip() if novo_phone else None,
                         "cbo": novo_cbo.strip() if novo_cbo else None,
                         "re": novo_re.strip() if novo_re else None,
+                        "formacao": nova_formacao.strip() if nova_formacao else None,
                         "assinatura": caminho_assinatura_final,
                         "is_active": novo_status,
                     }
-                    supabase.table("instrutores").update(payload).eq(
-                        "id", instrutor_id
-                    ).execute()
+                    try:
+                        supabase.table("instrutores").update(payload).eq(
+                            "id", instrutor_id
+                        ).execute()
+                    except Exception as e_up:
+                        if "formacao" in str(e_up).lower() or "column" in str(e_up).lower():
+                            payload.pop("formacao", None)
+                            supabase.table("instrutores").update(payload).eq(
+                                "id", instrutor_id
+                            ).execute()
+                            st.warning(
+                                "Coluna `formacao` ausente. Rode no Supabase:\n"
+                                "`ALTER TABLE instrutores ADD COLUMN IF NOT EXISTS formacao TEXT;`"
+                            )
+                        else:
+                            raise
                     st.success("✅ Instrutor atualizado com sucesso!")
                     st.rerun()
                 except Exception as e:
@@ -141,6 +163,7 @@ with tab_listar:
                     if q in str(i.get("name") or "").lower()
                     or q in str(i.get("cpf") or "").lower()
                     or q in str(i.get("re") or "").lower()
+                    or q in str(i.get("formacao") or "").lower()
                 ]
 
             if not lista:
@@ -155,6 +178,7 @@ with tab_listar:
                     phone = i.get("phone", "")
                     cbo = i.get("cbo", "")
                     re_val = i.get("re", "") or ""
+                    formacao = i.get("formacao", "") or ""
                     assinatura = i.get("assinatura", "")
                     is_active = i.get("is_active", True)
 
@@ -170,6 +194,8 @@ with tab_listar:
 
                         with col_info:
                             st.markdown(f"**{nome}** — Status: {status_display}")
+                            if formacao:
+                                st.caption(f"🎓 **Formação:** {formacao}")
 
                             detalhes = []
                             if cpf:
@@ -210,6 +236,7 @@ with tab_listar:
                                     phone,
                                     cbo,
                                     re_val,
+                                    formacao,
                                     assinatura,
                                     is_active,
                                 )
@@ -237,6 +264,12 @@ with tab_cadastrar:
                 "RE (Registro)",
                 help="Registro profissional. Aparece junto da assinatura nos documentos.",
             )
+
+        formacao_instrutor = st.text_input(
+            "Formação / especialização",
+            placeholder="Ex.: Engenheiro de Segurança do Trabalho · Técnico em Segurança do Trabalho",
+            help="Aparece sob a assinatura nos certificados, atestados e carteirinhas.",
+        )
 
         st.markdown("---")
         st.write("✍️ **Assinatura do Instrutor**")
@@ -268,10 +301,22 @@ with tab_cadastrar:
                         "phone": phone_instrutor.strip() if phone_instrutor else None,
                         "cbo": cbo_instrutor.strip() if cbo_instrutor else None,
                         "re": re_instrutor.strip() if re_instrutor else None,
+                        "formacao": formacao_instrutor.strip() if formacao_instrutor else None,
                         "assinatura": url_assinatura_salva,
                         "is_active": status_instrutor,
                     }
-                    supabase.table("instrutores").insert(novo_payload).execute()
+                    try:
+                        supabase.table("instrutores").insert(novo_payload).execute()
+                    except Exception as e_ins:
+                        if "formacao" in str(e_ins).lower() or "column" in str(e_ins).lower():
+                            novo_payload.pop("formacao", None)
+                            supabase.table("instrutores").insert(novo_payload).execute()
+                            st.warning(
+                                "Coluna `formacao` ausente. Rode no Supabase:\n"
+                                "`ALTER TABLE instrutores ADD COLUMN IF NOT EXISTS formacao TEXT;`"
+                            )
+                        else:
+                            raise
                     st.success(f"✅ Instrutor '{nome_instrutor}' criado com sucesso!")
                     st.balloons()
                     st.rerun()
