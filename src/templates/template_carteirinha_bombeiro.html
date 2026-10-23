@@ -40,6 +40,9 @@
     gap: 2.5mm;
     margin-bottom: 1mm;
     background: #0a2f5c;
+    padding: 1mm 2mm;
+    border-radius: 0.8mm;
+    min-height: 10mm;
   }
   .logos-row img {
     max-height: 9mm;
@@ -53,12 +56,13 @@
     margin-bottom: 1.5mm;
   }
   .titulo-curso {
-    font-size: 11pt;
+    font-size: 10pt;
     font-weight: 800;
     color: #0b3d6e;
     letter-spacing: 0.2px;
     margin-bottom: 1.5mm;
     text-transform: uppercase;
+    line-height: 1.15;
   }
   .linha-meta {
     display: flex;
@@ -83,22 +87,26 @@
   .side-right {
     width: 48%;
     background: linear-gradient(180deg, #d6eef8 0%, #eef7fc 55%, #f7fbfd 100%);
-    /* background: linear-gradient(180deg, #0a2f5c 0%, #0d3d72 40%, #124a86 100%); */
-    /* color: #fff; */
     padding: 2.5mm 3mm;
     display: flex;
     flex-direction: column;
   }
   .right-title {
-    font-size: 8.5pt;
+    font-size: 8pt;
     font-weight: 800;
     text-align: center;
     line-height: 1.2;
     margin-bottom: 1.5mm;
     text-transform: uppercase;
     color: #fff;
-    background:#0a2f5c;
+    background: #0a2f5c;
     min-height: 9mm;
+    padding: 1.5mm 2mm;
+    border-radius: 0.8mm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
   }
   .right-text {
     font-size: 6.2pt;
@@ -120,7 +128,6 @@
     max-height: 8mm;
     max-width: 38mm;
     object-fit: contain;
-    filter: brightness(0) invert(1);
   }
   .right-assinatura .linha {
     border-top: 0.3mm solid rgba(0,0,0,0.5);
@@ -132,7 +139,6 @@
     font-size: 5.8pt;
     line-height: 1.2;
     text-align: center;
-    /* color: #fff; */
   }
   .rt-dados .rt-nome {
     font-weight: 700;
@@ -148,20 +154,20 @@
     <div class="side-left">
       <div class="logos-row">
         {% if LOGO_CONECTA %}
-        <img src="{{ LOGO_CONECTA }}" alt="Conecta" style="z-index: 1;"/>
+        <img src="{{ LOGO_CONECTA }}" alt="Conecta"/>
         {% endif %}
         {% if LOGO_CT %}
-        <img src="{{ LOGO_CT }}" alt="CT / ETEPS"/>
+        <img src="{{ LOGO_CT }}" alt="CT"/>
         {% endif %}
       </div>
       <div class="escola-linha">
         {{ ESCOLA_LINHA or "Escola Técnica de Especialização e Profissionalização em Segurança" }}
       </div>
-      <div class="titulo-curso">{{ card.titulo_curso or "BOMBEIRO PROFISSIONAL CIVIL" }}</div>
+      <div class="titulo-curso">{{ card.titulo_curso }}</div>
 
       <div class="linha-meta">
         <div class="item">
-          <span class="label">Cartão nº / RE:</span>
+          <span class="label">{{ card.label_cartao or "Cartão nº / RE:" }}</span>
           <div class="valor">{{ card.numero_cartao }}</div>
         </div>
         <div class="item">
@@ -184,12 +190,18 @@
           <div class="valor">{{ card.cpf }}</div>
         </div>
       </div>
+      {% if card.carga_horaria %}
+      <div class="campo" style="margin-top: 0.5mm;">
+        <span class="label">Carga horária:</span>
+        <div class="valor">{{ card.carga_horaria }}</div>
+      </div>
+      {% endif %}
     </div>
 
     <div class="side-right">
       <div class="right-title">
-        {{ card.titulo_verso or "CENTRO DE FORMAÇÃO DE BOMBEIRO CIVIL" }}<br/>
-        {{ card.subtitulo_verso or "ETEPS Conecta" }}
+        <span>{{ card.titulo_verso }}</span>
+        {% if card.subtitulo_verso %}<span style="font-size: 7pt; font-weight: 600; margin-top: 0.5mm;">{{ card.subtitulo_verso }}</span>{% endif %}
       </div>
       <div class="right-text">
         {{ card.texto_verso or TEXTO_VERSO }}
@@ -213,6 +225,10 @@
           {% endif %}
           {% if card.rt_re %}
           <div>RE: {{ card.rt_re }}</div>
+          {% endif %}
+          {% if not card.rt_nome and card.nome_instrutor %}
+          <div class="rt-nome">{{ card.nome_instrutor }}</div>
+          {% if card.cpf_instrutor %}<div>CPF: {{ card.cpf_instrutor }}</div>{% endif %}
           {% endif %}
         </div>
       </div>

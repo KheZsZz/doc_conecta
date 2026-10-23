@@ -3,155 +3,146 @@
 <head>
 <meta charset="utf-8"/>
 <style>
-  @page { size: A4 portrait; margin: 8mm; }
+  @page { size: A4 portrait; margin: 6mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: Arial, Helvetica, sans-serif;
-    color: #1a1a2e;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    color: #1a1a2e;
   }
   .page {
-    width: 194mm;
-    min-height: 281mm;
+    width: 198mm;
+    min-height: 285mm;
     display: flex;
     flex-direction: column;
-    gap: 4mm;
+    gap: 3.5mm;
   }
-  .card-row {
+  .card {
+    width: 100%;
+    height: 68mm;
     display: flex;
     flex-direction: row;
-    width: 100%;
-    height: 66mm;
-    border: 0.4mm solid #c5cdd8;
-    border-radius: 2mm;
+    border-radius: 1.5mm;
     overflow: hidden;
-    background: #fff;
-    position: relative;
+    border: 0.25mm solid #9aa8b8;
   }
-  .card-row.has-fundo {
-    background-image: var(--fundo-url);
-    background-size: cover;
-    background-position: center;
-  }
-  .panel {
-    width: 50%;
-    height: 100%;
+  .side-left {
+    width: 52%;
+    background: linear-gradient(180deg, #d6eef8 0%, #eef7fc 55%, #f7fbfd 100%);
+    padding: 2.5mm 3.5mm 2mm 3.5mm;
     display: flex;
     flex-direction: column;
-    padding: 3mm 4mm;
-    position: relative;
   }
-  .panel-left {
-    border-right: 0.3mm dashed #b0b8c4;
-    background: rgba(255,252,245,0.92);
-  }
-  .panel-right {
-    background: rgba(255,255,255,0.94);
-  }
-  .header-bar {
-    background: linear-gradient(90deg, #0b3d6e 0%, #1a5f9e 100%);
-    color: #fff;
-    font-weight: 700;
-    font-size: 11pt;
-    letter-spacing: 0.3px;
-    padding: 1.5mm 3mm;
-    margin: -3mm -4mm 2.5mm -4mm;
+  .logos-row {
     display: flex;
     align-items: center;
-    gap: 2mm;
-  }
-  .header-bar .logo-text { font-size: 12pt; }
-  .header-bar .logo-mark {
-    font-size: 13pt;
-    font-weight: 800;
-  }
-  .texto-cert {
-    font-size: 8pt;
-    line-height: 1.25;
-    color: #222;
-    margin-bottom: 2mm;
-  }
-  .curso-nome {
-    font-size: 9pt;
-    font-weight: 700;
-    text-align: center;
-    margin-top: 2mm;
-    color: #0b3d6e;
-  }
-  .carga {
-    font-size: 8pt;
-    text-align: center;
-    margin-top: 1mm;
-  }
-  /* Logo CT — maior e centralizado */
-  .logos-parceiros {
-    margin-top: auto;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-    min-height: 16mm;
-    padding: 1.5mm 0 0.5mm 0;
-  }
-  .logos-parceiros img {
-    max-height: 14mm;
-    max-width: 70%;
-    width: auto;
-    height: auto;
-    object-fit: contain;
-    display: block;
-    margin: 0 auto;
-  }
-  .field-label {
-    font-size: 6.5pt;
-    color: #555;
-    margin-bottom: 0.5mm;
-    margin-top: 1.5mm;
-  }
-  .field-box {
-    border: 0.35mm solid #8a94a6;
+    gap: 2.5mm;
+    margin-bottom: 1mm;
+    background: #0a2f5c;
+    padding: 1mm 2mm;
     border-radius: 0.8mm;
-    min-height: 5.5mm;
-    padding: 0.8mm 1.5mm;
-    font-size: 8pt;
-    font-weight: 600;
-    background: #fff;
+    min-height: 10mm;
   }
-  .row-2 {
-    display: flex;
-    gap: 2mm;
+  .logos-row img {
+    max-height: 9mm;
+    max-width: 28mm;
+    object-fit: contain;
   }
-  .row-2 .col { flex: 1; }
-  .assinatura-area {
-    margin-top: 2mm;
+  .escola-linha {
+    font-size: 6pt;
+    color: #2a4a62;
+    line-height: 1.15;
+    margin-bottom: 1.5mm;
+  }
+  .titulo-curso {
+    font-size: 10pt;
+    font-weight: 800;
+    color: #0b3d6e;
+    letter-spacing: 0.2px;
+    margin-bottom: 1.5mm;
+    text-transform: uppercase;
+    line-height: 1.15;
+  }
+  .linha-meta {
     display: flex;
     gap: 3mm;
-    align-items: flex-end;
+    margin-bottom: 1.2mm;
+    font-size: 7.5pt;
   }
-  .assinatura-box {
-    flex: 1;
-    text-align: center;
-  }
-  .assinatura-box img {
-    max-height: 10mm;
-    max-width: 100%;
-    object-fit: contain;
-  }
-  .assinatura-linha {
-    border-top: 0.3mm solid #333;
-    margin-top: 1mm;
-    padding-top: 0.5mm;
-    font-size: 6pt;
-    color: #444;
-  }
-  .instrutor-nome {
+  .linha-meta .item { flex: 1; }
+  .label {
     font-size: 6.5pt;
+    color: #3a4a5a;
     font-weight: 600;
   }
-  .instrutor-cpf {
-    font-size: 5.5pt;
-    color: #555;
+  .valor {
+    border-bottom: 0.35mm solid #6a7a8a;
+    min-height: 4.2mm;
+    font-size: 8pt;
+    font-weight: 600;
+    padding: 0.3mm 0;
+  }
+  .campo { margin-bottom: 1.1mm; }
+  .side-right {
+    width: 48%;
+    background: linear-gradient(180deg, #d6eef8 0%, #eef7fc 55%, #f7fbfd 100%);
+    padding: 2.5mm 3mm;
+    display: flex;
+    flex-direction: column;
+  }
+  .right-title {
+    font-size: 8pt;
+    font-weight: 800;
+    text-align: center;
+    line-height: 1.2;
+    margin-bottom: 1.5mm;
+    text-transform: uppercase;
+    color: #fff;
+    background: #0a2f5c;
+    min-height: 9mm;
+    padding: 1.5mm 2mm;
+    border-radius: 0.8mm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+  }
+  .right-text {
+    font-size: 6.2pt;
+    line-height: 1.25;
+    text-align: justify;
+    flex: 1;
+  }
+  .right-escola {
+    font-size: 6.5pt;
+    font-weight: 700;
+    margin-top: 1.5mm;
+    text-align: center;
+  }
+  .right-assinatura {
+    margin-top: 1mm;
+    text-align: center;
+  }
+  .right-assinatura img {
+    max-height: 8mm;
+    max-width: 38mm;
+    object-fit: contain;
+  }
+  .right-assinatura .linha {
+    border-top: 0.3mm solid rgba(0,0,0,0.5);
+    width: 70%;
+    margin: 0.5mm auto 0 auto;
+  }
+  .rt-dados {
+    margin-top: 0.8mm;
+    font-size: 5.8pt;
+    line-height: 1.2;
+    text-align: center;
+  }
+  .rt-dados .rt-nome {
+    font-weight: 700;
+    font-size: 6.2pt;
   }
 </style>
 </head>
@@ -159,59 +150,86 @@
 {% for pagina in paginas %}
 <div class="page">
   {% for card in pagina %}
-  <div class="card-row{% if IMAGEM_FUNDO %} has-fundo{% endif %}"
-       {% if IMAGEM_FUNDO %}style="--fundo-url: url('{{ IMAGEM_FUNDO }}');"{% endif %}>
-    <!-- FRENTE / TEXTO -->
-    <div class="panel panel-left">
-      <div class="header-bar">
-        <span class="logo-mark">C:</span>
-        <span class="logo-text">conecta</span>
+  <div class="card">
+    <div class="side-left">
+      <div class="logos-row">
+        {% if LOGO_CONECTA %}
+        <img src="{{ LOGO_CONECTA }}" alt="Conecta"/>
+        {% endif %}
+        {% if LOGO_CT %}
+        <img src="{{ LOGO_CT }}" alt="CT"/>
+        {% endif %}
       </div>
-      <div class="texto-cert">
-        Certificamos que o portador<br/>
-        indicado no verso concluiu<br/>
-        com aproveitamento o curso:
+      <div class="escola-linha">
+        {{ ESCOLA_LINHA or "Escola Técnica de Especialização e Profissionalização em Segurança" }}
       </div>
-      <div class="curso-nome">{{ card.curso_nome }}</div>
-      <div class="carga">Carga Horária: {{ card.carga_horaria }}</div>
-      <div class="logos-parceiros">
-        {% if LOGO_CT %}<img src="{{ LOGO_CT }}" alt="logo CT"/>{% endif %}
+      <div class="titulo-curso">{{ card.titulo_curso }}</div>
+
+      <div class="linha-meta">
+        <div class="item">
+          <span class="label">{{ card.label_cartao or "Cartão nº / RE:" }}</span>
+          <div class="valor">{{ card.numero_cartao }}</div>
+        </div>
+        <div class="item">
+          <span class="label">Data de validade</span>
+          <div class="valor">{{ card.validade }}</div>
+        </div>
       </div>
+
+      <div class="campo">
+        <span class="label">Nome:</span>
+        <div class="valor">{{ card.nome }}</div>
+      </div>
+      <div class="linha-meta">
+        <div class="item">
+          <span class="label">RG:</span>
+          <div class="valor">{{ card.rg }}</div>
+        </div>
+        <div class="item">
+          <span class="label">CPF:</span>
+          <div class="valor">{{ card.cpf }}</div>
+        </div>
+      </div>
+      {% if card.carga_horaria %}
+      <div class="campo" style="margin-top: 0.5mm;">
+        <span class="label">Carga horária:</span>
+        <div class="valor">{{ card.carga_horaria }}</div>
+      </div>
+      {% endif %}
     </div>
-    <!-- VERSO / DADOS -->
-    <div class="panel panel-right">
-      <div class="header-bar">
-        <span class="logo-mark">C:</span>
-        <span class="logo-text">conecta</span>
+
+    <div class="side-right">
+      <div class="right-title">
+        <span>{{ card.titulo_verso }}</span>
+        {% if card.subtitulo_verso %}<span style="font-size: 7pt; font-weight: 600; margin-top: 0.5mm;">{{ card.subtitulo_verso }}</span>{% endif %}
       </div>
-      <div class="field-label">Nome</div>
-      <div class="field-box">{{ card.nome }}</div>
-      <div class="row-2">
-        <div class="col">
-          <div class="field-label">RG/CPF</div>
-          <div class="field-box">{{ card.documento }}</div>
-        </div>
-        <div class="col">
-          <div class="field-label">Conclusão</div>
-          <div class="field-box">{{ card.data_conclusao }}</div>
-        </div>
+      <div class="right-text">
+        {{ card.texto_verso or TEXTO_VERSO }}
       </div>
-      <div class="field-label">Validade</div>
-      <div class="field-box" style="min-height: 6mm;">{{ card.validade }}</div>
-      <div class="assinatura-area">
-        <div class="assinatura-box">
-          {% if card.assinatura_instrutor %}
-          <img src="{{ card.assinatura_instrutor }}" alt="assinatura"/>
+      <div class="right-escola">
+        {{ card.escola_credenciada or ESCOLA_CREDENCIADA }}
+      </div>
+      <div class="right-assinatura">
+        {% if card.assinatura %}
+        <img src="{{ card.assinatura }}" alt="assinatura"/>
+        {% else %}
+        <div style="height: 7mm;"></div>
+        {% endif %}
+        <div class="linha"></div>
+        <div class="rt-dados">
+          {% if card.rt_nome %}
+          <div class="rt-nome">{{ card.rt_nome }}</div>
           {% endif %}
-          {% if card.cpf_instrutor %}
-          <div class="instrutor-cpf">CPF {{ card.cpf_instrutor }}</div>
+          {% if card.rt_cpf %}
+          <div>CPF: {{ card.rt_cpf }}</div>
           {% endif %}
-          <div class="instrutor-nome">{{ card.nome_instrutor }}</div>
-          <div class="assinatura-linha">Instrutor responsável</div>
-        </div>
-        <div class="assinatura-box">
-          <div style="height: 10mm;"></div>
-          <div class="assinatura-linha">Assinatura do aluno</div>
+          {% if card.rt_re %}
+          <div>RE: {{ card.rt_re }}</div>
+          {% endif %}
+          {% if not card.rt_nome and card.nome_instrutor %}
+          <div class="rt-nome">{{ card.nome_instrutor }}</div>
+          {% if card.cpf_instrutor %}<div>CPF: {{ card.cpf_instrutor }}</div>{% endif %}
+          {% endif %}
         </div>
       </div>
     </div>
