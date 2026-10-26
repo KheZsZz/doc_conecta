@@ -25,7 +25,10 @@ def alunos_para_atestado(
     nivel: str,
     unidade_padrao: str = "",
 ) -> list[dict]:
-    """Carga horária SEMPRE da turma (carga_padrao), nunca da matrícula/aluno."""
+    """Carga horária SEMPRE da turma (carga_padrao), nunca da matrícula/aluno.
+
+    Coluna UNIDADE desativada por enquanto (não preenche unidade).
+    """
     alunos = []
     for m in matriculas:
         info = m.get("alunos") or {}
@@ -38,7 +41,9 @@ def alunos_para_atestado(
                 "data_matricula": _v(m.get("data_treinamento")),
                 "horas": carga_padrao,  # sempre da turma
                 "Treinamento": nivel,
-                "unidade": _unidade_da_matricula(m, unidade_padrao),
+                # UNIDADE desativada temporariamente no atestado
+                # "unidade": _unidade_da_matricula(m, unidade_padrao),
+                "unidade": "",
                 "re": _v(info.get("re")),
             }
         )
