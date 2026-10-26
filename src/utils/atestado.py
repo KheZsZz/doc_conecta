@@ -6,6 +6,12 @@ from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML, CSS
 
+# Logo Conecta (rodapé do atestado) — sem fundo
+_LOGO_CONECTA = (
+    "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/"
+    "logo_conecta_sem_fundo%20(2).png"
+)
+
 
 def formatar_data_br(data_str):
     if not data_str:
@@ -194,7 +200,7 @@ def gerar_atestado_pdf_de_arquivo(
 
     html_renderizado = template.render(
         LOGO_CT=ct_logo_resolvida,
-        LOGO_CONECTA="https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/logo_conecta.png",
+        LOGO_CONECTA=_LOGO_CONECTA,
         EMPRESA=empresa.get("name") or "",
         ENDERECO=empresa.get("full_address") or "",
         CNPJ=empresa.get("cnpj") or "",
