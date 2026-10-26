@@ -195,6 +195,9 @@
           {% endif %}
           <div class="assinatura-linha"></div>
           <div class="assinatura-nome">{{ RESP_TECNICO }}</div>
+          {% if FORMACAO_RESP %}
+          <div class="assinatura-formacao">{{ FORMACAO_RESP }}</div>
+          {% endif %}
           <div class="assinatura-cargo">Responsável Técnico</div>
           {% if CPF_RESP %}
           <div class="assinatura-doc">CPF: {{ CPF_RESP }}</div>
