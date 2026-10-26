@@ -34,21 +34,14 @@ def _cpf_somente_digitos(val) -> str:
 
 
 def formatar_cpf_instrutor(instrutor: dict | None) -> str:
-    """
-    CPF do instrutor para a assinatura do atestado.
-    Nunca usa CBO, RE nem outro campo — só o CPF cadastrado.
-    """
     if not instrutor:
         return ""
-    # Apenas a chave cpf (ignora cbo de propósito)
     digitos = _cpf_somente_digitos(instrutor.get("cpf"))
     if not digitos:
         return ""
-    # completa com zero à esquerda até 11 (mesmo critério da lista de alunos)
     if len(digitos) < 11:
         digitos = digitos.zfill(11)
     if len(digitos) != 11:
-        # se ainda inválido, não imprime lixo / CBO curto
         return ""
     return f"{digitos[:3]}.{digitos[3:6]}.{digitos[6:9]}-{digitos[9:]}"
 
@@ -113,6 +106,11 @@ def gerar_atestado_pdf_de_arquivo(
     mostrar_coluna_unidade = any(_tem_valor(a.get("unidade")) for a in alunos_lista)
 
     nivel_padrao = turma.get("nivel") or turma.get("nivel_turma") or "Basico"
+    # Carga SEMPRE da turma
+    carga_turma = (
+        (turma.get("carga_horaria") or "").strip()
+        or "8 Horas"
+    )
     unidade_empresa = (
         (empresa.get("sigla") or "").strip()
         or (empresa.get("unit") or "").strip()
@@ -132,7 +130,7 @@ def gerar_atestado_pdf_de_arquivo(
             "data_nasc": formatar_data_br(aluno.get("data_nasc", "")),
             "unidade": unidade,
             "Treinamento": aluno.get("Treinamento") or nivel_padrao,
-            "horas": aluno.get("horas") or turma.get("carga_horaria") or "8 Horas",
+            "horas": carga_turma,  # sempre da turma
             "data_matricula": data_formatada,
             "data_treinamento": data_formatada,
             "data": data_formatada,
@@ -185,9 +183,9 @@ def gerar_atestado_pdf_de_arquivo(
     normativa = turma.get("normativa") or curso.get("normativa") or ""
     cidade_data = cidade_data_formatada or turma.get("cidade_data") or ""
 
-    # Assinatura: CPF formatado; CBO nunca entra aqui
     cpf_instrutor = formatar_cpf_instrutor(instrutor)
     re_instrutor = (instrutor.get("re") or "").strip()
+    formacao_instrutor = (instrutor.get("formacao") or "").strip()
 
     html_renderizado = template.render(
         LOGO_CT=ct_logo_resolvida,
@@ -204,8 +202,10 @@ def gerar_atestado_pdf_de_arquivo(
         CURSO_NOME=curso_nome,
         MODALIDADE_TURMA=modalidade,
         NIVEL_TURMA=nivel,
+        CARGA_HORARIA=carga_turma,
         ASSINATURA_IMG=assinatura_resolvida,
         NOME_INSTRUTOR=instrutor.get("name") or "",
+        FORMACAO_INSTRUTOR=formacao_instrutor,
         DOC_INSTRUTOR=cpf_instrutor,
         RE_INSTRUTOR=re_instrutor,
         mostrar_coluna_rg=mostrar_coluna_rg,
