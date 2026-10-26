@@ -1,4 +1,5 @@
 import os
+import re
 import base64
 import io
 import zipfile
@@ -36,6 +37,37 @@ def _endereco_ct(ct: dict | None, mostrar: bool) -> str:
         (ct.get("full_address") or ct.get("endereco") or ct.get("address") or "")
         .strip()
     )
+
+def _slug_nome_arquivo(nome: str) -> str:
+    """Nome do aluno em MAIÚSCULAS com espaços virando underscore."""
+    s = (nome or "aluno").strip().upper()
+    s = "".join(c if c.isalnum() or c in (" ", "-", "_") else "" for c in s)
+    s = re.sub(r"\s+", "_", s.strip())
+    s = re.sub(r"_+", "_", s)
+    return s or "ALUNO"
+
+def _carga_numerica(carga) -> str:
+    """Extrai só o número da carga (ex: '08 Horas' -> '8')."""
+    m = re.search(r"\d+", str(carga or ""))
+    if not m:
+        return "8"
+    return str(int(m.group(0)))  # remove zeros à esquerda
+
+def _nome_pdf_certificado(aluno: dict, turma: dict) -> str:
+    """NOME_ALUNO - SIGLA_CARGA.pdf  (ex: KEVIN_DA_CRUZ_OLIVEIRA - NR23_8.pdf)"""
+    nome = _slug_nome_arquivo(aluno.get("name") or "aluno")
+    sigla = (
+        (turma.get("curso_sigla") or turma.get("sigla") or "")
+        .strip()
+        .upper()
+        .replace(" ", "")
+    )
+    if not sigla:
+        # fallback: primeiras letras do nome do curso
+        curso_nome = (turma.get("curso_nome") or "CURSO").strip()
+        sigla = re.sub(r"[^A-Z0-9]", "", curso_nome.upper())[:8] or "CURSO"
+    carga_n = _carga_numerica(turma.get("carga_horaria"))
+    return f"{nome} - {sigla}_{carga_n}.pdf"
 
 def gerar_certificado_html(
     aluno: dict,
@@ -205,6 +237,7 @@ def gerar_certificados_pdf_zip(
         raise ValueError("Nenhum aluno para gerar certificado.")
 
     zip_buffer = io.BytesIO()
+    usados: set[str] = set()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
         for aluno in alunos_matriculas:
             # NÃO sobrescrever carga_horaria com horas do aluno
@@ -216,11 +249,16 @@ def gerar_certificados_pdf_zip(
             pdf_bytes = HTML(string=html_certificado).write_pdf(
                 stylesheets=[CSS(string="@page { size: A4 landscape; margin: 0; }")]
             )
-            nome_aluno = aluno.get("name", "aluno").strip()
-            nome_sanitizado = "".join(c if c.isalnum() or c in (' ', '-', '_') else '' for c in nome_aluno)
-            nome_sanitizado = nome_sanitizado.strip().replace(' ', '_')
-            nome_arquivo_pdf = f"{nome_sanitizado}.pdf"
-            zip_file.writestr(nome_arquivo_pdf, pdf_bytes)
+            nome_arquivo_pdf = _nome_pdf_certificado(aluno, turma)
+            # evita sobrescrever se houver nomes iguais
+            base, ext = os.path.splitext(nome_arquivo_pdf)
+            candidato = nome_arquivo_pdf
+            n = 2
+            while candidato in usados:
+                candidato = f"{base}_{n}{ext}"
+                n += 1
+            usados.add(candidato)
+            zip_file.writestr(candidato, pdf_bytes)
             
     zip_buffer.seek(0)
     return zip_buffer.getvalue()
