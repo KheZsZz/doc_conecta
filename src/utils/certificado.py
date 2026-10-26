@@ -202,7 +202,7 @@ def gerar_certificados_pdf_zip(
             pdf_bytes = HTML(string=html_certificado).write_pdf(
                 stylesheets=[CSS(string="@page { size: A4 landscape; margin: 0; }")]
             )
-            nome_aluno = aluno.get("name", "aluno"strip()
+            nome_aluno = aluno.get("name", "aluno").strip()
             nome_sanitizado = "".join(c if c.isalnum() or c in (' ', '-', '_') else '' for c in nome_aluno)
             nome_sanitizado = nome_sanitizado.strip().replace(' ', '_')
             nome_arquivo_pdf = f"{nome_sanitizado}.pdf"
