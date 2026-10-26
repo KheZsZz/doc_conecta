@@ -80,6 +80,7 @@ def gerar_certificado_html(
         if len(cpf_inst) == 11 else cpf_inst
     )
     re_inst = (instrutor.get("re") or "").strip()
+    formacao_inst = (instrutor.get("formacao") or "").strip()
 
     data_nasc_raw = aluno.get("data_nasc") or aluno.get("data_nascimento") or aluno.get("birth_date") or ""
     data_nasc_fmt = ""
@@ -96,6 +97,7 @@ def gerar_certificado_html(
         if len(cpf_resp_raw) == 11 else cpf_resp_raw
     )
     re_resp = (turma.get("re_resp_tecnico") or "").strip()
+    formacao_resp = (turma.get("formacao_resp_tecnico") or "").strip()
 
     dizeres = turma.get("dizeres_certificado_aluno")
     if not dizeres:
@@ -123,9 +125,11 @@ def gerar_certificado_html(
         CIDADE_DATA=cidade_data,
         ASSINATURA_INSTRUTOR=assinatura_instrutor,
         NOME_INSTRUTOR=instrutor.get("name", ""),
+        FORMACAO_INSTRUTOR=formacao_inst,
         CPF_INSTRUTOR=cpf_inst_fmt,
         RE_INSTRUTOR=re_inst,
         RESP_TECNICO=turma.get("resp_tecnico", ""),
+        FORMACAO_RESP=formacao_resp,
         CPF_RESP=cpf_resp_fmt,
         RE_RESP=re_resp,
         ASSINATURA_RESP_TECNICO=assinatura_resp_tecnico,
@@ -198,7 +202,7 @@ def gerar_certificados_pdf_zip(
             pdf_bytes = HTML(string=html_certificado).write_pdf(
                 stylesheets=[CSS(string="@page { size: A4 landscape; margin: 0; }")]
             )
-            nome_aluno = aluno.get("name", "aluno").strip()
+            nome_aluno = aluno.get("name", "aluno"strip()
             nome_sanitizado = "".join(c if c.isalnum() or c in (' ', '-', '_') else '' for c in nome_aluno)
             nome_sanitizado = nome_sanitizado.strip().replace(' ', '_')
             nome_arquivo_pdf = f"{nome_sanitizado}.pdf"
