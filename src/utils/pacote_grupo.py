@@ -193,6 +193,7 @@ def gerar_pacote_grupo(
                 "formacao_resp_tecnico": dados_resp.get("formacao", ""),
                 "assinatura_resp_url": dados_resp.get("assinatura_url"),
                 "curso_nome": curso_nome,
+                "curso_sigla": (curso.get("sigla") or "").strip().upper(),
                 "dizeres_certificado_empresa": curso.get(
                     "dizeres_certificado_empresa", ""
                 ),
