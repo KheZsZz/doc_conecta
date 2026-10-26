@@ -28,6 +28,15 @@ def _resolver_imagem(caminho_ou_url: str) -> str:
             return ""
     return ""
 
+def _endereco_ct(ct: dict | None, mostrar: bool) -> str:
+    """Retorna o endereço do CT apenas se a flag estiver ligada."""
+    if not mostrar or not ct:
+        return ""
+    return (
+        (ct.get("full_address") or ct.get("endereco") or ct.get("address") or "")
+        .strip()
+    )
+
 def gerar_certificado_html(
     aluno: dict,
     turma: dict,
@@ -112,6 +121,9 @@ def gerar_certificado_html(
     # SEMPRE da turma — nunca sobrescrever com horas do aluno/matrícula
     carga = (turma.get("carga_horaria") or "").strip() or "8 Horas"
 
+    mostrar_end_ct = bool(turma.get("mostrar_endereco_ct"))
+    endereco_ct = _endereco_ct(ct, mostrar_end_ct)
+
     html = template.render(
         IMAGEM_FUNDO=imagem_fundo,
         NOME_ALUNO=aluno.get("name", ""),
@@ -121,6 +133,7 @@ def gerar_certificado_html(
         ENDERECO_EMPRESA=empresa.get("full_address", "") if empresa else "",
         NIVEL=nivel,
         MODALIDADE=modalidade,
+        ENDERECO_CT=endereco_ct,
         CARGA_HORARIA=carga,
         NORMATIVA=normativa,
         CIDADE_DATA=cidade_data,
