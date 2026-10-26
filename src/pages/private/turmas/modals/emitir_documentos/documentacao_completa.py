@@ -180,6 +180,7 @@ def gerar_documentacao_completa(
                         turma=turma_cert,
                         instrutor=instrutor_data,
                         empresa=empresa_data,
+                        ct=ct_data or None,
                         alunos=alunos_cert,
                         normativa=normativa,
                         cidade_data=cidade_data,
@@ -195,7 +196,7 @@ def gerar_documentacao_completa(
                         turma=turma_cert,
                         instrutor=instrutor_data,
                         empresa=empresa_data,
-                        ct=None,
+                        ct = ct_data or None,
                         normativa=normativa,
                         cidade_data=cidade_data,
                     )

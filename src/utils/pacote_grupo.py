@@ -240,7 +240,7 @@ def gerar_pacote_grupo(
                         turma=turma_cert,
                         instrutor=instrutor,
                         empresa=empresa,
-                        ct=None,
+                        ct=ct or None,
                         normativa=normativa,
                         cidade_data=cidade_data,
                     )
