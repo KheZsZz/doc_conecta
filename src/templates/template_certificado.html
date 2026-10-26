@@ -58,7 +58,6 @@
         color: #1a2a5e;
       }
 
-      /* Bloco dos dizeres: mais espaço e justificado (como no certificado empresa) */
       .texto-certificado .espaco-dizeres {
         display: block;
         margin-top: 36px;
@@ -238,6 +237,9 @@
           <div class="assinatura-linha"></div>
           <div class="assinatura-texto">
             <div class="assinatura-nome">{{ RESP_TECNICO }}</div>
+            {% if FORMACAO_RESP %}
+            <div class="assinatura-formacao">{{ FORMACAO_RESP }}</div>
+            {% endif %}
             <div class="assinatura-cargo">Responsável Técnico</div>
             {% if CPF_RESP %}
             <div class="assinatura-doc">CPF: {{ CPF_RESP }}</div>
