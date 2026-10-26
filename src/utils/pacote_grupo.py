@@ -101,6 +101,7 @@ def responsavel_padrao() -> dict:
             "nome": "Cristiano Reis",
             "cpf": "214.135.358-01",
             "re": "0075191",
+            "formacao": "",
             "assinatura_url": None,
         }
     escolhido = next((r for r in ativos if r.get("is_default")), ativos[0])
@@ -108,6 +109,7 @@ def responsavel_padrao() -> dict:
         "nome": escolhido.get("nome") or "",
         "cpf": escolhido.get("cpf") or "",
         "re": (escolhido.get("re") or "").strip(),
+        "formacao": (escolhido.get("formacao") or "").strip(),
         "assinatura_url": escolhido.get("assinatura_url"),
     }
 
@@ -188,6 +190,7 @@ def gerar_pacote_grupo(
                 "resp_tecnico": dados_resp.get("nome", ""),
                 "cpf_resp_tecnico": dados_resp.get("cpf", ""),
                 "re_resp_tecnico": dados_resp.get("re", ""),
+                "formacao_resp_tecnico": dados_resp.get("formacao", ""),
                 "assinatura_resp_url": dados_resp.get("assinatura_url"),
                 "curso_nome": curso_nome,
                 "dizeres_certificado_empresa": curso.get(
@@ -223,6 +226,7 @@ def gerar_pacote_grupo(
                         turma=turma_cert,
                         instrutor=instrutor,
                         empresa=empresa,
+                        ct=ct or None,
                         alunos=alunos_cert,
                         normativa=normativa,
                         cidade_data=cidade_data,
