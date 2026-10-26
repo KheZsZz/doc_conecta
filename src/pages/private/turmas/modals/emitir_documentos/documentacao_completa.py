@@ -142,6 +142,7 @@ def gerar_documentacao_completa(
                 "resp_tecnico": dados_resp.get("nome", ""),
                 "cpf_resp_tecnico": dados_resp.get("cpf", ""),
                 "re_resp_tecnico": dados_resp.get("re", ""),
+                "formacao_resp_tecnico": dados_resp.get("formacao", ""),
                 "assinatura_resp_url": dados_resp.get("assinatura_url"),
                 "curso_nome": curso_nome,
                 "dizeres_certificado_empresa": curso_data.get(
@@ -196,7 +197,7 @@ def gerar_documentacao_completa(
                         turma=turma_cert,
                         instrutor=instrutor_data,
                         empresa=empresa_data,
-                        ct = ct_data or None,
+                        ct=ct_data or None,
                         normativa=normativa,
                         cidade_data=cidade_data,
                     )
@@ -276,7 +277,7 @@ def gerar_documentacao_completa(
                 "📥 Baixar documentação completa (ZIP)",
                 data=zip_bytes,
                 file_name=f"documentacao_{base}.zip",
-                mime="application/zip",
+                mime="application/pdf",
                 use_container_width=True,
                 key=f"dl_doc_completa_{tid}",
             )
