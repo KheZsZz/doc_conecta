@@ -38,6 +38,7 @@ def modal_editar_instrutor(
     phone_atual,
     cbo_atual,
     re_atual,
+    formacao_atual,
     assinatura_atual,
     ativo_atual,
 ):
@@ -63,6 +64,11 @@ def modal_editar_instrutor(
                 "RE (Registro)",
                 value=re_atual if re_atual else "",
                 help="Registro profissional. Aparece junto da assinatura nos documentos.",
+            )
+            nova_formacao = st.text_input(
+                "Formação / Especialização",
+                value=formacao_atual if formacao_atual else "",
+                help="Ex.: Engenheiro de Segurança do Trabalho, Técnico em Segurança do Trabalho, Especialista em Brigada.",
             )
 
         st.markdown("---")
@@ -102,6 +108,7 @@ def modal_editar_instrutor(
                         "phone": novo_phone.strip() if novo_phone else None,
                         "cbo": novo_cbo.strip() if novo_cbo else None,
                         "re": novo_re.strip() if novo_re else None,
+                        "formacao": nova_formacao.strip() if nova_formacao else None,
                         "assinatura": caminho_assinatura_final,
                         "is_active": novo_status,
                     }
@@ -112,10 +119,10 @@ def modal_editar_instrutor(
                     st.rerun()
                 except Exception as e:
                     st.error(f"❌ Erro ao atualizar instrutor: {e}")
-                    if "re" in str(e).lower():
+                    if "formacao" in str(e).lower() or "re" in str(e).lower():
                         st.info(
                             "Execute no Supabase:\n"
-                            "`ALTER TABLE instrutores ADD COLUMN IF NOT EXISTS re text;`"
+                            "`ALTER TABLE instrutores ADD COLUMN IF NOT EXISTS formacao text;`"
                         )
 
 
@@ -141,6 +148,7 @@ with tab_listar:
                     if q in str(i.get("name") or "").lower()
                     or q in str(i.get("cpf") or "").lower()
                     or q in str(i.get("re") or "").lower()
+                    or q in str(i.get("formacao") or "").lower()
                 ]
 
             if not lista:
@@ -155,6 +163,7 @@ with tab_listar:
                     phone = i.get("phone", "")
                     cbo = i.get("cbo", "")
                     re_val = i.get("re", "") or ""
+                    formacao_val = i.get("formacao", "") or ""
                     assinatura = i.get("assinatura", "")
                     is_active = i.get("is_active", True)
 
@@ -176,6 +185,8 @@ with tab_listar:
                                 detalhes.append(f"**CPF:** {cpf_fmt}")
                             if re_val:
                                 detalhes.append(f"**RE:** {re_val}")
+                            if formacao_val:
+                                detalhes.append(f"**Formação:** {formacao_val}")
                             if cbo:
                                 detalhes.append(f"**CBO:** {cbo}")
                             if phone:
@@ -210,6 +221,7 @@ with tab_listar:
                                     phone,
                                     cbo,
                                     re_val,
+                                    formacao_val,
                                     assinatura,
                                     is_active,
                                 )
@@ -236,6 +248,10 @@ with tab_cadastrar:
             re_instrutor = st.text_input(
                 "RE (Registro)",
                 help="Registro profissional. Aparece junto da assinatura nos documentos.",
+            )
+            formacao_instrutor = st.text_input(
+                "Formação / Especialização",
+                help="Ex.: Engenheiro de Segurança do Trabalho, Técnico em Segurança do Trabalho.",
             )
 
         st.markdown("---")
@@ -268,6 +284,7 @@ with tab_cadastrar:
                         "phone": phone_instrutor.strip() if phone_instrutor else None,
                         "cbo": cbo_instrutor.strip() if cbo_instrutor else None,
                         "re": re_instrutor.strip() if re_instrutor else None,
+                        "formacao": formacao_instrutor.strip() if formacao_instrutor else None,
                         "assinatura": url_assinatura_salva,
                         "is_active": status_instrutor,
                     }
@@ -277,8 +294,8 @@ with tab_cadastrar:
                     st.rerun()
                 except Exception as e:
                     st.error(f"❌ Erro ao criar instrutor: {e}")
-                    if "re" in str(e).lower():
+                    if "formacao" in str(e).lower() or "re" in str(e).lower():
                         st.info(
                             "Execute no Supabase:\n"
-                            "`ALTER TABLE instrutores ADD COLUMN IF NOT EXISTS re text;`"
+                            "`ALTER TABLE instrutores ADD COLUMN IF NOT EXISTS formacao text;`"
                         )
