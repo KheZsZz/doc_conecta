@@ -46,6 +46,7 @@ with tab_listar:
                 nome = resp.get("nome", "Sem Nome")
                 cpf = resp.get("cpf", "Sem CPF")
                 re_val = resp.get("re") or ""
+                formacao_val = resp.get("formacao") or ""
                 is_active = resp.get("is_active", True)
                 is_default = resp.get("is_default", False)
                 assinatura_url = resp.get("assinatura_url")
@@ -60,6 +61,8 @@ with tab_listar:
                         linha = f"**CPF:** {cpf}"
                         if re_val:
                             linha += f" | **RE:** {re_val}"
+                        if formacao_val:
+                            linha += f" | **Formação:** {formacao_val}"
                         linha += f" | Status: {status_str}"
                         st.markdown(linha)
                     with col2:
@@ -114,6 +117,10 @@ with tab_cadastrar:
             "RE (Registro)",
             help="Registro profissional. Aparece junto da assinatura nos certificados.",
         )
+        formacao_resp = st.text_input(
+            "Formação / Especialização",
+            help="Ex.: Engenheiro de Segurança do Trabalho, Técnico em Segurança do Trabalho.",
+        )
         is_default_new = st.checkbox("Definir como Responsável Técnico Padrão")
 
         st.markdown("**Assinatura Digitalizada (PNG sem fundo recomendada):**")
@@ -164,6 +171,7 @@ with tab_cadastrar:
                             "nome": nome_resp.strip(),
                             "cpf": cpf_formatado,
                             "re": re_resp.strip() if re_resp else None,
+                            "formacao": formacao_resp.strip() if formacao_resp else None,
                             "assinatura_url": url_assinatura,
                             "is_active": True,
                             "is_default": is_default_new,
@@ -177,8 +185,8 @@ with tab_cadastrar:
                             st.rerun()
                         except Exception as e:
                             st.error(f"❌ Erro ao salvar: {e}")
-                            if "re" in str(e).lower():
+                            if "formacao" in str(e).lower() or "re" in str(e).lower():
                                 st.info(
                                     "Execute no Supabase:\n"
-                                    "`ALTER TABLE responsaveis_tecnicos ADD COLUMN IF NOT EXISTS re text;`"
+                                    "`ALTER TABLE responsaveis_tecnicos ADD COLUMN IF NOT EXISTS formacao text;`"
                                 )
