@@ -199,7 +199,7 @@
           endif %}</strong
         >{% if NIVEL_TURMA %}, nível <strong>{{ NIVEL_TURMA }}</strong>{% endif
         %}{% if CARGA_HORARIA %}, com carga horária de
-        <strong>{{ CARGA_HORARIA }} horas</strong>{% endif %}. Os participantes
+        <strong>{{ CARGA_HORARIA }}</strong>{% endif %}. Os participantes
         foram aprovados nas avaliações teóricas e práticas. Desta forma,
         declaramos que os concluintes estão aptos a atuar nas ações de prevenção
         e combate a princípios de incêndio, abandono de área e primeiros
@@ -272,6 +272,9 @@
         />
         {% endif %}
         <div class="nome-instrutor">{{ NOME_INSTRUTOR }}</div>
+        {% if FORMACAO_INSTRUTOR %}
+        <div class="cargo-instrutor" style="font-style: italic">{{ FORMACAO_INSTRUTOR }}</div>
+        {% endif %}
         <div class="cargo-instrutor">Instrutor/Resp. Técnico.</div>
         {% if DOC_INSTRUTOR %}
         <div class="doc-instrutor">CPF: {{ DOC_INSTRUTOR }}</div>
