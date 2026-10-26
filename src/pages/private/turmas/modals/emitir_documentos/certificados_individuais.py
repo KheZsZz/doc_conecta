@@ -4,6 +4,7 @@ from src.utils.certificado import gerar_certificados_pdf_zip
 from src.pages.private.turmas.helpers import formatar_data_extenso
 
 from .data import (
+    fetch_ct,
     fetch_empresa,
     fetch_instrutor,
     fetch_matriculas,
@@ -46,6 +47,7 @@ def gerar_certificados_individuais(
 
             empresa_data = fetch_empresa(client_id)
             instrutor_data = fetch_instrutor(turma_data.get("instrutor_id"))
+            ct_data = fetch_ct(ct_id or turma_data.get("ct_id"))
             matriculas = fetch_matriculas(tid)
             alunos = alunos_para_certificado(matriculas, carga, incluir_nasc=True)
 
@@ -73,7 +75,7 @@ def gerar_certificados_individuais(
                 turma=turma_cert,
                 instrutor=instrutor_data,
                 empresa=empresa_data,
-                ct=None,
+                ct=ct_data or None,
                 normativa=turma_data.get("normativa", "") or curso_data.get("normativa", ""),
                 cidade_data=cidade_data,
             )
