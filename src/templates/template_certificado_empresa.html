@@ -159,6 +159,9 @@
         <div class="campos">
           <p class="linha-campo"><span class="campo-label">Nível:</span> {{ NIVEL }}</p>
           <p class="linha-campo"><span class="campo-label">Modalidade:</span> {{ MODALIDADE }}</p>
+          {% if ENDERECO_CT %}
+          <p class="linha-campo"><span class="campo-label">Local do treinamento:</span> {{ ENDERECO_CT }}</p>
+          {% endif %}
           <p class="linha-campo"><span class="campo-label">Carga Horária:</span> {{ CARGA_HORARIA }}</p>
         </div>
 
