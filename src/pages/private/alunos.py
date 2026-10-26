@@ -4,7 +4,8 @@ from src.config.database import supabase
 
 st.title("🎓 Cadastro Individual de Alunos")
 st.markdown(
-    "Matricule alunos manualmente em turmas com documentação **pendente**."
+    "Matricule alunos manualmente em turmas com documentação **pendente** "
+    "**do dia de hoje**."
 )
 
 
@@ -19,8 +20,9 @@ def formatar_data_br(data_str) -> str:
 
 
 # ==========================================
-# 1. BUSCAR TURMAS PENDENTES (não emitidas)
+# 1. BUSCAR TURMAS PENDENTES DO DIA (hoje)
 # ==========================================
+hoje = date.today().isoformat()  # YYYY-MM-DD
 turmas_dict = {}
 turmas_info_completa = {}
 
@@ -28,7 +30,8 @@ try:
     res_turmas = (
         supabase.table("turmas")
         .select("*")
-        .order("data_treinamento", desc=True)
+        .eq("data_treinamento", hoje)
+        .order("titulo")
         .execute()
     )
 
@@ -55,16 +58,20 @@ except Exception as e:
 # 2. INTERFACE DE CADASTRO
 # ==========================================
 if not turmas_dict:
-    st.success(
-        "🎉 Não há turmas pendentes de documentação no momento."
+    st.info(
+        f"ℹ️ Não há turmas **pendentes** com treinamento em **{formatar_data_br(hoje)}**.\n\n"
+        "Só aparecem turmas do **dia de hoje** que ainda não tiveram a documentação emitida."
     )
 else:
     st.subheader("1. Selecione a Turma")
+    st.caption(
+        f"Exibindo apenas turmas pendentes de **{formatar_data_br(hoje)}**."
+    )
 
     turma_selecionada_rotulo = st.selectbox(
         "Turmas disponíveis",
         options=list(turmas_dict.keys()),
-        help="Somente turmas com documentação pendente.",
+        help="Somente turmas do dia de hoje com documentação pendente.",
     )
 
     turma_id_escolhida = turmas_dict[turma_selecionada_rotulo]
