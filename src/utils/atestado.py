@@ -103,7 +103,9 @@ def gerar_atestado_pdf_de_arquivo(
     datas_unicas.discard("")
     mostrar_coluna_data = len(datas_unicas) > 1
 
-    mostrar_coluna_unidade = any(_tem_valor(a.get("unidade")) for a in alunos_lista)
+    # Coluna UNIDADE desativada temporariamente
+    # mostrar_coluna_unidade = any(_tem_valor(a.get("unidade")) for a in alunos_lista)
+    mostrar_coluna_unidade = False
 
     nivel_padrao = turma.get("nivel") or turma.get("nivel_turma") or "Basico"
     # Carga SEMPRE da turma
@@ -111,17 +113,20 @@ def gerar_atestado_pdf_de_arquivo(
         (turma.get("carga_horaria") or "").strip()
         or "8 Horas"
     )
-    unidade_empresa = (
-        (empresa.get("sigla") or "").strip()
-        or (empresa.get("unit") or "").strip()
-        or ""
-    )
+    # unidade_empresa = (
+    #     (empresa.get("sigla") or "").strip()
+    #     or (empresa.get("unit") or "").strip()
+    #     or ""
+    # )
+    unidade_empresa = ""
 
     alunos_processados = []
     for aluno in alunos_lista:
         data_raw = aluno.get("data_matricula") or aluno.get("data_treinamento") or ""
         data_formatada = formatar_data_br(data_raw)
-        unidade = (aluno.get("unidade") or "").strip() or unidade_empresa
+        # UNIDADE desativada
+        # unidade = (aluno.get("unidade") or "").strip() or unidade_empresa
+        unidade = ""
 
         item = {
             "nome": aluno.get("nome") or aluno.get("name") or "Sem Nome",
@@ -137,10 +142,10 @@ def gerar_atestado_pdf_de_arquivo(
         }
         alunos_processados.append(item)
 
-    if not mostrar_coluna_unidade:
-        mostrar_coluna_unidade = any(
-            _tem_valor(a.get("unidade")) for a in alunos_processados
-        )
+    # if not mostrar_coluna_unidade:
+    #     mostrar_coluna_unidade = any(
+    #         _tem_valor(a.get("unidade")) for a in alunos_processados
+    #     )
 
     if ct and isinstance(ct, dict):
         ct_nome = ct.get("full_name") or ct.get("name") or ""
