@@ -277,7 +277,7 @@ def gerar_documentacao_completa(
                 "📥 Baixar documentação completa (ZIP)",
                 data=zip_bytes,
                 file_name=f"documentacao_{base}.zip",
-                mime="application/pdf",
+                mime="application/zip",
                 use_container_width=True,
                 key=f"dl_doc_completa_{tid}",
             )
