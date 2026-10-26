@@ -63,10 +63,12 @@ def gerar_certificado_empresa_pdf(
     )
     cpf_instrutor_fmt = formatar_cpf(instrutor.get("cpf", ""))
     re_instrutor = (instrutor.get("re") or "").strip()
+    formacao_instrutor = (instrutor.get("formacao") or "").strip()
 
     resp_tecnico_nome = (turma.get("resp_tecnico") or "").strip()
     cpf_resp_fmt = formatar_cpf(turma.get("cpf_resp_tecnico", ""))
     re_resp = (turma.get("re_resp_tecnico") or "").strip()
+    formacao_resp = (turma.get("formacao_resp_tecnico") or "").strip()
     
     assinatura_resp_url = turma.get("assinatura_resp_url", "")
     assinatura_resp_tecnico = _resolver_imagem(assinatura_resp_url)
@@ -93,10 +95,12 @@ def gerar_certificado_empresa_pdf(
         TOTAL_COLABORADORES=total_colaboradores,
         CIDADE_DATA=cidade_data,
         NOME_INSTRUTOR=instrutor.get("name", ""),
+        FORMACAO_INSTRUTOR=formacao_instrutor,
         CPF_INSTRUTOR=cpf_instrutor_fmt,
         RE_INSTRUTOR=re_instrutor,
         ASSINATURA_INSTRUTOR=assinatura_instrutor,
         RESP_TECNICO=resp_tecnico_nome,
+        FORMACAO_RESP=formacao_resp,
         CPF_RESP=cpf_resp_fmt,
         RE_RESP=re_resp,
         ASSINATURA_RESP_TECNICO=assinatura_resp_tecnico,
