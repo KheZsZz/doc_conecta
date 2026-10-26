@@ -31,6 +31,13 @@ def gerar_certificados_individuais(
         f"ℹ️ Nível / modalidade / carga da **turma**: **{nivel}** | **{modalidade}** | **{carga}**"
     )
 
+    mostrar_endereco_ct = st.checkbox(
+        "Exibir endereço do CT abaixo da modalidade",
+        value=False,
+        key=f"mostrar_end_ct_aluno_{tid}",
+        help="Quando marcado, o endereço do Centro de Treinamento aparece abaixo da modalidade no certificado.",
+    )
+
     if not st.button(
         "🚀 Processar e Baixar Lote (ZIP)",
         type="primary",
@@ -59,6 +66,7 @@ def gerar_certificados_individuais(
                 "modalidade": modalidade,
                 "nivel": nivel,
                 "carga_horaria": carga,
+                "mostrar_endereco_ct": mostrar_endereco_ct,
                 "resp_tecnico": dados_resp.get("nome", ""),
                 "cpf_resp_tecnico": dados_resp.get("cpf", ""),
                 "re_resp_tecnico": dados_resp.get("re", ""),
