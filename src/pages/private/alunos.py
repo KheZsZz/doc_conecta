@@ -43,11 +43,14 @@ try:
                 continue
 
             tid = t.get("id")
-            titulo = t.get("titulo", "Sem título")
-            data_t = t.get("data_treinamento")
-            data_br = formatar_data_br(data_t)
+            titulo = (t.get("titulo") or "Sem título").strip()
 
-            rotulo = f"{data_br} | {titulo} (⚠️ Pendente)"
+            # Só o título na listagem (sem data e sem status)
+            rotulo = titulo
+            if rotulo in turmas_dict:
+                # evita colisão de nomes no mesmo dia
+                rotulo = f"{titulo} ({str(tid)[:8]})"
+
             turmas_dict[rotulo] = tid
             turmas_info_completa[tid] = t
 
