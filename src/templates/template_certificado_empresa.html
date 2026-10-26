@@ -32,7 +32,7 @@
         padding-left: 150px;
         padding-right: 40px;
         padding-top: 148px;
-        padding-bottom: 95px;
+        padding-bottom: 120px;
       }
 
       .linha {
@@ -77,7 +77,7 @@
         z-index: 2;
         left: 150px;
         right: 40px;
-        bottom: 14mm;
+        bottom: 36mm;
         display: flex;
         justify-content: space-around;
         align-items: flex-end;
@@ -118,6 +118,12 @@
         color: #1a2a5e;
         text-transform: uppercase;
         line-height: 1.2;
+      }
+      .assinatura-formacao {
+        font-size: 7.5pt;
+        font-style: italic;
+        color: #444;
+        line-height: 1.15;
       }
       .assinatura-cargo {
         font-size: 8pt;
@@ -168,6 +174,9 @@
           {% endif %}
           <div class="assinatura-linha"></div>
           <div class="assinatura-nome">{{ NOME_INSTRUTOR }}</div>
+          {% if FORMACAO_INSTRUTOR %}
+          <div class="assinatura-formacao">{{ FORMACAO_INSTRUTOR }}</div>
+          {% endif %}
           <div class="assinatura-cargo">Instrutor</div>
           {% if CPF_INSTRUTOR %}
           <div class="assinatura-doc">CPF: {{ CPF_INSTRUTOR }}</div>
