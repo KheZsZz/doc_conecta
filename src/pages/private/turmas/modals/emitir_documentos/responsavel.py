@@ -11,15 +11,19 @@ def ui_selecionar_responsavel(tid: str, tipo_documento: str) -> dict:
             "nome": "Cristiano Reis",
             "cpf": "214.135.358-01",
             "re": "0075191",
+            "formacao": "",
             "assinatura_url": None,
         }
 
     opcoes = {}
     for r in responsaveis:
         re_val = (r.get("re") or "").strip()
+        formacao = (r.get("formacao") or "").strip()
         label = f"{r.get('nome', 'Sem Nome')} (CPF: {r.get('cpf', 'N/D')}"
         if re_val:
             label += f" | RE: {re_val}"
+        if formacao:
+            label += f" | {formacao}"
         label += ")"
         opcoes[label] = r
 
@@ -38,5 +42,6 @@ def ui_selecionar_responsavel(tid: str, tipo_documento: str) -> dict:
         "nome": r.get("nome") or "",
         "cpf": r.get("cpf") or "",
         "re": (r.get("re") or "").strip(),
+        "formacao": (r.get("formacao") or "").strip(),
         "assinatura_url": r.get("assinatura_url"),
     }
