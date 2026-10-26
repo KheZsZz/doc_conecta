@@ -30,6 +30,14 @@ def formatar_cpf(cpf: str) -> str:
         return f"{cpf[:3]}.{cpf[3:6]}.{cpf[6:9]}-{cpf[9:]}"
     return cpf
 
+def _endereco_ct(ct: dict | None, mostrar: bool) -> str:
+    if not mostrar or not ct:
+        return ""
+    return (
+        (ct.get("full_address") or ct.get("endereco") or ct.get("address") or "")
+        .strip()
+    )
+
 def gerar_certificado_empresa_pdf(
     turma: dict,
     instrutor: dict,
@@ -83,6 +91,9 @@ def gerar_certificado_empresa_pdf(
     modalidade = (turma.get("modalidade") or "").strip() or "In Company"
     carga = (turma.get("carga_horaria") or "").strip() or "08 Horas"
 
+    mostrar_end_ct = bool(turma.get("mostrar_endereco_ct"))
+    endereco_ct = _endereco_ct(ct, mostrar_end_ct)
+
     html_renderizado = template.render(
         IMAGEM_FUNDO=imagem_fundo,
         EMPRESA=empresa.get("name", ""),
@@ -90,6 +101,7 @@ def gerar_certificado_empresa_pdf(
         CNPJ_EMPRESA=empresa.get("cnpj", ""),
         NIVEL=nivel,
         MODALIDADE=modalidade,
+        ENDERECO_CT=endereco_ct,
         CARGA_HORARIA=carga,
         NORMATIVA=normativa,
         TOTAL_COLABORADORES=total_colaboradores,
