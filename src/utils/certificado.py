@@ -109,6 +109,7 @@ def gerar_certificado_html(
 
     nivel = (turma.get("nivel") or "").strip() or "Formação"
     modalidade = (turma.get("modalidade") or "").strip() or "Presencial"
+    # SEMPRE da turma — nunca sobrescrever com horas do aluno/matrícula
     carga = (turma.get("carga_horaria") or "").strip() or "8 Horas"
 
     html = template.render(
@@ -151,9 +152,9 @@ def gerar_certificados_pdf(
 ) -> bytes:
     paginas_html = []
     for aluno in alunos_matriculas:
-        turma_aluno = {**turma, "carga_horaria": aluno.get("horas", turma.get("carga_horaria", "8 Horas"))}
+        # NÃO sobrescrever carga_horaria com horas do aluno
         html_pagina = gerar_certificado_html(
-            aluno=aluno, turma=turma_aluno, instrutor=instrutor, empresa=empresa, 
+            aluno=aluno, turma=turma, instrutor=instrutor, empresa=empresa, 
             ct=ct, normativa=normativa, cidade_data=cidade_data, 
             caminho_fundo=caminho_fundo, caminho_pasta_templates=caminho_pasta_templates,
         )
@@ -193,9 +194,9 @@ def gerar_certificados_pdf_zip(
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
         for aluno in alunos_matriculas:
-            turma_aluno = {**turma, "carga_horaria": aluno.get("horas", turma.get("carga_horaria", "8 Horas"))}
+            # NÃO sobrescrever carga_horaria com horas do aluno
             html_certificado = gerar_certificado_html(
-                aluno=aluno, turma=turma_aluno, instrutor=instrutor, empresa=empresa, 
+                aluno=aluno, turma=turma, instrutor=instrutor, empresa=empresa, 
                 ct=ct, normativa=normativa, cidade_data=cidade_data, 
                 caminho_fundo=caminho_fundo, caminho_pasta_templates=caminho_pasta_templates,
             )
