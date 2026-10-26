@@ -25,6 +25,7 @@ def alunos_para_atestado(
     nivel: str,
     unidade_padrao: str = "",
 ) -> list[dict]:
+    """Carga horária SEMPRE da turma (carga_padrao), nunca da matrícula/aluno."""
     alunos = []
     for m in matriculas:
         info = m.get("alunos") or {}
@@ -35,7 +36,7 @@ def alunos_para_atestado(
                 "cpf": _v(info.get("cpf")),
                 "data_nasc": _v(info.get("data_nasc")),
                 "data_matricula": _v(m.get("data_treinamento")),
-                "horas": _v(m.get("carga_horaria")) or carga_padrao,
+                "horas": carga_padrao,  # sempre da turma
                 "Treinamento": nivel,
                 "unidade": _unidade_da_matricula(m, unidade_padrao),
                 "re": _v(info.get("re")),
@@ -47,6 +48,7 @@ def alunos_para_atestado(
 def alunos_para_certificado(
     matriculas: list, carga_padrao: str, incluir_nasc: bool = False
 ) -> list[dict]:
+    """Carga horária SEMPRE da turma (carga_padrao), nunca da matrícula/aluno."""
     alunos = []
     for m in matriculas:
         info = m.get("alunos") or {}
@@ -55,7 +57,7 @@ def alunos_para_certificado(
             "cpf": _v(info.get("cpf")),
             "rg": _v(info.get("rg")),
             "re": _v(info.get("re")),
-            "horas": _v(m.get("carga_horaria")) or carga_padrao,
+            "horas": carga_padrao,  # sempre da turma
             "unidade": _unidade_da_matricula(m),
             "aluno_id": (info.get("id") or m.get("aluno_id") or ""),
         }
