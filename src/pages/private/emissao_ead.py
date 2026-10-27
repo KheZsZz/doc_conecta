@@ -15,7 +15,7 @@ from src.utils.emissao_ead import (
     listar_assinantes,
     nome_arquivo_certificado,
 )
-from src.utils.certificado_ead import gerar_certificado_ead_pdf
+from src.utils.certificado_ead import gerar_certificado_ead_pdf, normalizar_carga_horaria
 from src.utils.certificado_empresa import gerar_certificado_empresa_pdf
 from src.auth.permissions import exigir_permissao
 
@@ -286,11 +286,11 @@ if st.button(
 
                 try:
                     cargas = [g.get("carga") for g in grupo if g.get("carga")]
-                    carga = cargas[0] if cargas else (cur.get("carga_horaria") or "08 Horas")
+                    carga_raw = cargas[0] if cargas else (cur.get("carga_horaria") or "08")
+                    carga = normalizar_carga_horaria(carga_raw)
 
-                    datas_fim = [g.get("data_fim") for g in grupo if g.get("data_fim") is not None]
-                    data_ref = datas_fim[-1] if datas_fim else None
-                    cidade_data = _fmt_data_br(data_ref)
+                    # EAD empresa: não exibe data solta (CIDADE_DATA)
+                    cidade_data = ""
 
                     alunos_grupo = [
                         {"name": g["nome"], "cpf": g["cpf"]} for g in grupo
@@ -299,7 +299,7 @@ if st.button(
                     turma_cert = {
                         "modalidade": "EAD",
                         "nivel": "Formação",
-                        "carga_horaria": str(carga).strip() or "08 Horas",
+                        "carga_horaria": carga,
                         "resp_tecnico": resp_payload.get("nome", ""),
                         "cpf_resp_tecnico": resp_payload.get("cpf", ""),
                         "re_resp_tecnico": resp_payload.get("re", ""),
