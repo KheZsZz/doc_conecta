@@ -10,10 +10,27 @@ from typing import Any
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML, CSS
 
+from src.pages.private.turmas.helpers import extrair_cidade_do_endereco
+
 _FUNDO_CONECTA = (
     "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/"
     "certificado_conecta_fundo.png"
 )
+
+MESES_PT = {
+    1: "Janeiro",
+    2: "Fevereiro",
+    3: "Março",
+    4: "Abril",
+    5: "Maio",
+    6: "Junho",
+    7: "Julho",
+    8: "Agosto",
+    9: "Setembro",
+    10: "Outubro",
+    11: "Novembro",
+    12: "Dezembro",
+}
 
 
 def _imagem_para_data_uri(caminho: str) -> str:
@@ -46,7 +63,6 @@ def _fmt_data_br(val) -> str:
     s = str(val).strip()
     if not s or s.lower() in ("nan", "none", "nat"):
         return ""
-    # excel serial sometimes comes as datetime already via pandas
     if hasattr(val, "strftime"):
         try:
             return val.strftime("%d/%m/%Y")
@@ -61,6 +77,41 @@ def _fmt_data_br(val) -> str:
         except Exception:
             continue
     return s
+
+
+def _parse_data(val):
+    if val is None:
+        return None
+    if hasattr(val, "year") and hasattr(val, "month") and hasattr(val, "day"):
+        return val
+    s = str(val).strip()
+    if not s or s.lower() in ("nan", "none", "nat"):
+        return None
+    s10 = s.split("T")[0][:10]
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(s10 if fmt.startswith("%Y") else s[:10], fmt)
+        except Exception:
+            continue
+    return None
+
+
+def formatar_cidade_data_ead(data_ref, ct: dict | None = None) -> str:
+    """Ex.: Itu, 27 de Outubro de 2026 — cidade sempre do CT Conecta."""
+    ct = ct or {}
+    cidade = extrair_cidade_do_endereco(
+        ct.get("full_address") or ct.get("endereco") or ct.get("address")
+    )
+    dt = _parse_data(data_ref)
+    if not dt:
+        return cidade
+    return f"{cidade}, {dt.day} de {MESES_PT[dt.month]} de {dt.year}"
+
+
+def endereco_ct(ct: dict | None) -> str:
+    if not ct:
+        return ""
+    return (ct.get("full_address") or ct.get("endereco") or ct.get("address") or "").strip()
 
 
 def _fmt_cpf(cpf: str) -> str:
@@ -161,6 +212,10 @@ def gerar_certificado_ead_pdf(
         carga_horaria or curso.get("carga_horaria") or "08"
     )
 
+    # Cidade/data sempre com base no CT Conecta + data de término
+    cidade_data = formatar_cidade_data_ead(data_termino or data_inicio, ct)
+    local_ct = endereco_ct(ct)
+
     ass_img = _resolver_imagem(
         assinante.get("assinatura")
         or assinante.get("assinatura_url")
@@ -168,7 +223,6 @@ def gerar_certificado_ead_pdf(
     )
     nome_ass = (assinante.get("nome") or assinante.get("name") or "").strip()
     cpf_ass = _fmt_cpf(assinante.get("cpf") or "")
-    # no modelo: CPF sem pontuacao junto do RE
     cpf_ass_raw = re.sub(r"\D", "", str(assinante.get("cpf") or ""))
     re_ass = (assinante.get("re") or "").strip()
 
@@ -193,8 +247,10 @@ def gerar_certificado_ead_pdf(
         DIZERES=dizeres,
         CARGA_HORARIA=carga,
         MODALIDADE=modalidade or "EAD",
+        ENDERECO_CT=local_ct,
         DATA_INICIO=_fmt_data_br(data_inicio),
         DATA_TERMINO=_fmt_data_br(data_termino),
+        CIDADE_DATA=cidade_data,
         ASSINATURA_IMG=ass_img,
         NOME_ASSINANTE=nome_ass,
         CARGO_ASSINANTE="Instrutor/Resp. Técnico",
