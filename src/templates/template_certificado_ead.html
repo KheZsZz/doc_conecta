@@ -86,6 +86,12 @@
       min-width: 55mm;
     }
 
+    .cidade-data {
+      margin-top: 6mm;
+      font-size: 10.5pt;
+      color: #222;
+    }
+
     /*
       Assinaturas: estrutura identica nas duas colunas
       para a LINHA ficar na mesma altura.
@@ -247,6 +253,12 @@
             <span class="lbl">Modalidade:</span>
             <span class="val"> {{ MODALIDADE }}</span>
           </div>
+          {% if ENDERECO_CT %}
+          <div>
+            <span class="lbl">Local:</span>
+            <span class="val"> {{ ENDERECO_CT }}</span>
+          </div>
+          {% endif %}
         </div>
         <div class="meta-col direita">
           <div>
@@ -259,6 +271,10 @@
           </div>
         </div>
       </div>
+
+      {% if CIDADE_DATA %}
+      <div class="cidade-data">{{ CIDADE_DATA }}</div>
+      {% endif %}
 
       <div class="assinaturas">
         <!-- Instrutor / Resp. Técnico -->
