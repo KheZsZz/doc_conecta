@@ -22,6 +22,7 @@ from src.pages.private.turmas.modals.emitir_documentos.data import (
     fetch_instrutor,
     fetch_matriculas,
     fetch_responsaveis,
+    marcar_documento_emitido,
     resolver_cidade,
 )
 from src.utils.atestado import gerar_atestado_pdf_de_arquivo
@@ -141,6 +142,8 @@ def gerar_pacote_grupo(
     gerados: list[str] = []
     erros: list[str] = []
     resumo_turmas: list[dict] = []
+    turmas_marcadas: list[str] = []
+    turmas_falha_marca: list[str] = []
 
     with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for turma in turmas:
@@ -172,6 +175,7 @@ def gerar_pacote_grupo(
                         "empresa": (empresa or {}).get("name") or "",
                         "docs": 0,
                         "status": "sem alunos",
+                        "marcado": False,
                     }
                 )
                 continue
@@ -289,6 +293,17 @@ def gerar_pacote_grupo(
                 except Exception as e:
                     erros.append(f"{titulo} lista: {e}")
 
+            # Marca turma como documentação emitida se gerou ao menos 1 doc
+            marcado = False
+            if docs_ok > 0 and tid:
+                ok_marca, msg_marca = marcar_documento_emitido(tid)
+                if ok_marca:
+                    marcado = True
+                    turmas_marcadas.append(titulo)
+                else:
+                    turmas_falha_marca.append(f"{titulo}: {msg_marca}")
+                    erros.append(f"{titulo} status: {msg_marca}")
+
             resumo_turmas.append(
                 {
                     "turma": titulo,
@@ -296,6 +311,7 @@ def gerar_pacote_grupo(
                     "empresa": (empresa or {}).get("name") or "",
                     "docs": docs_ok,
                     "status": "ok" if docs_ok else "falhou",
+                    "marcado": marcado,
                 }
             )
 
@@ -306,5 +322,7 @@ def gerar_pacote_grupo(
         "resumo": resumo_turmas,
         "total_docs": len(gerados),
         "total_turmas": len(turmas),
+        "turmas_marcadas": turmas_marcadas,
+        "turmas_falha_marca": turmas_falha_marca,
     }
     return zip_buf.getvalue(), meta
