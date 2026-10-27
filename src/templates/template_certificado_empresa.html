@@ -169,6 +169,7 @@
       </div>
 
       <div class="assinaturas">
+        {% if NOME_INSTRUTOR %}
         <div class="assinatura-bloco">
           {% if ASSINATURA_INSTRUTOR %}
           <img src="{{ ASSINATURA_INSTRUTOR }}" class="assinatura-img" alt="Assinatura Instrutor" />
@@ -188,6 +189,7 @@
           <div class="assinatura-doc">RE: {{ RE_INSTRUTOR }}</div>
           {% endif %}
         </div>
+        {% endif %}
 
         {% if RESP_TECNICO %}
         <div class="assinatura-bloco">
