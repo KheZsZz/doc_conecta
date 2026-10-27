@@ -267,4 +267,4 @@ def gerar_certificado_ead_pdf(
 
     return HTML(string=html).write_pdf(
         stylesheets=[CSS(string="@page { size: A4 landscape; margin: 0; }")]
-    )
+    ) # type: ignore
