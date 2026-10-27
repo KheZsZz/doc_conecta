@@ -77,6 +77,18 @@ def _fmt_cnpj(cnpj: str) -> str:
     return str(cnpj or "").strip()
 
 
+def normalizar_carga_horaria(carga) -> str:
+    """Garante formato '08 Horas' a partir de '8', '08', '8h', '08 Horas', etc."""
+    s = str(carga or "").strip()
+    if not s or s.lower() in ("nan", "none"):
+        return "08 Horas"
+    m = re.search(r"(\d+)", s)
+    if not m:
+        return s
+    n = int(m.group(1))
+    return f"{n:02d} Horas"
+
+
 def _parse_conteudo(raw) -> list[str]:
     if not raw:
         return []
@@ -145,13 +157,9 @@ def gerar_certificado_ead_pdf(
         else:
             dizeres += "."
 
-    carga = (
-        carga_horaria
-        or curso.get("carga_horaria")
-        or "8 h"
+    carga = normalizar_carga_horaria(
+        carga_horaria or curso.get("carga_horaria") or "08"
     )
-    # normaliza "08 Horas" -> mantém o que veio
-    carga = str(carga).strip()
 
     ass_img = _resolver_imagem(
         assinante.get("assinatura")
