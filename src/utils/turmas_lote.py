@@ -96,11 +96,30 @@ def data_iso_para_br(iso: str) -> str:
 
 
 def _parse_carga(val) -> str:
-    s = str(val or "").strip()
+    """Normaliza carga horária (evita bug 8.0 -> 80 ao tirar o ponto do float)."""
+    if val is None or (isinstance(val, float) and pd.isna(val)):
+        return "8 Horas"
+    # Número vindo do Excel (int/float) — usa o valor direto
+    if isinstance(val, (int, float)) and not isinstance(val, bool):
+        n = int(round(float(val)))
+        if n <= 0:
+            return "8 Horas"
+        return f"{n} Horas" if n != 1 else "1 Hora"
+    s = str(val).strip()
     if not s or s.lower() in ("nan", "none"):
         return "8 Horas"
+    # Texto tipo "8", "8.0", "08 Horas", "8 horas"
+    s_num = s.replace(",", ".").split()[0]
+    try:
+        n = int(round(float(s_num)))
+        if n <= 0:
+            return "8 Horas"
+        return f"{n} Horas" if n != 1 else "1 Hora"
+    except Exception:
+        pass
     dig = re.sub(r"\D", "", s)
     if dig:
+        # Último recurso: só dígitos (pode falhar em "8.0" se chegou aqui)
         n = int(dig)
         return f"{n} Horas" if n != 1 else "1 Hora"
     return s
@@ -569,7 +588,7 @@ def gerar_modelo_planilha() -> bytes:
                 "RESPONSAVEL": "Ygor Danilo de Souza Silva",
                 "TELEFONE": "",
                 "EMAIL": "YDSilva@loga.com.br",
-                "UNIDADE": "JAGUARÉ",
+                "UNIDADE": "ETRS",
                 "SIGLA CURSO": "NR23",
                 "CURSO": "",
                 "DATA TREINAMENTO": "16/07/2026",
@@ -578,7 +597,7 @@ def gerar_modelo_planilha() -> bytes:
                 "NIVEL": "Intermediário",
                 "INSTRUTOR": "WILLIANS FELIX DA SILVA",
                 "CT": "Ecofire",
-                "TITULO": "LOGA - NR23 - JAGUARÉ - 08 Horas",
+                "TITULO": "LOGA - NR23 - ETRS - 08 Horas",
             },
         ]
     )
