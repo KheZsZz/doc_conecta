@@ -16,7 +16,9 @@ exigir_permissao("pacote_grupo")
 st.title("📦 Pacote por Grupo / Período")
 st.markdown(
     "Gera um **ZIP** com a documentação de todas as turmas de um "
-    "**grupo empresarial** em um intervalo de datas (mês ou ano)."
+    "**grupo empresarial** em um intervalo de datas (mês ou ano).\n\n"
+    "As turmas com pelo menos um documento gerado são marcadas como "
+    "**documentação emitida** automaticamente."
 )
 
 grupos = listar_grupos()
@@ -84,9 +86,6 @@ with c3:
         st.session_state["pkg_df"] = date(y, 12, 31)
         st.rerun()
 
-# Aplica atalhos se gravados (próximo load — date_input já tem value; atalhos
-# via session e widgets separados é limitado no Streamlit; datas manuais bastam)
-
 st.markdown("**Documentos a incluir**")
 ocol1, ocol2, ocol3 = st.columns(3)
 with ocol1:
@@ -125,7 +124,6 @@ for t in turmas:
         }
     )
 
-# data BR no preview
 from datetime import datetime as _dt
 
 for row in preview:
@@ -146,6 +144,11 @@ if st.session_state.get(ss_zip):
         f"✅ Pacote pronto: **{meta.get('total_docs', 0)}** documento(s) "
         f"em **{meta.get('total_turmas', 0)}** turma(s)."
     )
+    marcadas = meta.get("turmas_marcadas") or []
+    if marcadas:
+        st.success(
+            f"✅ **{len(marcadas)}** turma(s) marcada(s) como documentação emitida."
+        )
     if meta.get("erros"):
         with st.expander("Avisos / falhas", expanded=False):
             for e in meta["erros"]:
@@ -202,6 +205,13 @@ if st.button(
         f"✅ **{meta['total_docs']}** documento(s) gerados "
         f"para **{meta['total_turmas']}** turma(s)."
     )
+
+    marcadas = meta.get("turmas_marcadas") or []
+    if marcadas:
+        st.success(
+            f"✅ **{len(marcadas)}** turma(s) marcada(s) como **documentação emitida**."
+        )
+
     if meta.get("resumo"):
         st.dataframe(meta["resumo"], use_container_width=True, hide_index=True)
     if meta.get("erros"):
