@@ -218,7 +218,7 @@ def gerar_certificado_ead_pdf(
         data_documento if data_documento is not None else (data_termino or data_inicio),
         ct,
     )
-    local_ct = endereco_ct(ct)
+    # local_ct = endereco_ct(ct)
 
     ass_img = _resolver_imagem(
         assinante.get("assinatura")
