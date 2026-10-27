@@ -165,7 +165,9 @@
           <p class="linha-campo"><span class="campo-label">Carga Horária:</span> {{ CARGA_HORARIA }}</p>
         </div>
 
+        {% if CIDADE_DATA %}
         <div class="data">{{ CIDADE_DATA }}</div>
+        {% endif %}
       </div>
 
       <div class="assinaturas">
