@@ -251,7 +251,7 @@ def gerar_certificado_ead_pdf(
         DIZERES=dizeres,
         CARGA_HORARIA=carga,
         MODALIDADE=modalidade or "EAD",
-        ENDERECO_CT=local_ct,
+        # ENDERECO_CT=local_ct,
         DATA_INICIO=_fmt_data_br(data_inicio),
         DATA_TERMINO=_fmt_data_br(data_termino),
         CIDADE_DATA=cidade_data,
