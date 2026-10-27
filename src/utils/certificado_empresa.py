@@ -101,7 +101,7 @@ def gerar_certificado_empresa_pdf(
         CNPJ_EMPRESA=empresa.get("cnpj", ""),
         NIVEL=nivel,
         MODALIDADE=modalidade,
-        ENDERECO_CT=endereco_ct,
+        # ENDERECO_CT=endereco_ct,
         CARGA_HORARIA=carga,
         NORMATIVA=normativa,
         TOTAL_COLABORADORES=total_colaboradores,
