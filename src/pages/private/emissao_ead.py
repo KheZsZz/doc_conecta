@@ -15,7 +15,11 @@ from src.utils.emissao_ead import (
     listar_assinantes,
     nome_arquivo_certificado,
 )
-from src.utils.certificado_ead import gerar_certificado_ead_pdf, normalizar_carga_horaria
+from src.utils.certificado_ead import (
+    gerar_certificado_ead_pdf,
+    normalizar_carga_horaria,
+    formatar_cidade_data_ead,
+)
 from src.utils.certificado_empresa import gerar_certificado_empresa_pdf
 from src.auth.permissions import exigir_permissao
 
@@ -40,6 +44,7 @@ Colunas esperadas:
 - Só emite linhas com **Progresso ≥ 0,96**
 - Certificados de aluno: `NOME DO ALUNO - SIGLA.pdf`
 - Certificados de empresa: **1 por combinação CNPJ + SIGLA** (somente assinatura do RT)
+- Cidade/data/local sempre do **CT Conecta** (ex.: Itu, 27 de Outubro de 2026)
         """
     )
 
@@ -289,8 +294,12 @@ if st.button(
                     carga_raw = cargas[0] if cargas else (cur.get("carga_horaria") or "08")
                     carga = normalizar_carga_horaria(carga_raw)
 
-                    # EAD empresa: não exibe data solta (CIDADE_DATA)
-                    cidade_data = ""
+                    # Cidade/data sempre do CT Conecta + data de término
+                    datas_fim = [
+                        g.get("data_fim") for g in grupo if g.get("data_fim") is not None
+                    ]
+                    data_ref = datas_fim[-1] if datas_fim else None
+                    cidade_data = formatar_cidade_data_ead(data_ref, ct)
 
                     alunos_grupo = [
                         {"name": g["nome"], "cpf": g["cpf"]} for g in grupo
@@ -300,6 +309,8 @@ if st.button(
                         "modalidade": "EAD",
                         "nivel": "Formação",
                         "carga_horaria": carga,
+                        # Local do treinamento = endereço do CT Conecta
+                        "mostrar_endereco_ct": True,
                         "resp_tecnico": resp_payload.get("nome", ""),
                         "cpf_resp_tecnico": resp_payload.get("cpf", ""),
                         "re_resp_tecnico": resp_payload.get("re", ""),
