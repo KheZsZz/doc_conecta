@@ -39,7 +39,7 @@ Colunas esperadas:
 - Curso buscado pela **SIGLA CURSO** (tabela `cursos`)
 - Só emite linhas com **Progresso ≥ 0,96**
 - Certificados de aluno: `NOME DO ALUNO - SIGLA.pdf`
-- Certificados de empresa: **1 por combinação CNPJ + SIGLA**
+- Certificados de empresa: **1 por combinação CNPJ + SIGLA** (somente assinatura do RT)
         """
     )
 
@@ -131,7 +131,7 @@ for L in linhas:
 
 st.caption(
     f"Também serão gerados **{len(grupos)}** certificado(s) da **empresa** "
-    f"(1 por CNPJ + sigla do curso)."
+    f"(1 por CNPJ + sigla do curso, somente assinatura do RT)."
 )
 
 if problemas:
@@ -141,7 +141,7 @@ if problemas:
 # Assinante + CT
 ct = buscar_ct_conecta()
 if ct:
-    st.caption(f"CT / fundo: **{ct.get('name') or ct.get('full_name')}**")
+    st.caption(f"CT / fundo: **{ct.get('name') or ct.get('full_name')}**")")
 else:
     st.warning("CT Conecta não encontrado — será usado o fundo padrão Conecta.")
 
@@ -194,17 +194,6 @@ def _slug_arquivo(texto: str) -> str:
     return s[:80] or "arquivo"
 
 
-def _assinante_como_instrutor(a: dict) -> dict:
-    return {
-        "name": a.get("nome") or a.get("name") or "",
-        "cpf": re.sub(r"\D", "", str(a.get("cpf") or "")),
-        "re": (a.get("re") or "").strip(),
-        "formacao": (a.get("formacao") or a.get("cargo") or "").strip(),
-        "assinatura": a.get("assinatura") or a.get("assinatura_url") or "",
-        "assinatura_url": a.get("assinatura_url") or a.get("assinatura") or "",
-    }
-
-
 def _assinante_como_resp(a: dict) -> dict:
     return {
         "nome": a.get("nome") or a.get("name") or "",
@@ -246,7 +235,6 @@ if st.button(
     ok_alunos = 0
     ok_empresas = 0
     zip_buf = io.BytesIO()
-    instrutor_payload = _assinante_como_instrutor(assinante)
     resp_payload = _assinante_como_resp(assinante)
 
     with st.spinner("Gerando certificados de alunos e de empresas..."):
@@ -286,7 +274,7 @@ if st.button(
                 except Exception as e:
                     falhas.append(f"Aluno {L['nome']} / {L['sigla']}: {e}")
 
-            # --- Certificados da empresa (1 por CNPJ + SIGLA) ---
+            # --- Certificados da empresa (1 por CNPJ + SIGLA) — só RT ---
             for (cnpj, sigla), grupo in grupos.items():
                 emp = empresas_cache.get(cnpj)
                 cur = cursos_cache.get(sigla)
@@ -324,9 +312,10 @@ if st.button(
                         ),
                     }
 
+                    # EAD empresa: somente assinatura do Responsável Técnico
                     pdf_emp = gerar_certificado_empresa_pdf(
                         turma=turma_cert,
-                        instrutor=instrutor_payload,
+                        instrutor={},  # sem bloco de instrutor no template
                         empresa=emp,
                         ct=ct or None,
                         alunos=alunos_grupo,
