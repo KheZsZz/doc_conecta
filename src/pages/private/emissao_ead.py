@@ -141,7 +141,7 @@ if problemas:
 # Assinante + CT
 ct = buscar_ct_conecta()
 if ct:
-    st.caption(f"CT / fundo: **{ct.get('name') or ct.get('full_name')}**")")
+    st.caption(f"CT / fundo: **{ct.get('name') or ct.get('full_name')}**")
 else:
     st.warning("CT Conecta não encontrado — será usado o fundo padrão Conecta.")
 
