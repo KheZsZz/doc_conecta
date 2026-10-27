@@ -2,7 +2,7 @@ import io
 import re
 import zipfile
 from collections import defaultdict
-from datetime import datetime
+from datetime import date, datetime
 
 import pandas as pd
 import streamlit as st
@@ -44,7 +44,7 @@ Colunas esperadas:
 - Só emite linhas com **Progresso ≥ 0,96**
 - Certificados de aluno: `NOME DO ALUNO - SIGLA.pdf`
 - Certificados de empresa: **1 por combinação CNPJ + SIGLA** (somente assinatura do RT)
-- Cidade/data/local sempre do **CT Conecta** (ex.: Itu, 27 de Outubro de 2026)
+- Cidade/local sempre do **CT Conecta**; data do documento configurável (padrão: hoje)
         """
     )
 
@@ -170,6 +170,13 @@ idx_default = next(
 escolha = st.selectbox("Assinante (Instrutor/Resp. Técnico)", labels, index=idx_default)
 assinante = assinantes[labels.index(escolha)]
 
+data_documento = st.date_input(
+    "Data do documento (cidade/data no certificado)*",
+    value=date.today(),
+    format="DD/MM/YYYY",
+    help="Padrão: data de emissão (hoje). Cidade e local vêm sempre do CT Conecta.",
+)
+
 
 def _fmt_data_br(val) -> str:
     if val is None:
@@ -265,6 +272,7 @@ if st.button(
                         carga_horaria=L.get("carga") or "",
                         modalidade="EAD",
                         ct=ct,
+                        data_documento=data_documento,
                     )
                     fname = nome_arquivo_certificado(L["nome"], L["sigla"])
                     path = f"certificados_alunos/{fname}"
@@ -294,12 +302,8 @@ if st.button(
                     carga_raw = cargas[0] if cargas else (cur.get("carga_horaria") or "08")
                     carga = normalizar_carga_horaria(carga_raw)
 
-                    # Cidade/data sempre do CT Conecta + data de término
-                    datas_fim = [
-                        g.get("data_fim") for g in grupo if g.get("data_fim") is not None
-                    ]
-                    data_ref = datas_fim[-1] if datas_fim else None
-                    cidade_data = formatar_cidade_data_ead(data_ref, ct)
+                    # Cidade do CT Conecta + data escolhida na emissão (default: hoje)
+                    cidade_data = formatar_cidade_data_ead(data_documento, ct)
 
                     alunos_grupo = [
                         {"name": g["nome"], "cpf": g["cpf"]} for g in grupo
