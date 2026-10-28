@@ -1,4 +1,4 @@
-"""Listagem e geracao de pacote de documentos por grupo empresarial + periodo."""
+"""Listagem e geracao de pacote de documentos por grupo/periodo ou todas as empresas."""
 from __future__ import annotations
 
 import io
@@ -63,14 +63,41 @@ def empresas_do_grupo(grupo_id: str) -> list[dict]:
         return []
 
 
+def listar_todas_empresas() -> list[dict]:
+    try:
+        res = (
+            supabase.table("clients")
+            .select("id, name, cnpj, sigla, full_address, grupo_id")
+            .order("name")
+            .execute()
+        )
+        return res.data if res and isinstance(res.data, list) else []
+    except Exception:
+        return []
+
+
+def empresas_por_ids(ids: list[str]) -> dict[str, dict]:
+    if not ids:
+        return {}
+    try:
+        res = (
+            supabase.table("clients")
+            .select("id, name, cnpj, sigla, full_address, grupo_id")
+            .in_("id", ids)
+            .execute()
+        )
+        rows = res.data if res and isinstance(res.data, list) else []
+        return {r["id"]: r for r in rows if r.get("id")}
+    except Exception:
+        return {}
+
+
 def turmas_do_periodo(
-    client_ids: list[str],
+    client_ids: list[str] | None,
     data_inicio: date | str,
     data_fim: date | str,
 ) -> list[dict]:
-    if not client_ids:
-        return []
-
+    """Turmas no período. Se client_ids for None ou vazio, busca de todas as empresas."""
     di = (
         data_inicio.isoformat()
         if hasattr(data_inicio, "isoformat")
@@ -79,15 +106,16 @@ def turmas_do_periodo(
     df = data_fim.isoformat() if hasattr(data_fim, "isoformat") else str(data_fim)[:10]
 
     try:
-        res = (
+        q = (
             supabase.table("turmas")
             .select("*")
-            .in_("client_id", client_ids)
             .gte("data_treinamento", di)
             .lte("data_treinamento", df)
             .order("data_treinamento")
-            .execute()
         )
+        if client_ids:
+            q = q.in_("client_id", client_ids)
+        res = q.execute()
         return res.data if res and isinstance(res.data, list) else []
     except Exception:
         return []
