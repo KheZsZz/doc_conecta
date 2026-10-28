@@ -1,91 +1,143 @@
-from datetime import date
+from datetime import date, timedelta
+from datetime import datetime as _dt
 
 import streamlit as st
 
 from src.auth.permissions import exigir_permissao
 from src.utils.pacote_grupo import (
     empresas_do_grupo,
+    empresas_por_ids,
     gerar_pacote_grupo,
     listar_grupos,
+    listar_todas_empresas,
     responsavel_padrao,
     turmas_do_periodo,
 )
 
 exigir_permissao("pacote_grupo")
 
-st.title("📦 Pacote por Grupo / Período")
+st.title("📦 Pacote por Período")
 st.markdown(
-    "Gera um **ZIP** com a documentação de todas as turmas de um "
-    "**grupo empresarial** em um intervalo de datas (mês ou ano).\n\n"
+    "Gera um **ZIP** com a documentação de turmas em um intervalo de datas.\n\n"
+    "Pode filtrar por **todas as empresas** ou por um **grupo empresarial**.\n\n"
     "As turmas com pelo menos um documento gerado são marcadas como "
     "**documentação emitida** automaticamente."
 )
 
-grupos = listar_grupos()
-if not grupos:
-    st.warning(
-        "Nenhum grupo empresarial cadastrado. "
-        "Crie um em **Empresas → Grupos Empresariais** e vincule as unidades."
-    )
-    st.stop()
+# ---------- Escopo ----------
+escopo = st.radio(
+    "Escopo*",
+    options=["Todas as empresas", "Grupo empresarial"],
+    horizontal=True,
+    help="Todas as empresas = qualquer turma no período, independente de grupo.",
+)
 
-nome_para_id = {g.get("nome") or str(g.get("id")): g["id"] for g in grupos}
-grupo_nome = st.selectbox("Grupo empresarial*", options=list(nome_para_id.keys()))
-grupo_id = nome_para_id[grupo_nome]
+empresas: list[dict] = []
+grupo_nome = "Todas_Empresas"
+client_ids: list[str] | None = None
 
-empresas = empresas_do_grupo(grupo_id)
-if not empresas:
-    st.warning(
-        f"O grupo **{grupo_nome}** não tem empresas vinculadas. "
-        "Edite as empresas e escolha este grupo."
-    )
-    st.stop()
+if escopo == "Grupo empresarial":
+    grupos = listar_grupos()
+    if not grupos:
+        st.warning(
+            "Nenhum grupo empresarial cadastrado. "
+            "Crie um em **Empresas → Grupos Empresariais** ou use **Todas as empresas**."
+        )
+        st.stop()
 
-with st.expander(f"Empresas do grupo ({len(empresas)})", expanded=False):
-    for e in empresas:
-        unidade = e.get("sigla") or ""
-        extra = f" · {unidade}" if unidade else ""
-        st.caption(f"- {e.get('name')}{extra} — CNPJ {e.get('cnpj') or '—'}")
+    nome_para_id = {g.get("nome") or str(g.get("id")): g["id"] for g in grupos}
+    grupo_nome = st.selectbox("Grupo empresarial*", options=list(nome_para_id.keys()))
+    grupo_id = nome_para_id[grupo_nome]
+    empresas = empresas_do_grupo(grupo_id)
+    if not empresas:
+        st.warning(
+            f"O grupo **{grupo_nome}** não tem empresas vinculadas."
+        )
+        st.stop()
+    client_ids = [e["id"] for e in empresas if e.get("id")]
+    with st.expander(f"Empresas do grupo ({len(empresas)})", expanded=False):
+        for e in empresas:
+            unidade = e.get("sigla") or ""
+            extra = f" · {unidade}" if unidade else ""
+            st.caption(f"- {e.get('name')}{extra} — CNPJ {e.get('cnpj') or '—'}")
+else:
+    st.caption("Serão consideradas turmas de **todas as empresas** no período.")
+
+# ---------- Período (atalhos + datas) ----------
+st.markdown("**Período**")
+hoje = date.today()
+
+# segunda-feira da semana atual
+inicio_semana = hoje - timedelta(days=hoje.weekday())
+fim_semana = inicio_semana + timedelta(days=6)
+inicio_mes = date(hoje.year, hoje.month, 1)
+if hoje.month == 12:
+    fim_mes = date(hoje.year, 12, 31)
+else:
+    fim_mes = date(hoje.year, hoje.month + 1, 1) - timedelta(days=1)
+
+c1, c2, c3, c4 = st.columns(4)
+with c1:
+    if st.button("Hoje", use_container_width=True):
+        st.session_state["pkg_di"] = hoje
+        st.session_state["pkg_df"] = hoje
+        st.rerun()
+with c2:
+    if st.button("Esta semana", use_container_width=True):
+        st.session_state["pkg_di"] = inicio_semana
+        st.session_state["pkg_df"] = fim_semana
+        st.rerun()
+with c3:
+    if st.button("Este mês", use_container_width=True):
+        st.session_state["pkg_di"] = inicio_mes
+        st.session_state["pkg_df"] = fim_mes
+        st.rerun()
+with c4:
+    if st.button("Este ano", use_container_width=True):
+        st.session_state["pkg_di"] = date(hoje.year, 1, 1)
+        st.session_state["pkg_df"] = hoje
+        st.rerun()
+
+def_di = st.session_state.get("pkg_di", hoje)
+def_df = st.session_state.get("pkg_df", hoje)
 
 col_a, col_b = st.columns(2)
 with col_a:
     data_inicio = st.date_input(
         "Data início*",
-        value=date(date.today().year, 1, 1),
+        value=def_di,
         format="DD/MM/YYYY",
+        key="pkg_di_input",
     )
 with col_b:
     data_fim = st.date_input(
         "Data fim*",
-        value=date.today(),
+        value=def_df,
         format="DD/MM/YYYY",
+        key="pkg_df_input",
     )
+
+# sincroniza session com os inputs
+st.session_state["pkg_di"] = data_inicio
+st.session_state["pkg_df"] = data_fim
 
 if data_inicio > data_fim:
     st.error("A data início não pode ser maior que a data fim.")
     st.stop()
 
-# Atalhos de período
-c1, c2, c3 = st.columns(3)
-with c1:
-    if st.button("Este mês", use_container_width=True):
-        hoje = date.today()
-        st.session_state["pkg_di"] = date(hoje.year, hoje.month, 1)
-        st.session_state["pkg_df"] = hoje
-        st.rerun()
-with c2:
-    if st.button("Este ano", use_container_width=True):
-        hoje = date.today()
-        st.session_state["pkg_di"] = date(hoje.year, 1, 1)
-        st.session_state["pkg_df"] = hoje
-        st.rerun()
-with c3:
-    if st.button("Ano anterior", use_container_width=True):
-        y = date.today().year - 1
-        st.session_state["pkg_di"] = date(y, 1, 1)
-        st.session_state["pkg_df"] = date(y, 12, 31)
-        st.rerun()
+# ---------- Filtro de status ----------
+filtro_status = st.selectbox(
+    "Status das turmas",
+    options=[
+        "Todas",
+        "Somente pendentes (não emitidas)",
+        "Somente já emitidas",
+    ],
+    index=1,
+    help="Ao gerar o pacote, as turmas com documento gerado passam a **emitidas**.",
+)
 
+# ---------- Documentos ----------
 st.markdown("**Documentos a incluir**")
 ocol1, ocol2, ocol3 = st.columns(3)
 with ocol1:
@@ -97,10 +149,24 @@ with ocol2:
 with ocol3:
     opt_lista = st.checkbox("Lista de presença", value=True)
 
-client_ids = [e["id"] for e in empresas if e.get("id")]
-empresas_por_id = {e["id"]: e for e in empresas if e.get("id")}
-
+# ---------- Busca turmas ----------
 turmas = turmas_do_periodo(client_ids, data_inicio, data_fim)
+
+if filtro_status == "Somente pendentes (não emitidas)":
+    turmas = [t for t in turmas if not t.get("documento_emitido")]
+elif filtro_status == "Somente já emitidas":
+    turmas = [t for t in turmas if t.get("documento_emitido")]
+
+# Resolve empresas para preview / geração
+ids_clientes = list({t.get("client_id") for t in turmas if t.get("client_id")})
+if escopo == "Todas as empresas":
+    empresas_por_id = empresas_por_ids(ids_clientes)
+else:
+    empresas_por_id = {e["id"]: e for e in empresas if e.get("id")}
+    # completa faltantes
+    faltando = [i for i in ids_clientes if i not in empresas_por_id]
+    if faltando:
+        empresas_por_id.update(empresas_por_ids(faltando))
 
 st.subheader(
     f"Turmas no período: **{len(turmas)}** "
@@ -108,29 +174,26 @@ st.subheader(
 )
 
 if not turmas:
-    st.info("Nenhuma turma encontrada para este grupo no período selecionado.")
+    st.info("Nenhuma turma encontrada para o filtro selecionado.")
     st.stop()
 
 preview = []
 for t in turmas:
     emp = empresas_por_id.get(t.get("client_id")) or {}
+    data_raw = str(t.get("data_treinamento") or "")[:10]
+    try:
+        data_fmt = _dt.strptime(data_raw, "%Y-%m-%d").strftime("%d/%m/%Y")
+    except Exception:
+        data_fmt = data_raw
     preview.append(
         {
-            "Data": str(t.get("data_treinamento") or "")[:10],
+            "Data": data_fmt,
             "Turma": t.get("titulo") or "",
             "Empresa": emp.get("name") or "",
             "Unidade": emp.get("sigla") or "",
             "Emitido": "Sim" if t.get("documento_emitido") else "Não",
         }
     )
-
-from datetime import datetime as _dt
-
-for row in preview:
-    try:
-        row["Data"] = _dt.strptime(row["Data"], "%Y-%m-%d").strftime("%d/%m/%Y")
-    except Exception:
-        pass
 
 st.dataframe(preview, use_container_width=True, hide_index=True)
 
@@ -156,7 +219,7 @@ if st.session_state.get(ss_zip):
     st.download_button(
         "📥 Baixar pacote (ZIP)",
         data=st.session_state[ss_zip],
-        file_name=st.session_state.get(ss_nome) or "pacote_grupo.zip",
+        file_name=st.session_state.get(ss_nome) or "pacote_periodo.zip",
         mime="application/zip",
         use_container_width=True,
         key="dl_pacote_persist",
@@ -172,7 +235,7 @@ if st.button(
     ):
         try:
             zip_bytes, meta = gerar_pacote_grupo(
-                grupo_nome=grupo_nome,
+                grupo_nome=grupo_nome if escopo == "Grupo empresarial" else "Todas_Empresas",
                 turmas=turmas,
                 empresas_por_id=empresas_por_id,
                 dados_resp=responsavel_padrao(),
@@ -193,8 +256,9 @@ if st.button(
                 st.write(f"- {e}")
         st.stop()
 
+    rotulo = grupo_nome.replace(" ", "_") if escopo == "Grupo empresarial" else "todas_empresas"
     nome_zip = (
-        f"pacote_{grupo_nome.replace(' ', '_')}_"
+        f"pacote_{rotulo}_"
         f"{data_inicio.strftime('%Y%m%d')}_{data_fim.strftime('%Y%m%d')}.zip"
     )
     st.session_state[ss_zip] = zip_bytes
