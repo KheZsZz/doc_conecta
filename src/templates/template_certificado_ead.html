@@ -92,10 +92,6 @@
       color: #222;
     }
 
-    /*
-      Assinaturas: estrutura identica nas duas colunas
-      para a LINHA ficar na mesma altura.
-    */
     .assinaturas {
       margin-top: auto;
       display: flex;
@@ -115,7 +111,6 @@
       align-items: center;
     }
 
-    /* Area fixa da imagem/assinatura — mesma altura nos dois lados */
     .assinatura-topo {
       height: 20mm;
       width: 100%;
@@ -140,7 +135,6 @@
       margin: 1.5mm auto 2.5mm auto;
     }
 
-    /* Area de texto abaixo da linha — altura minima igual nos dois */
     .assinatura-texto {
       min-height: 18mm;
       width: 100%;
@@ -250,6 +244,10 @@
             <span class="val"> {{ CARGA_HORARIA }}</span>
           </div>
           <div>
+            <span class="lbl">Nível:</span>
+            <span class="val"> {{ NIVEL }}</span>
+          </div>
+          <div>
             <span class="lbl">Modalidade:</span>
             <span class="val"> {{ MODALIDADE }}</span>
           </div>
@@ -271,7 +269,6 @@
       {% endif %}
 
       <div class="assinaturas">
-        <!-- Instrutor / Resp. Técnico -->
         <div class="assinatura-bloco">
           <div class="assinatura-topo">
             {% if ASSINATURA_IMG %}
@@ -292,7 +289,6 @@
           </div>
         </div>
 
-        <!-- Aluno — mesma estrutura (topo + linha + texto) -->
         <div class="assinatura-bloco">
           <div class="assinatura-topo"></div>
           <div class="assinatura-linha"></div>
