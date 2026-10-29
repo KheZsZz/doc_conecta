@@ -28,8 +28,8 @@ exigir_permissao("emissao_ead")
 st.title("🎓 Emissão EAD")
 st.markdown(
     "Envie a planilha de conclusões, confira o vínculo **CNPJ → empresa** e "
-    "**sigla → curso**, escolha o **responsável técnico** e baixe o ZIP com os "
-    "**certificados dos alunos** e os **certificados da empresa**."
+    "**sigla → curso**, escolha o **responsável técnico** e o **nível** "
+    "(Formação/Reciclagem) e baixe o ZIP com os certificados."
 )
 
 with st.expander("Formato da planilha", expanded=False):
@@ -44,6 +44,7 @@ Colunas esperadas:
 - Só emite linhas com **Progresso ≥ 0,96**
 - Certificados de aluno: `NOME DO ALUNO - SIGLA.pdf`
 - Certificados de empresa: **1 por combinação CNPJ + SIGLA** (somente assinatura do RT)
+- Nível (Formação/Reciclagem) escolhido na emissão
 - Cidade/local sempre do **CT Conecta**; data do documento configurável (padrão: hoje)
         """
     )
@@ -129,7 +130,6 @@ for L in linhas:
 
 st.dataframe(preview, use_container_width=True, hide_index=True)
 
-# Agrupa por empresa + curso para certificado corporativo
 grupos: dict[tuple[str, str], list] = defaultdict(list)
 for L in linhas:
     grupos[(L["cnpj"], L["sigla"])].append(L)
@@ -143,7 +143,6 @@ if problemas:
     st.error("Corrija os cadastros antes de emitir:\n\n- " + "\n- ".join(problemas))
     st.stop()
 
-# CT + Responsável Técnico
 ct = buscar_ct_conecta()
 if ct:
     st.caption(f"CT / fundo: **{ct.get('name') or ct.get('full_name')}**")
@@ -171,7 +170,6 @@ for a in responsaveis:
         lab += " (" + " · ".join(extras) + ")"
     labels.append(lab)
 
-# lista já vem com is_default em primeiro
 escolha = st.selectbox(
     "Responsável Técnico*",
     labels,
@@ -185,6 +183,13 @@ data_documento = st.date_input(
     value=date.today(),
     format="DD/MM/YYYY",
     help="Padrão: data de emissão (hoje). Cidade e local vêm sempre do CT Conecta.",
+)
+
+nivel_treinamento = st.selectbox(
+    "Tipo de treinamento (nível)*",
+    options=["Formação", "Reciclagem"],
+    index=0,
+    help="Aparece nos certificados de aluno e de empresa.",
 )
 
 
@@ -263,7 +268,6 @@ if st.button(
         with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
             usados: dict[str, int] = {}
 
-            # --- Certificados individuais ---
             for L in linhas:
                 emp = empresas_cache[L["cnpj"]]
                 cur = cursos_cache[L["sigla"]]
@@ -281,6 +285,7 @@ if st.button(
                         data_termino=L["data_fim"],
                         carga_horaria=L.get("carga") or "",
                         modalidade="EAD",
+                        nivel=nivel_treinamento,
                         ct=ct,
                         data_documento=data_documento,
                     )
@@ -297,7 +302,6 @@ if st.button(
                 except Exception as e:
                     falhas.append(f"Aluno {L['nome']} / {L['sigla']}: {e}")
 
-            # --- Certificados da empresa (1 por CNPJ + SIGLA) — só RT ---
             for (cnpj, sigla), grupo in grupos.items():
                 emp = empresas_cache.get(cnpj)
                 cur = cursos_cache.get(sigla)
@@ -312,7 +316,6 @@ if st.button(
                     carga_raw = cargas[0] if cargas else (cur.get("carga_horaria") or "08")
                     carga = normalizar_carga_horaria(carga_raw)
 
-                    # Cidade do CT Conecta + data escolhida na emissão (default: hoje)
                     cidade_data = formatar_cidade_data_ead(data_documento, ct)
 
                     alunos_grupo = [
@@ -321,9 +324,8 @@ if st.button(
 
                     turma_cert = {
                         "modalidade": "EAD",
-                        "nivel": "Formação",
+                        "nivel": nivel_treinamento,
                         "carga_horaria": carga,
-                        # Local do treinamento = endereço do CT Conecta
                         "mostrar_endereco_ct": True,
                         "resp_tecnico": resp_payload.get("nome", ""),
                         "cpf_resp_tecnico": resp_payload.get("cpf", ""),
@@ -337,10 +339,9 @@ if st.button(
                         ),
                     }
 
-                    # EAD empresa: somente assinatura do Responsável Técnico
                     pdf_emp = gerar_certificado_empresa_pdf(
                         turma=turma_cert,
-                        instrutor={},  # sem bloco de instrutor no template
+                        instrutor={},
                         empresa=emp,
                         ct=ct or None,
                         alunos=alunos_grupo,
