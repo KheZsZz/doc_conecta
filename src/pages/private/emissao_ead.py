@@ -28,8 +28,8 @@ exigir_permissao("emissao_ead")
 st.title("🎓 Emissão EAD")
 st.markdown(
     "Envie a planilha de conclusões, confira o vínculo **CNPJ → empresa** e "
-    "**sigla → curso**, escolha o **responsável técnico** e o **nível** "
-    "(Formação/Reciclagem) e baixe o ZIP com os certificados."
+    "**sigla → curso**, escolha o **responsável técnico** e baixe o ZIP. "
+    "O **nível** (Formação/Reciclagem) vem da coluna da planilha."
 )
 
 with st.expander("Formato da planilha", expanded=False):
@@ -37,14 +37,15 @@ with st.expander("Formato da planilha", expanded=False):
         """
 Colunas esperadas:
 
-| CNPJ | Nome | E-mail | CPF | SIGLA CURSO | CARGA | Progresso | Data de Inicio | Data de Finalização |
+| CNPJ | Nome | E-mail | CPF | SIGLA CURSO | CARGA | Progresso | Nível | Data de Inicio | Data de Finalização |
 
 - Empresa buscada pelo **CNPJ** (tabela `clients`)
 - Curso buscado pela **SIGLA CURSO** (tabela `cursos`)
 - Só emite linhas com **Progresso ≥ 0,96**
 - Certificados de aluno: `NOME DO ALUNO - SIGLA.pdf`
 - Certificados de empresa: **1 por combinação CNPJ + SIGLA** (somente assinatura do RT)
-- Nível (Formação/Reciclagem) escolhido na emissão
+- Coluna opcional **Nível**: `Formação` ou `Reciclagem` (se ausente → Formação)
+- Certificado da empresa agrupa por **CNPJ + SIGLA + Nível**
 - Cidade/local sempre do **CT Conecta**; data do documento configurável (padrão: hoje)
         """
     )
@@ -59,6 +60,7 @@ Colunas esperadas:
                 "SIGLA CURSO": "NR34",
                 "CARGA": "08 Horas",
                 "Progresso": 1,
+                "Nível": "Formação",
                 "Data de Inicio": "2026-09-30",
                 "Data de Finalização": "2026-09-30",
             }
@@ -91,7 +93,6 @@ if not linhas:
     st.error("Nenhuma linha válida para emissão.")
     st.stop()
 
-# Resolve empresa e curso
 empresas_cache: dict[str, dict | None] = {}
 cursos_cache: dict[str, dict | None] = {}
 problemas: list[str] = []
@@ -123,6 +124,7 @@ for L in linhas:
             "Curso": (cur or {}).get("name") or f"⚠️ {L['sigla']}",
             "Sigla": L["sigla"],
             "Carga": L["carga"] or "—",
+            "Nível": L.get("nivel") or "Formação",
             "Início": str(L["data_inicio"])[:10],
             "Fim": str(L["data_fim"])[:10],
         }
@@ -130,13 +132,13 @@ for L in linhas:
 
 st.dataframe(preview, use_container_width=True, hide_index=True)
 
-grupos: dict[tuple[str, str], list] = defaultdict(list)
+grupos: dict[tuple[str, str, str], list] = defaultdict(list)
 for L in linhas:
-    grupos[(L["cnpj"], L["sigla"])].append(L)
+    grupos[(L["cnpj"], L["sigla"], L.get("nivel") or "Formação")].append(L)
 
 st.caption(
     f"Também serão gerados **{len(grupos)}** certificado(s) da **empresa** "
-    f"(1 por CNPJ + sigla do curso, somente assinatura do RT)."
+    f"(1 por CNPJ + sigla + nível, somente assinatura do RT)."
 )
 
 if problemas:
@@ -183,13 +185,6 @@ data_documento = st.date_input(
     value=date.today(),
     format="DD/MM/YYYY",
     help="Padrão: data de emissão (hoje). Cidade e local vêm sempre do CT Conecta.",
-)
-
-nivel_treinamento = st.selectbox(
-    "Tipo de treinamento (nível)*",
-    options=["Formação", "Reciclagem"],
-    index=0,
-    help="Aparece nos certificados de aluno e de empresa.",
 )
 
 
@@ -285,7 +280,7 @@ if st.button(
                         data_termino=L["data_fim"],
                         carga_horaria=L.get("carga") or "",
                         modalidade="EAD",
-                        nivel=nivel_treinamento,
+                        nivel=L.get("nivel") or "Formação",
                         ct=ct,
                         data_documento=data_documento,
                     )
@@ -302,7 +297,7 @@ if st.button(
                 except Exception as e:
                     falhas.append(f"Aluno {L['nome']} / {L['sigla']}: {e}")
 
-            for (cnpj, sigla), grupo in grupos.items():
+            for (cnpj, sigla, nivel_g), grupo in grupos.items():
                 emp = empresas_cache.get(cnpj)
                 cur = cursos_cache.get(sigla)
                 if not emp or not cur:
@@ -324,7 +319,7 @@ if st.button(
 
                     turma_cert = {
                         "modalidade": "EAD",
-                        "nivel": nivel_treinamento,
+                        "nivel": nivel_g,
                         "carga_horaria": carga,
                         "mostrar_endereco_ct": True,
                         "resp_tecnico": resp_payload.get("nome", ""),
@@ -350,13 +345,14 @@ if st.button(
                     )
 
                     emp_nome = _slug_arquivo(emp.get("name") or cnpj)
-                    fname_emp = f"certificado_empresa_{emp_nome}_{sigla}.pdf"
+                    nivel_slug = "REC" if "recic" in (nivel_g or "").lower() else "FORM"
+                    fname_emp = f"certificado_empresa_{emp_nome}_{sigla}_{nivel_slug}.pdf"
                     path_emp = f"certificados_empresa/{fname_emp}"
                     if path_emp in usados:
                         usados[path_emp] += 1
                         path_emp = (
                             f"certificados_empresa/"
-                            f"certificado_empresa_{emp_nome}_{sigla}_{usados[path_emp]}.pdf"
+                            f"certificado_empresa_{emp_nome}_{sigla}_{nivel_slug}_{usados[path_emp]}.pdf"
                         )
                     else:
                         usados[path_emp] = 1
