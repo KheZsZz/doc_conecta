@@ -120,7 +120,7 @@ def render_tab_listar():
     try:
         query = supabase.table("turmas").select(
             "id, titulo, modalidade, nivel, carga_horaria, data_treinamento, "
-            "documento_emitido, created_at, instrutor_id, "
+            "documento_emitido, created_at, instrutor_id, client_id, ct_id, "
             "cursos(name), instrutores(id, name), clients(id, name), cts(id, name)"
         )
 
@@ -200,8 +200,8 @@ def render_tab_listar():
             status_doc = t.get("documento_emitido", False)
             curso_nome = (t.get("cursos") or {}).get("name", "N/A")
             empresa_nome = (t.get("clients") or {}).get("name", "Sem Empresa Vinculada")
-            empresa_id = (t.get("clients") or {}).get("id")
-            ct_id = (t.get("cts") or {}).get("id")
+            empresa_id = (t.get("clients") or {}).get("id") or t.get("client_id")
+            ct_id = (t.get("cts") or {}).get("id") or t.get("ct_id")
             instrutor_nome = (t.get("instrutores") or {}).get("name", "N/A")
             titulo = t.get("titulo") or "Sem título"
             icon_status = "✅" if status_doc else "⚠️"
@@ -231,28 +231,39 @@ def render_tab_listar():
                         key=f"docs_{tid}",
                         use_container_width=True,
                     ):
-                        modal_emitir_documentacao(t)
+                        modal_emitir_documentacao(
+                            tid,
+                            titulo,
+                            empresa_id,
+                            ct_id,
+                        )
                 with c2:
                     if st.button(
                         "✏️ Editar",
                         key=f"edit_{tid}",
                         use_container_width=True,
                     ):
-                        modal_editar_turma(t)
+                        modal_editar_turma(tid)
                 with c3:
                     if st.button(
                         "➕ Aluno",
                         key=f"add_{tid}",
                         use_container_width=True,
                     ):
-                        modal_adicionar_aluno(tid)
+                        modal_adicionar_aluno(
+                            tid,
+                            titulo,
+                            empresa_id,
+                            data_trein,
+                            t.get("carga_horaria"),
+                        )
                 with c4:
                     if st.button(
                         "👥 Matrículas",
                         key=f"mat_{tid}",
                         use_container_width=True,
                     ):
-                        modal_editar_matriculas(tid)
+                        modal_editar_matriculas(tid, titulo)
                 with c5:
                     if st.button(
                         "🗑️ Excluir",
