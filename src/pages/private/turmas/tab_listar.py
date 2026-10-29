@@ -70,12 +70,8 @@ def modal_excluir_turma(tid: str, titulo: str, qtd_alunos: int):
 def render_tab_listar():
     st.subheader("📋 Painel de Turmas e Emissão de Documentos")
 
-    # Filtro por CT só quando o usuário Consulta tem CT vinculado
-    _ct_user = ct_id_atual() if is_consulta() else None
-    if is_consulta() and _ct_user:
+    if is_consulta() and ct_id_atual():
         st.caption("Exibindo apenas turmas do **seu CT**.")
-    elif is_consulta() and not _ct_user:
-        st.caption("Usuário sem CT vinculado — exibindo turmas de **todos os CTs**.")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -87,14 +83,59 @@ def render_tab_listar():
             "Status dos Documentos", ["Todos", "Pendentes", "Emitidos"]
         )
 
-    try:
-        # coluna correta em instrutores é "name" (não "nome")
-        query = supabase.table("turmas").select(
-            "*, clients(name), instrutores(name), cursos(name, sigla)"
+    col_d1, col_d2, col_inst = st.columns(3)
+    with col_d1:
+        data_de = st.date_input(
+            "Data treinamento (de)",
+            value=None,
+            format="DD/MM/YYYY",
+            key="filtro_data_de",
         )
-        # Admin / operacional / consulta sem CT → todas as turmas
+    with col_d2:
+        data_ate = st.date_input(
+            "Data treinamento (até)",
+            value=None,
+            format="DD/MM/YYYY",
+            key="filtro_data_ate",
+        )
+    with col_inst:
+        opcoes_instrutor = ["Todos"]
+        mapa_instrutor: dict[str, str] = {}
+        try:
+            res_inst = (
+                supabase.table("instrutores")
+                .select("id, name")
+                .order("name")
+                .execute()
+            )
+            if res_inst and res_inst.data:
+                for i in res_inst.data:
+                    nome = i.get("name") or "Sem nome"
+                    opcoes_instrutor.append(nome)
+                    mapa_instrutor[nome] = i.get("id")
+        except Exception:
+            pass
+        filtro_instrutor = st.selectbox("Instrutor", opcoes_instrutor)
+
+    try:
+        query = supabase.table("turmas").select(
+            "id, titulo, modalidade, nivel, carga_horaria, data_treinamento, "
+            "documento_emitido, created_at, instrutor_id, "
+            "cursos(name), instrutores(id, name), clients(id, name), cts(id, name)"
+        )
+
+        # Consulta com CT vinculado: só turmas daquele CT; sem CT / admin / operacional: todos
+        _ct_user = ct_id_atual() if is_consulta() else None
         if _ct_user:
             query = query.eq("ct_id", _ct_user)
+
+        if filtro_status == "Pendentes":
+            query = query.eq("documento_emitido", False)
+        elif filtro_status == "Emitidos":
+            query = query.eq("documento_emitido", True)
+
+        if filtro_instrutor != "Todos" and filtro_instrutor in mapa_instrutor:
+            query = query.eq("instrutor_id", mapa_instrutor[filtro_instrutor])
 
         try:
             res_turmas = query.order("created_at", desc=True).execute()
@@ -117,53 +158,107 @@ def render_tab_listar():
                 or busca_lower in str(t.get("id", "")).lower()
             ]
 
-        if filtro_status == "Pendentes":
-            turmas_exibir = [t for t in turmas_exibir if not t.get("documento_emitido")]
-        elif filtro_status == "Emitidos":
-            turmas_exibir = [t for t in turmas_exibir if t.get("documento_emitido")]
+        if data_de or data_ate:
+            filtradas = []
+            for t in turmas_exibir:
+                d = _parse_iso(t.get("data_treinamento"))
+                if d is None:
+                    continue
+                if data_de and d < data_de:
+                    continue
+                if data_ate and d > data_ate:
+                    continue
+                filtradas.append(t)
+            turmas_exibir = filtradas
+
+        # Pendentes no topo; dentro de cada grupo, mais recentes primeiro
+        pendentes = [t for t in turmas_exibir if not t.get("documento_emitido")]
+        emitidos = [t for t in turmas_exibir if t.get("documento_emitido")]
+
+        def _ord_recente(lista):
+            return sorted(
+                lista,
+                key=lambda t: (t.get("created_at") or t.get("data_treinamento") or ""),
+                reverse=True,
+            )
+
+        turmas_exibir = _ord_recente(pendentes) + _ord_recente(emitidos)
 
         if not turmas_exibir:
-            st.info("Nenhuma turma encontrada com os filtros atuais.")
+            st.info("Nenhuma turma encontrada com os filtros aplicados.")
             return
 
-        st.caption(f"{len(turmas_exibir)} turma(s)")
+        st.caption(
+            f"{len(turmas_exibir)} turma(s) · "
+            "pendentes de documento no topo; mais recentes primeiro."
+        )
 
         for t in turmas_exibir:
             tid = t.get("id")
+            data_trein = str(t.get("data_treinamento", ""))[:10]
+            data_br = _fmt_data_br(data_trein)
+            status_doc = t.get("documento_emitido", False)
+            curso_nome = (t.get("cursos") or {}).get("name", "N/A")
+            empresa_nome = (t.get("clients") or {}).get("name", "Sem Empresa Vinculada")
+            empresa_id = (t.get("clients") or {}).get("id")
+            ct_id = (t.get("cts") or {}).get("id")
+            instrutor_nome = (t.get("instrutores") or {}).get("name", "N/A")
             titulo = t.get("titulo") or "Sem título"
-            data_fmt = _fmt_data_br(t.get("data_treinamento"))
-            emp = (t.get("clients") or {}).get("name") or "—"
-            inst_obj = t.get("instrutores") or {}
-            inst = inst_obj.get("name") or inst_obj.get("nome") or "—"
-            curso = (t.get("cursos") or {}).get("name") or "—"
-            emitido = bool(t.get("documento_emitido"))
-            badge = "✅ Emitido" if emitido else "⚠️ Pendente"
+            icon_status = "✅" if status_doc else "⚠️"
 
-            with st.container(border=True):
-                c1, c2 = st.columns([3.5, 1.5])
+            label_expander = f"{icon_status} **{data_br}** · {empresa_nome}"
+
+            with st.expander(label_expander, expanded=False):
+                st.markdown(
+                    f"""
+* **ID:** `{tid}`
+* **Título:** {titulo}
+* **Curso:** {curso_nome}
+* **Instrutor:** {instrutor_nome}
+* **Empresa:** {empresa_nome}
+* **Data treinamento:** {data_br}
+* **Modalidade:** {t.get('modalidade') or '—'}
+* **Nível:** {t.get('nivel') or '—'}
+* **Carga:** {t.get('carga_horaria') or '—'}
+* **Documentos:** {'Emitidos' if status_doc else 'Pendentes'}
+                    """
+                )
+
+                c1, c2, c3, c4, c5 = st.columns(5)
                 with c1:
-                    st.markdown(f"**{titulo}** · {badge}")
-                    st.caption(
-                        f"📅 {data_fmt} · 🏢 {emp} · 📚 {curso} · 👨‍🏫 {inst}"
-                    )
+                    if st.button(
+                        "📄 Documentos",
+                        key=f"docs_{tid}",
+                        use_container_width=True,
+                    ):
+                        modal_emitir_documentacao(t)
                 with c2:
-                    b1, b2 = st.columns(2)
-                    with b1:
-                        if st.button("📄 Docs", key=f"docs_{tid}", use_container_width=True):
-                            modal_emitir_documentacao(t)
-                    with b2:
-                        if st.button("✏️", key=f"edit_{tid}", use_container_width=True):
-                            modal_editar_turma(t)
-
-                a1, a2, a3 = st.columns(3)
-                with a1:
-                    if st.button("➕ Aluno", key=f"add_{tid}", use_container_width=True):
+                    if st.button(
+                        "✏️ Editar",
+                        key=f"edit_{tid}",
+                        use_container_width=True,
+                    ):
+                        modal_editar_turma(t)
+                with c3:
+                    if st.button(
+                        "➕ Aluno",
+                        key=f"add_{tid}",
+                        use_container_width=True,
+                    ):
                         modal_adicionar_aluno(tid)
-                with a2:
-                    if st.button("👥 Matrículas", key=f"mat_{tid}", use_container_width=True):
+                with c4:
+                    if st.button(
+                        "👥 Matrículas",
+                        key=f"mat_{tid}",
+                        use_container_width=True,
+                    ):
                         modal_editar_matriculas(tid)
-                with a3:
-                    if st.button("🗑️", key=f"del_{tid}", use_container_width=True):
+                with c5:
+                    if st.button(
+                        "🗑️ Excluir",
+                        key=f"del_{tid}",
+                        use_container_width=True,
+                    ):
                         try:
                             r = (
                                 supabase.table("matriculas")
