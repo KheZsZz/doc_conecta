@@ -74,13 +74,13 @@ def render_tab_cadastrar():
         col6, col7, col8 = st.columns(3)
         with col6:
             modalidade = st.selectbox(
-                "Modalidade", ["In Company", "Presencial (No CT)", "EAD", "Semipresencial"]
+                "Modalidade", ["In Company", "Presencial (No CT)", "EAD", "Semipresencial", "Online"]
             )
         with col7:
             # Formação primeiro — era Básico e virava padrão sem o usuário perceber
             nivel = st.selectbox(
                 "Nível",
-                ["Formação", "Básico", "Intermediário", "Avançado", "Reciclagem"],
+                ["Formação", "Básico", "Intermediário", "Avançado", "Reciclagem", "Palestra"],
             )
         with col8:
             carga_horaria_num = st.number_input(
