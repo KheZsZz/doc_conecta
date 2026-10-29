@@ -16,13 +16,16 @@ ROLES = [ROLE_ADMIN, ROLE_OPERACIONAL, ROLE_CONSULTA]
 ROLE_LABELS = {
     ROLE_ADMIN: "Administrador",
     ROLE_OPERACIONAL: "Operacional",
-    ROLE_CONSULTA: "Consulta",
+    ROLE_CONSULTA: "Adm. de CT (Consulta)",
 }
 
 ROLE_HELP = {
     ROLE_ADMIN: "Acesso total, inclusive gestão de usuários.",
     ROLE_OPERACIONAL: "Cadastros operacionais, turmas, emissão e listas. Sem gestão de usuários.",
-    ROLE_CONSULTA: "Apenas dashboard (Home) e configurações da própria conta.",
+    ROLE_CONSULTA: (
+        "Administrador de CT: Home, Turmas do seu CT, Imprimir Documentação, "
+        "Alunos e Configs. Vê apenas o centro de treinamento vinculado."
+    ),
 }
 
 PERMISSOES: dict[str, set[str]] = {
@@ -39,6 +42,7 @@ PERMISSOES: dict[str, set[str]] = {
         "subir_listas",
         "emissao_ead",
         "pacote_grupo",
+        "imprimir_documentacao",
         "mcdonalds",
         "configs",
     },
@@ -54,11 +58,15 @@ PERMISSOES: dict[str, set[str]] = {
         "subir_listas",
         "emissao_ead",
         "pacote_grupo",
+        "imprimir_documentacao",
         "mcdonalds",
         "configs",
     },
     ROLE_CONSULTA: {
         "home",
+        "turmas",
+        "imprimir_documentacao",
+        "alunos",
         "configs",
     },
 }
@@ -112,12 +120,21 @@ def is_admin() -> bool:
     return role_atual() == ROLE_ADMIN
 
 
-def exigir_permissao(pagina: str, mensagem: str | None = None) -> None:
-    if tem_permissao(pagina):
-        return
-    st.error(
-        mensagem
-        or "⛔ Você não tem permissão para acessar esta página."
-    )
-    st.caption(f"Seu perfil: **{ROLE_LABELS.get(role_atual(), role_atual())}**")
-    st.stop()
+def is_consulta() -> bool:
+    return role_atual() == ROLE_CONSULTA
+
+
+def ct_id_atual() -> str | None:
+    """CT vinculado ao usuário (perfil consulta). Admin/operacional retorna None."""
+    perfil = st.session_state.get("perfil") or {}
+    cid = perfil.get("ct_id")
+    if cid:
+        return str(cid)
+    return None
+
+
+def exigir_permissao(pagina: str) -> None:
+    if not tem_permissao(pagina):
+        st.error("Você não tem permissão para acessar esta página.")
+        st.caption(f"Seu perfil: **{ROLE_LABELS.get(role_atual(), role_atual())}**")
+        st.stop()
