@@ -183,20 +183,21 @@ def atualizar_senha(usuario_id: str, nova_senha: str) -> tuple[bool, str]:
         return False, str(e)
 
 
-def autenticar(email: str, senha: str) -> tuple[Any | None, str | None]:
+def autenticar(email: str, senha: str) -> tuple[Any | None, dict | None, str | None]:
+    """Retorna (user, perfil_row, erro) — compatível com login.py."""
     row, err = buscar_por_email(email)
     if err and not row:
-        return None, err
+        return None, None, err
     if not row:
-        return None, "E-mail ou senha inválidos."
+        return None, None, "E-mail ou senha inválidos."
     if not row.get("is_active", True):
-        return None, "Usuário inativo."
+        return None, None, "Usuário inativo."
     if not verificar_senha(senha, row.get("password_hash")):
-        return None, "E-mail ou senha inválidos."
+        return None, None, "E-mail ou senha inválidos."
 
     user = SimpleNamespace(
         id=row.get("id"),
         email=row.get("email"),
         user_metadata={"nome": row.get("nome")},
     )
-    return user, None
+    return user, row, None
