@@ -70,8 +70,12 @@ def modal_excluir_turma(tid: str, titulo: str, qtd_alunos: int):
 def render_tab_listar():
     st.subheader("📋 Painel de Turmas e Emissão de Documentos")
 
-    if is_consulta() and ct_id_atual():
+    # Filtro por CT só quando o usuário Consulta tem CT vinculado
+    _ct_user = ct_id_atual() if is_consulta() else None
+    if is_consulta() and _ct_user:
         st.caption("Exibindo apenas turmas do **seu CT**.")
+    elif is_consulta() and not _ct_user:
+        st.caption("Usuário sem CT vinculado — exibindo turmas de **todos os CTs**.")
 
     col1, col2 = st.columns(2)
     with col1:
@@ -83,13 +87,14 @@ def render_tab_listar():
             "Status dos Documentos", ["Todos", "Pendentes", "Emitidos"]
         )
 
-    # Filtros de data / instrutor simplificados — mantém lógica existente via query
     try:
+        # coluna correta em instrutores é "name" (não "nome")
         query = supabase.table("turmas").select(
-            "*, clients(name), instrutores(nome), cursos(name, sigla)"
+            "*, clients(name), instrutores(name), cursos(name, sigla)"
         )
-        if is_consulta() and ct_id_atual():
-            query = query.eq("ct_id", ct_id_atual())
+        # Admin / operacional / consulta sem CT → todas as turmas
+        if _ct_user:
+            query = query.eq("ct_id", _ct_user)
 
         try:
             res_turmas = query.order("created_at", desc=True).execute()
@@ -101,9 +106,6 @@ def render_tab_listar():
             return
 
         turmas_exibir = list(res_turmas.data)
-        if is_consulta() and ct_id_atual():
-            _ct = ct_id_atual()
-            turmas_exibir = [t for t in turmas_exibir if str(t.get("ct_id") or "") == str(_ct)]
 
         if busca_turma.strip():
             busca_lower = busca_turma.lower()
@@ -131,7 +133,8 @@ def render_tab_listar():
             titulo = t.get("titulo") or "Sem título"
             data_fmt = _fmt_data_br(t.get("data_treinamento"))
             emp = (t.get("clients") or {}).get("name") or "—"
-            inst = (t.get("instrutores") or {}).get("nome") or "—"
+            inst_obj = t.get("instrutores") or {}
+            inst = inst_obj.get("name") or inst_obj.get("nome") or "—"
             curso = (t.get("cursos") or {}).get("name") or "—"
             emitido = bool(t.get("documento_emitido"))
             badge = "✅ Emitido" if emitido else "⚠️ Pendente"
@@ -161,7 +164,6 @@ def render_tab_listar():
                         modal_editar_matriculas(tid)
                 with a3:
                     if st.button("🗑️", key=f"del_{tid}", use_container_width=True):
-                        # contagem aproximada
                         try:
                             r = (
                                 supabase.table("matriculas")
