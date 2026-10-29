@@ -95,45 +95,22 @@ def buscar_por_email(email: str) -> tuple[dict[str, Any] | None, str | None]:
         if _normalize_email(str(row.get("email") or "")) == email_n:
             return row, None
 
-    return None, "E-mail ou senha incorretos."
-
-
-def autenticar(
-    email: str, senha: str
-) -> tuple[SimpleNamespace | None, dict | None, str | None]:
-    perfil, err = buscar_por_email(email)
-
-    if not perfil:
-        return None, None, err or "E-mail ou senha incorretos."
-
-    if perfil.get("is_active") is False:
-        return None, None, "Usuário inativo. Contate o administrador."
-
-    pwd_hash = perfil.get("password_hash")
-    if not pwd_hash:
-        return None, None, "Usuário sem senha definida. Contate o administrador."
-
-    if not verificar_senha(senha, pwd_hash):
-        return None, None, "E-mail ou senha incorretos."
-
-    user = SimpleNamespace(id=perfil.get("id"), email=perfil.get("email"))
-    return user, perfil, None
+    return None, None
 
 
 def _criar_no_auth_supabase(email: str, senha: str) -> str | None:
     try:
-        response = supabase.auth.sign_up({"email": email, "password": senha})
-        if response and response.user and response.user.id:
-            return str(response.user.id)
-    except Exception:
-        try:
-            response = supabase.auth.sign_in_with_password(
-                {"email": email, "password": senha}
-            )
-            if response and response.user and response.user.id:
-                return str(response.user.id)
-        except Exception:
+        auth = getattr(supabase, "auth", None)
+        if not auth:
             return None
+        admin = getattr(auth, "admin", None)
+        if admin and hasattr(admin, "create_user"):
+            r = admin.create_user({"email": email, "password": senha, "email_confirm": True})
+            user = getattr(r, "user", None) or (r.get("user") if isinstance(r, dict) else None)
+            if user:
+                return getattr(user, "id", None) or user.get("id")
+    except Exception:
+        pass
     return None
 
 
@@ -143,6 +120,7 @@ def criar_usuario(
     senha: str,
     phone: str | None = None,
     role: str = "operacional",
+    ct_id: str | None = None,
 ) -> tuple[dict | None, str | None]:
     email_n = _normalize_email(email)
     existente, _ = buscar_por_email(email_n)
@@ -150,8 +128,7 @@ def criar_usuario(
     if existente and existente.get("id"):
         if not existente.get("password_hash"):
             try:
-                supabase.table("usuarios").update(
-                    {
+                upd = {
                         "password_hash": hash_senha(senha),
                         "role": role,
                         "nome": nome.strip(),
@@ -159,7 +136,9 @@ def criar_usuario(
                         "is_active": True,
                         "updated_at": datetime.now().isoformat(),
                     }
-                ).eq("id", existente["id"]).execute()
+                if ct_id:
+                    upd["ct_id"] = ct_id
+                supabase.table("usuarios").update(upd).eq("id", existente["id"]).execute()
                 return existente, None
             except Exception as e:
                 return None, f"Não foi possível atualizar o usuário: {e}"
@@ -177,32 +156,21 @@ def criar_usuario(
         "password_hash": hash_senha(senha),
         "updated_at": datetime.now().isoformat(),
     }
+    if ct_id:
+        payload["ct_id"] = ct_id
 
     try:
         res = supabase.table("usuarios").insert(payload).execute()
         if res and res.data:
-            return res.data[0], None
-        conf, _ = buscar_por_email(email_n)
-        if conf and conf.get("id"):
-            return conf, None
+            return res.data[0] if isinstance(res.data, list) else res.data, None
         return payload, None
     except Exception as e:
-        msg = str(e).lower()
-
-        if "foreign key" in msg or "fkey" in msg or "violates" in msg:
-            payload2 = dict(payload)
-            payload2.pop("id", None)
-            try:
-                res2 = supabase.table("usuarios").insert(payload2).execute()
-                if res2 and res2.data:
-                    return res2.data[0], None
-            except Exception as e2:
-                return None, f"Não foi possível criar o usuário: {e2}"
-
-        return None, f"Não foi possível criar o usuário: {e}"
+        return None, f"Erro ao criar usuário: {e}"
 
 
 def atualizar_senha(usuario_id: str, nova_senha: str) -> tuple[bool, str]:
+    if not usuario_id or not nova_senha or len(nova_senha) < 6:
+        return False, "Senha inválida (mín. 6 caracteres)."
     try:
         supabase.table("usuarios").update(
             {
@@ -212,4 +180,23 @@ def atualizar_senha(usuario_id: str, nova_senha: str) -> tuple[bool, str]:
         ).eq("id", usuario_id).execute()
         return True, "Senha atualizada."
     except Exception as e:
-        return False, f"Não foi possível atualizar a senha: {e}"
+        return False, str(e)
+
+
+def autenticar(email: str, senha: str) -> tuple[Any | None, str | None]:
+    row, err = buscar_por_email(email)
+    if err and not row:
+        return None, err
+    if not row:
+        return None, "E-mail ou senha inválidos."
+    if not row.get("is_active", True):
+        return None, "Usuário inativo."
+    if not verificar_senha(senha, row.get("password_hash")):
+        return None, "E-mail ou senha inválidos."
+
+    user = SimpleNamespace(
+        id=row.get("id"),
+        email=row.get("email"),
+        user_metadata={"nome": row.get("nome")},
+    )
+    return user, None
