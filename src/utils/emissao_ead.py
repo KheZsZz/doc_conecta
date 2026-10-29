@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import re
+import unicodedata
 from typing import Any
 
 import pandas as pd
@@ -22,15 +23,22 @@ def normalizar_sigla(val) -> str:
     return re.sub(r"\s+", "", str(val or "").strip().upper())
 
 
+def _sem_acento(s: str) -> str:
+    s = unicodedata.normalize("NFKD", s or "")
+    return "".join(ch for ch in s if not unicodedata.combining(ch)).lower().strip()
+
+
 def _achacol(df: pd.DataFrame, candidatos: list[str]) -> str | None:
-    cols = {str(c).strip().lower(): c for c in df.columns}
+    """Encontra coluna ignorando maiúsculas, espaços extras e acentos."""
+    cols_norm = {_sem_acento(str(c)): c for c in df.columns}
     for cand in candidatos:
-        if cand.lower() in cols:
-            return cols[cand.lower()]
+        key = _sem_acento(cand)
+        if key in cols_norm:
+            return cols_norm[key]
     for c in df.columns:
-        cl = str(c).strip().lower()
+        cl = _sem_acento(str(c))
         for cand in candidatos:
-            if cand.lower() in cl:
+            if _sem_acento(cand) in cl:
                 return c
     return None
 
@@ -55,7 +63,18 @@ def ler_planilha_ead(conteudo: bytes) -> tuple[list[dict], list[str]]:
     col_prog = _achacol(df, ["progresso", "progress"])
     col_ini = _achacol(df, ["data de inicio", "data inicio", "inicio", "data_inicio"])
     col_fim = _achacol(
-        df, ["data de finalizacao", "data finalizacao", "data fim", "fim", "data_fim"]
+        df,
+        [
+            "data de finalizacao",
+            "data de finalização",
+            "data finalizacao",
+            "data finalização",
+            "data fim",
+            "fim",
+            "data_fim",
+            "data de termino",
+            "data termino",
+        ],
     )
 
     obrigatorias = {
