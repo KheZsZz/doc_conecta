@@ -1,116 +1,91 @@
-"""Leitura e normalizacao da planilha de emissao EAD."""
+"""Leitura da planilha EAD e resolucao de empresa/curso/CT/assinantes."""
 from __future__ import annotations
 
 import io
 import re
-import unicodedata
 from typing import Any
 
 import pandas as pd
 
 from src.config.database import supabase
 
-COLUNAS_OBRIGATORIAS = [
-    "CNPJ",
-    "Nome",
-    "CPF",
-    "SIGLA CURSO",
-    "Data de Inicio",
-    "Data de Finalização",
-]
+
+def normalizar_cnpj(val) -> str:
+    return re.sub(r"\D", "", str(val or ""))
 
 
-def normalizar_nome(nome: str) -> str:
-    nome = str(nome or "").strip()
-    nome = unicodedata.normalize("NFKD", nome).encode("ASCII", "ignore").decode()
-    nome = re.sub(r"[^A-Z0-9 ]", "", nome.upper()).strip()
-    nome = re.sub(r"\s+", " ", nome)
-    return nome
+def normalizar_cpf(val) -> str:
+    return re.sub(r"\D", "", str(val or ""))
 
 
-def normalizar_cpf(cpf: str) -> str:
-    d = re.sub(r"\D", "", str(cpf or ""))
-    return d.zfill(11) if d else ""
+def normalizar_sigla(val) -> str:
+    return re.sub(r"\s+", "", str(val or "").strip().upper())
 
 
-def normalizar_cnpj(cnpj: str) -> str:
-    return re.sub(r"\D", "", str(cnpj or ""))
-
-
-def normalizar_sigla(sigla: str) -> str:
-    s = str(sigla or "").strip().upper()
-    s = re.sub(r"[^A-Z0-9]", "", s)
-    return s
-
-
-def _pick_col(df: pd.DataFrame, candidates: list[str]) -> str | None:
-    mapa = {str(c).strip().lower(): c for c in df.columns}
-    for cand in candidates:
-        if cand.lower() in mapa:
-            return mapa[cand.lower()]
+def _achacol(df: pd.DataFrame, candidatos: list[str]) -> str | None:
+    cols = {str(c).strip().lower(): c for c in df.columns}
+    for cand in candidatos:
+        if cand.lower() in cols:
+            return cols[cand.lower()]
+    for c in df.columns:
+        cl = str(c).strip().lower()
+        for cand in candidatos:
+            if cand.lower() in cl:
+                return c
     return None
 
 
-def ler_planilha_ead(arquivo_bytes: bytes) -> tuple[list[dict[str, Any]], list[str]]:
-    """
-    Retorna (linhas_ok, erros).
-    Cada linha: nome, email, cpf, cnpj, sigla, carga, progresso, data_inicio, data_fim
-    """
-    df = pd.read_excel(io.BytesIO(arquivo_bytes))
-    df.columns = [str(c).strip() for c in df.columns]
+def ler_planilha_ead(conteudo: bytes) -> tuple[list[dict], list[str]]:
+    """Retorna (linhas validas, erros/avisos)."""
+    erros: list[str] = []
+    try:
+        df = pd.read_excel(io.BytesIO(conteudo))
+    except Exception as e:
+        return [], [f"Falha ao ler planilha: {e}"]
 
-    col_cnpj = _pick_col(df, ["CNPJ", "cnpj"])
-    col_nome = _pick_col(df, ["Nome", "NOME", "name"])
-    col_email = _pick_col(df, ["E-mail", "Email", "email"])
-    col_cpf = _pick_col(df, ["CPF", "cpf"])
-    col_sigla = _pick_col(df, ["SIGLA CURSO", "SIGLA", "Sigla", "sigla"])
-    col_carga = _pick_col(df, ["CARGA", "Carga", "carga", "Carga Horaria", "CARGA HORARIA"])
-    col_prog = _pick_col(df, ["Progresso", "progresso", "PROGRESSO"])
-    col_ini = _pick_col(df, ["Data de Inicio", "Data de Início", "DATA INICIO", "Inicio"])
-    col_fim = _pick_col(
-        df,
-        [
-            "Data de Finalização",
-            "Data de Finalizacao",
-            "Data Finalização",
-            "DATA FIM",
-            "Termino",
-        ],
+    if df is None or df.empty:
+        return [], ["Planilha vazia."]
+
+    col_cnpj = _achacol(df, ["cnpj"])
+    col_nome = _achacol(df, ["nome", "name", "aluno"])
+    col_email = _achacol(df, ["e-mail", "email", "mail"])
+    col_cpf = _achacol(df, ["cpf"])
+    col_sigla = _achacol(df, ["sigla curso", "sigla", "curso"])
+    col_carga = _achacol(df, ["carga", "carga horaria", "carga_horaria"])
+    col_prog = _achacol(df, ["progresso", "progress"])
+    col_ini = _achacol(df, ["data de inicio", "data inicio", "inicio", "data_inicio"])
+    col_fim = _achacol(
+        df, ["data de finalizacao", "data finalizacao", "data fim", "fim", "data_fim"]
     )
 
-    faltando = []
-    for label, col in [
-        ("CNPJ", col_cnpj),
-        ("Nome", col_nome),
-        ("CPF", col_cpf),
-        ("SIGLA CURSO", col_sigla),
-        ("Data de Inicio", col_ini),
-        ("Data de Finalização", col_fim),
-    ]:
-        if not col:
-            faltando.append(label)
+    obrigatorias = {
+        "CNPJ": col_cnpj,
+        "Nome": col_nome,
+        "CPF": col_cpf,
+        "SIGLA CURSO": col_sigla,
+        "Progresso": col_prog,
+        "Data de Inicio": col_ini,
+        "Data de Finalização": col_fim,
+    }
+    faltando = [k for k, v in obrigatorias.items() if v is None]
     if faltando:
         return [], [f"Colunas obrigatórias ausentes: {', '.join(faltando)}"]
 
-    linhas: list[dict[str, Any]] = []
-    erros: list[str] = []
-
-    for idx, row in df.iterrows():
-        nlinha = int(idx) + 2  # header + 1
-        nome = normalizar_nome(row.get(col_nome))
+    linhas: list[dict] = []
+    for i, row in df.iterrows():
+        nlinha = int(i) + 2  # header = 1
+        nome = str(row.get(col_nome) or "").strip()
         cpf = normalizar_cpf(row.get(col_cpf))
         cnpj = normalizar_cnpj(row.get(col_cnpj))
         sigla = normalizar_sigla(row.get(col_sigla))
 
-        if not nome and not cpf:
-            continue
-
-        prog = 1.0
-        if col_prog is not None:
-            try:
-                prog = float(row.get(col_prog))
-            except Exception:
-                prog = 0.0
+        prog_raw = row.get(col_prog)
+        try:
+            prog = float(prog_raw)
+            if prog > 1.5:
+                prog = prog / 100.0
+        except Exception:
+            prog = 0.0
 
         if prog < 0.96:
             erros.append(
@@ -197,8 +172,8 @@ def buscar_ct_conecta() -> dict | None:
         return None
 
 
-def listar_assinantes() -> list[dict]:
-    """Responsaveis tecnicos ativos + instrutores ativos (unificado para escolha)."""
+def listar_responsaveis_tecnicos() -> list[dict]:
+    """RTs ativos; o padrão (is_default) vem sempre em primeiro."""
     out: list[dict] = []
     try:
         res = (
@@ -215,12 +190,23 @@ def listar_assinantes() -> list[dict]:
                     "nome": r.get("nome"),
                     "cpf": r.get("cpf"),
                     "re": r.get("re"),
+                    "formacao": (r.get("formacao") or "").strip(),
                     "assinatura_url": r.get("assinatura_url"),
-                    "cargo": "Técnico em Segurança do Trabalho",
+                    "assinatura": r.get("assinatura_url"),
+                    "cargo": (r.get("formacao") or "Técnico em Segurança do Trabalho").strip(),
+                    "is_default": bool(r.get("is_default")),
                 }
             )
     except Exception:
         pass
+    # padrão primeiro, depois nome
+    out.sort(key=lambda x: (0 if x.get("is_default") else 1, (x.get("nome") or "").upper()))
+    return out
+
+
+def listar_assinantes() -> list[dict]:
+    """Compat: RTs (padrão primeiro) + instrutores ativos."""
+    out = listar_responsaveis_tecnicos()
     try:
         res = (
             supabase.table("instrutores")
@@ -236,9 +222,11 @@ def listar_assinantes() -> list[dict]:
                     "nome": r.get("name"),
                     "cpf": r.get("cpf"),
                     "re": r.get("re"),
+                    "formacao": (r.get("formacao") or "").strip(),
                     "assinatura": r.get("assinatura"),
                     "assinatura_url": r.get("assinatura"),
                     "cargo": "Técnico em Segurança do Trabalho",
+                    "is_default": False,
                 }
             )
     except Exception:
