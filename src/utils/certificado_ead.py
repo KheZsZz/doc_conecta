@@ -164,6 +164,7 @@ def gerar_certificado_ead_pdf(
     data_termino,
     carga_horaria: str = "",
     modalidade: str = "EAD",
+    nivel: str = "Formação",
     ct: dict | None = None,
     data_documento=None,
     caminho_fundo: str | None = None,
@@ -213,12 +214,10 @@ def gerar_certificado_ead_pdf(
         carga_horaria or curso.get("carga_horaria") or "08"
     )
 
-    # Cidade do CT Conecta + data do documento (emissão) ou término como fallback
     cidade_data = formatar_cidade_data_ead(
         data_documento if data_documento is not None else (data_termino or data_inicio),
         ct,
     )
-    # local_ct = endereco_ct(ct)
 
     ass_img = _resolver_imagem(
         assinante.get("assinatura")
@@ -251,7 +250,7 @@ def gerar_certificado_ead_pdf(
         DIZERES=dizeres,
         CARGA_HORARIA=carga,
         MODALIDADE=modalidade or "EAD",
-        # ENDERECO_CT=local_ct,
+        NIVEL=(nivel or "Formação").strip() or "Formação",
         DATA_INICIO=_fmt_data_br(data_inicio),
         DATA_TERMINO=_fmt_data_br(data_termino),
         CIDADE_DATA=cidade_data,
@@ -267,4 +266,4 @@ def gerar_certificado_ead_pdf(
 
     return HTML(string=html).write_pdf(
         stylesheets=[CSS(string="@page { size: A4 landscape; margin: 0; }")]
-    ) # type: ignore
+    )  # type: ignore
