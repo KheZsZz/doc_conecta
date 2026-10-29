@@ -57,7 +57,10 @@ emissao_ead_page = st.Page(
     "src/pages/private/emissao_ead.py", title="Emissão EAD", icon="🎓"
 )
 pacote_grupo_page = st.Page(
-    "src/pages/private/pacote_grupo.py", title="Pacote Grupo", icon="📦"
+    "src/pages/private/pacote_grupo.py", title="Pacote Período", icon="📦"
+)
+imprimir_doc_page = st.Page(
+    "src/pages/private/imprimir_documentacao.py", title="Imprimir Documentação", icon="🖨️"
 )
 mc_page = st.Page("src/pages/private/mcDonalds.py", title="mcDonalds", icon="💻")
 configs_page = st.Page("src/pages/private/configs.py", title="Configs", icon="⚙️")
@@ -75,6 +78,7 @@ PAGINAS = {
     "subir_listas": subir_listas_page,
     "emissao_ead": emissao_ead_page,
     "pacote_grupo": pacote_grupo_page,
+    "imprimir_documentacao": imprimir_doc_page,
     "mcdonalds": mc_page,
     "configs": configs_page,
 }
@@ -89,6 +93,7 @@ GRUPOS = {
         "cts",
         "responsaveis",
         "pacote_grupo",
+        "imprimir_documentacao",
     ],
     "Cadastro": ["usuarios", "alunos", "subir_listas", "emissao_ead"],
     "Específicos": ["mcdonalds"],
