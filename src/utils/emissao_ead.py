@@ -28,6 +28,16 @@ def _sem_acento(s: str) -> str:
     return "".join(ch for ch in s if not unicodedata.combining(ch)).lower().strip()
 
 
+def normalizar_nivel(val) -> str:
+    """Aceita formação/reciclagem (com ou sem acento); padrão Formação."""
+    s = _sem_acento(str(val or ""))
+    if not s or s in ("nan", "none"):
+        return "Formação"
+    if "recic" in s:
+        return "Reciclagem"
+    return "Formação"
+
+
 def _achacol(df: pd.DataFrame, candidatos: list[str]) -> str | None:
     """Encontra coluna ignorando maiúsculas, espaços extras e acentos."""
     cols_norm = {_sem_acento(str(c)): c for c in df.columns}
@@ -61,6 +71,9 @@ def ler_planilha_ead(conteudo: bytes) -> tuple[list[dict], list[str]]:
     col_sigla = _achacol(df, ["sigla curso", "sigla", "curso"])
     col_carga = _achacol(df, ["carga", "carga horaria", "carga_horaria"])
     col_prog = _achacol(df, ["progresso", "progress"])
+    col_nivel = _achacol(
+        df, ["nivel", "nível", "tipo", "tipo treinamento", "tipo de treinamento"]
+    )
     col_ini = _achacol(df, ["data de inicio", "data inicio", "inicio", "data_inicio"])
     col_fim = _achacol(
         df,
@@ -130,6 +143,10 @@ def ler_planilha_ead(conteudo: bytes) -> tuple[list[dict], list[str]]:
         if col_email is not None and pd.notna(row.get(col_email)):
             email = str(row.get(col_email)).strip()
 
+        nivel = "Formação"
+        if col_nivel is not None and pd.notna(row.get(col_nivel)):
+            nivel = normalizar_nivel(row.get(col_nivel))
+
         linhas.append(
             {
                 "linha": nlinha,
@@ -140,6 +157,7 @@ def ler_planilha_ead(conteudo: bytes) -> tuple[list[dict], list[str]]:
                 "sigla": sigla,
                 "carga": carga,
                 "progresso": prog,
+                "nivel": nivel,
                 "data_inicio": row.get(col_ini),
                 "data_fim": row.get(col_fim),
             }
@@ -218,7 +236,6 @@ def listar_responsaveis_tecnicos() -> list[dict]:
             )
     except Exception:
         pass
-    # padrão primeiro, depois nome
     out.sort(key=lambda x: (0 if x.get("is_default") else 1, (x.get("nome") or "").upper()))
     return out
 
