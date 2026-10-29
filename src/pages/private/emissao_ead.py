@@ -12,7 +12,7 @@ from src.utils.emissao_ead import (
     buscar_ct_conecta,
     buscar_empresa_por_cnpj,
     ler_planilha_ead,
-    listar_assinantes,
+    listar_responsaveis_tecnicos,
     nome_arquivo_certificado,
 )
 from src.utils.certificado_ead import (
@@ -28,7 +28,7 @@ exigir_permissao("emissao_ead")
 st.title("🎓 Emissão EAD")
 st.markdown(
     "Envie a planilha de conclusões, confira o vínculo **CNPJ → empresa** e "
-    "**sigla → curso**, escolha o assinante e baixe o ZIP com os "
+    "**sigla → curso**, escolha o **responsável técnico** e baixe o ZIP com os "
     "**certificados dos alunos** e os **certificados da empresa**."
 )
 
@@ -143,32 +143,42 @@ if problemas:
     st.error("Corrija os cadastros antes de emitir:\n\n- " + "\n- ".join(problemas))
     st.stop()
 
-# Assinante + CT
+# CT + Responsável Técnico
 ct = buscar_ct_conecta()
 if ct:
     st.caption(f"CT / fundo: **{ct.get('name') or ct.get('full_name')}**")
 else:
     st.warning("CT Conecta não encontrado — será usado o fundo padrão Conecta.")
 
-assinantes = listar_assinantes()
-if not assinantes:
-    st.error("Nenhum instrutor ou responsável técnico ativo para assinar.")
+responsaveis = listar_responsaveis_tecnicos()
+if not responsaveis:
+    st.error("Nenhum responsável técnico ativo cadastrado.")
     st.stop()
 
 labels = []
-for a in assinantes:
+for a in responsaveis:
     re_v = (a.get("re") or "").strip()
-    lab = f"{a.get('nome')} ({a.get('tipo')}"
+    form = (a.get("formacao") or "").strip()
+    lab = a.get("nome") or "—"
+    extras = []
+    if form:
+        extras.append(form)
     if re_v:
-        lab += f" · RE {re_v}"
-    lab += ")"
+        extras.append(f"RE {re_v}")
+    if a.get("is_default"):
+        extras.append("padrão")
+    if extras:
+        lab += " (" + " · ".join(extras) + ")"
     labels.append(lab)
 
-idx_default = next(
-    (i for i, a in enumerate(assinantes) if a.get("tipo") == "responsavel"), 0
+# lista já vem com is_default em primeiro
+escolha = st.selectbox(
+    "Responsável Técnico*",
+    labels,
+    index=0,
+    help="O responsável padrão do sistema aparece como primeira opção.",
 )
-escolha = st.selectbox("Assinante (Instrutor/Resp. Técnico)", labels, index=idx_default)
-assinante = assinantes[labels.index(escolha)]
+assinante = responsaveis[labels.index(escolha)]
 
 data_documento = st.date_input(
     "Data do documento (cidade/data no certificado)*",
