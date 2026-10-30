@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import io
+import math
 import re
 import unicodedata
 from typing import Any
@@ -17,6 +18,26 @@ def normalizar_cnpj(val) -> str:
 
 def normalizar_cpf(val) -> str:
     return re.sub(r"\D", "", str(val or ""))
+
+
+def limpar_identificador(val) -> str:
+    """Normaliza matrícula/CPF vindos do Excel (evita 12345.0)."""
+    if val is None:
+        return ""
+    try:
+        if isinstance(val, float):
+            if math.isnan(val):
+                return ""
+            if val == int(val):
+                return str(int(val))
+    except Exception:
+        pass
+    s = str(val).strip()
+    if not s or s.lower() in ("nan", "none"):
+        return ""
+    if s.endswith(".0") and s[:-2].replace("-", "").isdigit():
+        s = s[:-2]
+    return s
 
 
 def normalizar_sigla(val) -> str:
@@ -68,6 +89,9 @@ def ler_planilha_ead(conteudo: bytes) -> tuple[list[dict], list[str]]:
     col_nome = _achacol(df, ["nome", "name", "aluno"])
     col_email = _achacol(df, ["e-mail", "email", "mail"])
     col_cpf = _achacol(df, ["cpf"])
+    col_matricula = _achacol(
+        df, ["matricula", "matrícula", "matricula aluno", "registration"]
+    )
     col_sigla = _achacol(df, ["sigla curso", "sigla", "curso"])
     col_carga = _achacol(df, ["carga", "carga horaria", "carga_horaria"])
     col_prog = _achacol(df, ["progresso", "progress"])
@@ -93,12 +117,14 @@ def ler_planilha_ead(conteudo: bytes) -> tuple[list[dict], list[str]]:
     obrigatorias = {
         "CNPJ": col_cnpj,
         "Nome": col_nome,
-        "CPF": col_cpf,
         "SIGLA CURSO": col_sigla,
         "Progresso": col_prog,
         "Data de Inicio": col_ini,
         "Data de Finalização": col_fim,
     }
+    # CPF ou Matrícula: pelo menos uma coluna precisa existir
+    if col_cpf is None and col_matricula is None:
+        obrigatorias["CPF ou Matrícula"] = None
     faltando = [k for k, v in obrigatorias.items() if v is None]
     if faltando:
         return [], [f"Colunas obrigatórias ausentes: {', '.join(faltando)}"]
@@ -107,9 +133,21 @@ def ler_planilha_ead(conteudo: bytes) -> tuple[list[dict], list[str]]:
     for i, row in df.iterrows():
         nlinha = int(i) + 2  # header = 1
         nome = str(row.get(col_nome) or "").strip()
-        cpf = normalizar_cpf(row.get(col_cpf))
+        cpf = normalizar_cpf(
+            limpar_identificador(row.get(col_cpf)) if col_cpf is not None else ""
+        )
         cnpj = normalizar_cnpj(row.get(col_cnpj))
         sigla = normalizar_sigla(row.get(col_sigla))
+
+        matricula = ""
+        if col_matricula is not None and pd.notna(row.get(col_matricula)):
+            matricula = limpar_identificador(row.get(col_matricula))
+
+        # Se veio "CPF" com menos de 11 dígitos e não há matrícula,
+        # trata o valor como matrícula (caso Itaú / sistemas internos).
+        if not matricula and cpf and len(cpf) != 11:
+            matricula = limpar_identificador(cpf)
+            cpf = ""
 
         prog_raw = row.get(col_prog)
         try:
@@ -121,17 +159,23 @@ def ler_planilha_ead(conteudo: bytes) -> tuple[list[dict], list[str]]:
 
         if prog < 0.96:
             erros.append(
-                f"Linha {nlinha} ({nome or cpf}): progresso {prog} < 0.96 — ignorada."
+                f"Linha {nlinha} ({nome or matricula or cpf}): progresso {prog} < 0.96 — ignorada."
             )
             continue
 
-        if not nome or not cpf or not cnpj or not sigla:
+        if not nome or not cnpj or not sigla:
             erros.append(
-                f"Linha {nlinha}: dados incompletos (nome/cpf/cnpj/sigla)."
+                f"Linha {nlinha}: dados incompletos (nome/cnpj/sigla)."
             )
             continue
 
-        if len(cpf) != 11:
+        if not cpf and not matricula:
+            erros.append(
+                f"Linha {nlinha} ({nome}): informe CPF ou Matrícula."
+            )
+            continue
+
+        if cpf and len(cpf) != 11:
             erros.append(f"Linha {nlinha} ({nome}): CPF inválido.")
             continue
 
@@ -153,6 +197,7 @@ def ler_planilha_ead(conteudo: bytes) -> tuple[list[dict], list[str]]:
                 "nome": nome,
                 "email": email,
                 "cpf": cpf,
+                "matricula": matricula,
                 "cnpj": cnpj,
                 "sigla": sigla,
                 "carga": carga,
