@@ -192,8 +192,13 @@ def gerar_certificado_ead_pdf(
     cpf_aluno = _fmt_cpf(aluno.get("cpf") or "")
     rg_aluno = (aluno.get("rg") or "").strip()
     matricula_aluno = str(aluno.get("matricula") or "").strip()
-    if matricula_aluno.lower() in ("nan", "none"):
+    if matricula_aluno.lower() in ("nan", "none", ""):
         matricula_aluno = ""
+    # CPF curto vindo da planilha também conta como matrícula
+    cpf_digitos = re.sub(r"\D", "", str(aluno.get("cpf") or ""))
+    if not matricula_aluno and cpf_digitos and len(cpf_digitos) != 11:
+        matricula_aluno = str(aluno.get("cpf") or cpf_digitos).strip()
+
     # Prioridade: matrícula (Itaú etc.) > RG/CPF
     if matricula_aluno:
         rg_cpf = ""
