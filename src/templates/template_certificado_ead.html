@@ -210,7 +210,12 @@
         <span class="lbl">Nome do Aluno:</span>
         <span class="val"> {{ NOME_ALUNO }}</span>
       </div>
-      {% if RG_CPF %}
+      {% if VALOR_DOC_ALUNO %}
+      <div class="campo">
+        <span class="lbl">{{ LABEL_DOC_ALUNO or "RG/CPF" }}:</span>
+        <span class="val"> {{ VALOR_DOC_ALUNO }}</span>
+      </div>
+      {% elif RG_CPF %}
       <div class="campo">
         <span class="lbl">RG/CPF:</span>
         <span class="val"> {{ RG_CPF }}</span>
