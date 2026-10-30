@@ -210,17 +210,25 @@
         <span class="lbl">Nome do Aluno:</span>
         <span class="val"> {{ NOME_ALUNO }}</span>
       </div>
-      {% if VALOR_DOC_ALUNO %}
+
+      {# Matrícula no lugar do CPF quando informada (ex.: Itaú) #}
+      {% if MATRICULA %}
       <div class="campo">
-        <span class="lbl">{{ LABEL_DOC_ALUNO or "RG/CPF" }}:</span>
+        <span class="lbl">Matrícula:</span>
+        <span class="val"> {{ MATRICULA }}</span>
+      </div>
+      {% elif VALOR_DOC_ALUNO and LABEL_DOC_ALUNO == "Matrícula" %}
+      <div class="campo">
+        <span class="lbl">Matrícula:</span>
         <span class="val"> {{ VALOR_DOC_ALUNO }}</span>
       </div>
-      {% elif RG_CPF %}
+      {% elif RG_CPF or VALOR_DOC_ALUNO %}
       <div class="campo">
         <span class="lbl">RG/CPF:</span>
-        <span class="val"> {{ RG_CPF }}</span>
+        <span class="val"> {{ VALOR_DOC_ALUNO or RG_CPF }}</span>
       </div>
       {% endif %}
+
       {% if EMPRESA %}
       <div class="campo">
         <span class="lbl">Empresa:</span>
