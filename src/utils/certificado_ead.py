@@ -191,7 +191,18 @@ def gerar_certificado_ead_pdf(
     nome_aluno = (aluno.get("name") or aluno.get("nome") or "").strip().upper()
     cpf_aluno = _fmt_cpf(aluno.get("cpf") or "")
     rg_aluno = (aluno.get("rg") or "").strip()
-    rg_cpf = " / ".join([x for x in (rg_aluno, cpf_aluno) if x]) or cpf_aluno
+    matricula_aluno = str(aluno.get("matricula") or "").strip()
+    if matricula_aluno.lower() in ("nan", "none"):
+        matricula_aluno = ""
+    # Prioridade: matrícula (Itaú etc.) > RG/CPF
+    if matricula_aluno:
+        rg_cpf = ""
+        label_doc_aluno = "Matrícula"
+        valor_doc_aluno = matricula_aluno
+    else:
+        rg_cpf = " / ".join([x for x in (rg_aluno, cpf_aluno) if x]) or cpf_aluno
+        label_doc_aluno = "RG/CPF"
+        valor_doc_aluno = rg_cpf
 
     dizeres = (
         curso.get("dizeres_certificado_aluno")
@@ -244,6 +255,9 @@ def gerar_certificado_ead_pdf(
         LOGO_CT=logo_ct,
         NOME_ALUNO=nome_aluno,
         RG_CPF=rg_cpf,
+        LABEL_DOC_ALUNO=label_doc_aluno,
+        VALOR_DOC_ALUNO=valor_doc_aluno,
+        MATRICULA=matricula_aluno,
         EMPRESA=empresa.get("name") or "",
         CNPJ=_fmt_cnpj(empresa.get("cnpj") or ""),
         ENDERECO=empresa.get("full_address") or "",
