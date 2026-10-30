@@ -29,7 +29,8 @@ st.title("🎓 Emissão EAD")
 st.markdown(
     "Envie a planilha de conclusões, confira o vínculo **CNPJ → empresa** e "
     "**sigla → curso**, escolha o **responsável técnico** e baixe o ZIP. "
-    "O **nível** (Formação/Reciclagem) vem da coluna da planilha."
+    "O **nível** (Formação/Reciclagem) vem da coluna da planilha. "
+    "Se houver **Matrícula**, o certificado do aluno usa Matrícula no lugar do CPF."
 )
 
 with st.expander("Formato da planilha", expanded=False):
@@ -37,15 +38,15 @@ with st.expander("Formato da planilha", expanded=False):
         """
 Colunas esperadas:
 
-| CNPJ | Nome | E-mail | CPF | SIGLA CURSO | CARGA | Progresso | Nível | Data de Inicio | Data de Finalização |
+| CNPJ | Nome | E-mail | CPF *ou* Matrícula | SIGLA CURSO | CARGA | Progresso | Nível | Data de Inicio | Data de Finalização |
 
 - Empresa buscada pelo **CNPJ** (tabela `clients`)
 - Curso buscado pela **SIGLA CURSO** (tabela `cursos`)
 - Só emite linhas com **Progresso ≥ 0,96**
 - Certificados de aluno: `NOME DO ALUNO - SIGLA.pdf`
-- Certificados de empresa: **1 por combinação CNPJ + SIGLA** (somente assinatura do RT)
+- Certificados de empresa: **1 por combinação CNPJ + SIGLA + Nível** (somente assinatura do RT)
 - Coluna opcional **Nível**: `Formação` ou `Reciclagem` (se ausente → Formação)
-- Certificado da empresa agrupa por **CNPJ + SIGLA + Nível**
+- **CPF** ou **Matrícula**: se existir Matrícula (ou CPF com menos de 11 dígitos), o certificado mostra **Matrícula**
 - Cidade/local sempre do **CT Conecta**; data do documento configurável (padrão: hoje)
         """
     )
@@ -57,6 +58,7 @@ Colunas esperadas:
                 "Nome": "NOME COMPLETO",
                 "E-mail": "email@empresa.com",
                 "CPF": "00000000000",
+                "Matrícula": "",
                 "SIGLA CURSO": "NR34",
                 "CARGA": "08 Horas",
                 "Progresso": 1,
@@ -119,7 +121,7 @@ for L in linhas:
     preview.append(
         {
             "Aluno": L["nome"],
-            "CPF": L["cpf"],
+            "Doc": L.get("matricula") or L.get("cpf") or "—",
             "Empresa": (emp or {}).get("name") or f"⚠️ CNPJ {L['cnpj']}",
             "Curso": (cur or {}).get("name") or f"⚠️ {L['sigla']}",
             "Sigla": L["sigla"],
@@ -270,7 +272,8 @@ if st.button(
                     pdf = gerar_certificado_ead_pdf(
                         aluno={
                             "name": L["nome"],
-                            "cpf": L["cpf"],
+                            "cpf": L.get("cpf") or "",
+                            "matricula": L.get("matricula") or "",
                             "email": L.get("email"),
                         },
                         empresa=emp,
@@ -314,7 +317,12 @@ if st.button(
                     cidade_data = formatar_cidade_data_ead(data_documento, ct)
 
                     alunos_grupo = [
-                        {"name": g["nome"], "cpf": g["cpf"]} for g in grupo
+                        {
+                            "name": g["nome"],
+                            "cpf": g.get("cpf") or "",
+                            "matricula": g.get("matricula") or "",
+                        }
+                        for g in grupo
                     ]
 
                     turma_cert = {
