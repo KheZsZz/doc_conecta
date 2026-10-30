@@ -21,7 +21,7 @@ def normalizar_cpf(val) -> str:
 
 
 def limpar_identificador(val) -> str:
-    """Normaliza matrícula/CPF vindos do Excel (evita 12345.0)."""
+    """Normaliza matrícula/CPF vindos do Excel (evita 12345.0; preserva zeros)."""
     if val is None:
         return ""
     try:
@@ -78,7 +78,9 @@ def ler_planilha_ead(conteudo: bytes) -> tuple[list[dict], list[str]]:
     """Retorna (linhas validas, erros/avisos)."""
     erros: list[str] = []
     try:
-        df = pd.read_excel(io.BytesIO(conteudo))
+        # dtype=str preserva zeros à esquerda em matrícula/CPF
+        df = pd.read_excel(io.BytesIO(conteudo), dtype=str)
+        df.columns = [str(c).strip() for c in df.columns]
     except Exception as e:
         return [], [f"Falha ao ler planilha: {e}"]
 
@@ -122,7 +124,6 @@ def ler_planilha_ead(conteudo: bytes) -> tuple[list[dict], list[str]]:
         "Data de Inicio": col_ini,
         "Data de Finalização": col_fim,
     }
-    # CPF ou Matrícula: pelo menos uma coluna precisa existir
     if col_cpf is None and col_matricula is None:
         obrigatorias["CPF ou Matrícula"] = None
     faltando = [k for k, v in obrigatorias.items() if v is None]
@@ -133,9 +134,8 @@ def ler_planilha_ead(conteudo: bytes) -> tuple[list[dict], list[str]]:
     for i, row in df.iterrows():
         nlinha = int(i) + 2  # header = 1
         nome = str(row.get(col_nome) or "").strip()
-        cpf = normalizar_cpf(
-            limpar_identificador(row.get(col_cpf)) if col_cpf is not None else ""
-        )
+        cpf_bruto = limpar_identificador(row.get(col_cpf)) if col_cpf is not None else ""
+        cpf = normalizar_cpf(cpf_bruto)
         cnpj = normalizar_cnpj(row.get(col_cnpj))
         sigla = normalizar_sigla(row.get(col_sigla))
 
@@ -143,15 +143,15 @@ def ler_planilha_ead(conteudo: bytes) -> tuple[list[dict], list[str]]:
         if col_matricula is not None and pd.notna(row.get(col_matricula)):
             matricula = limpar_identificador(row.get(col_matricula))
 
-        # Se veio "CPF" com menos de 11 dígitos e não há matrícula,
-        # trata o valor como matrícula (caso Itaú / sistemas internos).
+        # CPF com menos de 11 dígitos = matrícula (Itaú / sistemas internos)
         if not matricula and cpf and len(cpf) != 11:
-            matricula = limpar_identificador(cpf)
+            matricula = cpf_bruto or cpf
             cpf = ""
 
         prog_raw = row.get(col_prog)
         try:
-            prog = float(prog_raw)
+            sprog = str(prog_raw or "").strip().replace(",", ".")
+            prog = float(sprog) if sprog and sprog.lower() not in ("nan", "none") else 0.0
             if prog > 1.5:
                 prog = prog / 100.0
         except Exception:
