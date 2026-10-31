@@ -99,7 +99,6 @@ def _parse_carga(val) -> str:
     """Normaliza carga horária (evita bug 8.0 -> 80 ao tirar o ponto do float)."""
     if val is None or (isinstance(val, float) and pd.isna(val)):
         return "8 Horas"
-    # Número vindo do Excel (int/float) — usa o valor direto
     if isinstance(val, (int, float)) and not isinstance(val, bool):
         n = int(round(float(val)))
         if n <= 0:
@@ -108,7 +107,6 @@ def _parse_carga(val) -> str:
     s = str(val).strip()
     if not s or s.lower() in ("nan", "none"):
         return "8 Horas"
-    # Texto tipo "8", "8.0", "08 Horas", "8 horas"
     s_num = s.replace(",", ".").split()[0]
     try:
         n = int(round(float(s_num)))
@@ -119,7 +117,6 @@ def _parse_carga(val) -> str:
         pass
     dig = re.sub(r"\D", "", s)
     if dig:
-        # Último recurso: só dígitos (pode falhar em "8.0" se chegou aqui)
         n = int(dig)
         return f"{n} Horas" if n != 1 else "1 Hora"
     return s
@@ -223,13 +220,11 @@ def ler_planilha_turmas(arquivo_bytes: bytes) -> tuple[list[dict[str, Any]], lis
             erros.append(f"Linha {nlinha}: informe SIGLA CURSO ou CURSO.")
             continue
 
-        # UNIDADE recomendada quando ha multiplas plantas no mesmo CNPJ
         if not unidade:
             erros.append(
                 f"Linha {nlinha}: UNIDADE vazia — "
                 f"recomendado preencher para distinguir plantas com o mesmo CNPJ."
             )
-            # nao bloqueia: segue com unidade vazia
 
         linhas.append(
             {
@@ -324,7 +319,8 @@ def resolver_ou_criar_empresa(
 ) -> tuple[dict | None, str | None, bool]:
     """
     Resolve empresa por CNPJ + UNIDADE.
-    Mesmo CNPJ com unidades diferentes = registros distintos.
+    Mesmo CNPJ com unidades diferentes = registros distintos (via sigla).
+    UNIDADE NUNCA entra no name / razão social.
     """
     cnpj = linha["cnpj"]
     unidade = (linha.get("unidade") or "").strip()
@@ -334,11 +330,9 @@ def resolver_ou_criar_empresa(
         return cache[key], None, False
 
     nome = linha["nome_empresa"].strip()
-    # Nome unico no banco: se unidade informada, sufixa no name para evitar clients_name_key
-    nome_gravar = f"{nome} - {unidade}" if unidade else nome
-
+    # UNIDADE vai apenas em `sigla` — NUNCA no name / razão social.
     payload = {
-        "name": nome_gravar,
+        "name": nome,
         "cnpj": cnpj,
         "full_address": linha.get("endereco") or None,
         "responsavel": linha.get("responsavel") or None,
@@ -355,10 +349,35 @@ def resolver_ou_criar_empresa(
         return emp, None, True
     except Exception as e:
         msg = str(e)
-        if "duplicate" in msg.lower() or "unique" in msg.lower():
-            # tenta nome ainda mais especifico
-            payload["name"] = f"{nome} - {unidade or 'UN'} ({cnpj[-6:]})"
+        if "duplicate" in msg.lower() or "unique" in msg.lower() or "23505" in msg:
+            # Tenta reutilizar empresa existente (mesmo CNPJ + unidade)
             try:
+                q = supabase.table("clients").select("*").eq("cnpj", cnpj)
+                if unidade:
+                    q = q.eq("sigla", unidade)
+                res = q.limit(5).execute()
+                rows = res.data if res and res.data else []
+                if rows:
+                    emp = rows[0]
+                    cache[key] = emp
+                    return emp, None, False
+                res = (
+                    supabase.table("clients")
+                    .select("*")
+                    .eq("cnpj", cnpj)
+                    .limit(5)
+                    .execute()
+                )
+                rows = res.data if res and res.data else []
+                if rows and (not unidade or (rows[0].get("sigla") or "") == unidade):
+                    emp = rows[0]
+                    cache[key] = emp
+                    return emp, None, False
+            except Exception:
+                pass
+            # Último recurso: diferencia pelo CNPJ, SEM unidade no nome
+            try:
+                payload["name"] = f"{nome} ({cnpj[-6:]})"
                 res = supabase.table("clients").insert(payload).execute()
                 emp = res.data[0] if res and res.data else payload
                 if emp.get("id"):
@@ -570,34 +589,34 @@ def gerar_modelo_planilha() -> bytes:
                 "RESPONSAVEL": "Ygor Danilo de Souza Silva",
                 "TELEFONE": "",
                 "EMAIL": "YDSilva@loga.com.br",
-                "UNIDADE": "ETPP",
+                "UNIDADE": "LOGA",
                 "SIGLA CURSO": "NR23",
                 "CURSO": "",
-                "DATA TREINAMENTO": "16/07/2026",
+                "DATA TREINAMENTO": "15/10/2026",
                 "CARGA HORARIA": "8",
-                "MODALIDADE": "Presencial (No CT)",
-                "NIVEL": "Intermediário",
-                "INSTRUTOR": "WILLIANS FELIX DA SILVA",
-                "CT": "Ecofire",
-                "TITULO": "LOGA - NR23 - ETPP - 08 Horas",
+                "MODALIDADE": "In Company",
+                "NIVEL": "Formação",
+                "INSTRUTOR": "",
+                "CT": "Conecta",
+                "TITULO": "",
             },
             {
                 "CNPJ": "07.032.886/0001-02",
                 "NOME EMPRESA": "LOGISTICA AMBIENTAL DE SAO PAULO S.A. - LOGA",
-                "ENDERECO": "Av. Gonçalo Madeira, 600 - Ponte Pequena, São Paulo/SP",
+                "ENDERECO": "Av. do Estado, 300 - Bom Retiro, São Paulo/SP",
                 "RESPONSAVEL": "Ygor Danilo de Souza Silva",
                 "TELEFONE": "",
                 "EMAIL": "YDSilva@loga.com.br",
-                "UNIDADE": "ETRS",
-                "SIGLA CURSO": "NR23",
+                "UNIDADE": "LOGA 2",
+                "SIGLA CURSO": "NR35",
                 "CURSO": "",
-                "DATA TREINAMENTO": "16/07/2026",
+                "DATA TREINAMENTO": "16/10/2026",
                 "CARGA HORARIA": "8",
-                "MODALIDADE": "Presencial (No CT)",
-                "NIVEL": "Intermediário",
-                "INSTRUTOR": "WILLIANS FELIX DA SILVA",
-                "CT": "Ecofire",
-                "TITULO": "LOGA - NR23 - ETRS - 08 Horas",
+                "MODALIDADE": "In Company",
+                "NIVEL": "Formação",
+                "INSTRUTOR": "",
+                "CT": "Conecta",
+                "TITULO": "",
             },
         ]
     )
