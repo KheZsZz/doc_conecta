@@ -1,4 +1,4 @@
-"""Busca turmas pelo documento (CPF/RG) do aluno."""
+"""Busca turmas por nome, CPF ou RG do aluno."""
 from __future__ import annotations
 
 import re
@@ -29,54 +29,94 @@ def _fmt_data_br(data_str) -> str:
         return s
 
 
-def _buscar_alunos_por_documento(doc: str) -> list[dict]:
-    """Localiza alunos por CPF (só dígitos) ou RG (contém o trecho digitado)."""
-    digitos = _so_digitos(doc)
-    texto = (doc or "").strip()
+def _buscar_alunos(termo: str) -> list[dict]:
+    """Localiza alunos por nome (parcial), CPF ou RG."""
+    digitos = _so_digitos(termo)
+    texto = (termo or "").strip()
     if not digitos and not texto:
         return []
 
     encontrados: dict[str, dict] = {}
+    tem_letra = any(ch.isalpha() for ch in texto)
 
-    # 1) CPF exato (normalizado)
-    if len(digitos) >= 8:
-        try:
-            res = supabase.table("alunos").select("*").execute()
-            rows = res.data if res and isinstance(res.data, list) else []
-            for a in rows:
-                cpf_d = _so_digitos(a.get("cpf"))
-                rg_raw = str(a.get("rg") or "")
-                rg_d = _so_digitos(rg_raw)
-                match = False
-                if digitos and cpf_d and (
-                    cpf_d == digitos or digitos in cpf_d or cpf_d.endswith(digitos)
-                ):
-                    match = True
-                if digitos and rg_d and (
-                    rg_d == digitos or digitos in rg_d or rg_d.endswith(digitos)
-                ):
-                    match = True
-                if texto and rg_raw and texto.lower() in rg_raw.lower():
-                    match = True
-                if match and a.get("id"):
-                    encontrados[str(a["id"])] = a
-        except Exception as e:
-            st.warning(f"Falha ao buscar alunos: {e}")
-
-    # 2) Tentativa direta por eq no CPF (quando o banco guarda só dígitos)
-    if digitos and len(digitos) == 11 and not encontrados:
+    # 1) Nome (parcial, case-insensitive) — prioridade quando há letras
+    if tem_letra and len(texto) >= 2:
         try:
             res = (
                 supabase.table("alunos")
                 .select("*")
-                .eq("cpf", digitos)
+                .ilike("name", f"%{texto}%")
+                .limit(80)
                 .execute()
             )
             for a in res.data or []:
                 if a.get("id"):
                     encontrados[str(a["id"])] = a
-        except Exception:
-            pass
+        except Exception as e:
+            st.warning(f"Falha na busca por nome: {e}")
+
+    # 2) CPF / RG (quando há dígitos suficientes)
+    if len(digitos) >= 5:
+        # CPF completo direto no banco
+        if len(digitos) == 11:
+            try:
+                res = (
+                    supabase.table("alunos")
+                    .select("*")
+                    .eq("cpf", digitos)
+                    .execute()
+                )
+                for a in res.data or []:
+                    if a.get("id"):
+                        encontrados[str(a["id"])] = a
+            except Exception:
+                pass
+            # também tenta CPF formatado comum
+            if not encontrados:
+                cpf_fmt = (
+                    f"{digitos[:3]}.{digitos[3:6]}.{digitos[6:9]}-{digitos[9:]}"
+                )
+                try:
+                    res = (
+                        supabase.table("alunos")
+                        .select("*")
+                        .eq("cpf", cpf_fmt)
+                        .execute()
+                    )
+                    for a in res.data or []:
+                        if a.get("id"):
+                            encontrados[str(a["id"])] = a
+                except Exception:
+                    pass
+
+        # Varredura limitada só se ainda não achou (evita scan sempre)
+        if not encontrados:
+            try:
+                res = supabase.table("alunos").select("*").limit(2000).execute()
+                rows = res.data if res and isinstance(res.data, list) else []
+                for a in rows:
+                    cpf_d = _so_digitos(a.get("cpf"))
+                    rg_raw = str(a.get("rg") or "")
+                    rg_d = _so_digitos(rg_raw)
+                    match = False
+                    if digitos and cpf_d and (
+                        cpf_d == digitos
+                        or digitos in cpf_d
+                        or cpf_d.endswith(digitos)
+                    ):
+                        match = True
+                    if digitos and rg_d and (
+                        rg_d == digitos
+                        or digitos in rg_d
+                        or rg_d.endswith(digitos)
+                    ):
+                        match = True
+                    if texto and rg_raw and texto.lower() in rg_raw.lower():
+                        match = True
+                    if match and a.get("id"):
+                        encontrados[str(a["id"])] = a
+            except Exception as e:
+                st.warning(f"Falha ao buscar por documento: {e}")
 
     return list(encontrados.values())
 
@@ -85,7 +125,6 @@ def _matriculas_dos_alunos(aluno_ids: list[str]) -> list[dict]:
     if not aluno_ids:
         return []
     out: list[dict] = []
-    # PostgREST .in_ com listas grandes: fatia
     for i in range(0, len(aluno_ids), 50):
         lote = aluno_ids[i : i + 50]
         try:
@@ -102,7 +141,6 @@ def _matriculas_dos_alunos(aluno_ids: list[str]) -> list[dict]:
             if res and res.data:
                 out.extend(res.data)
         except Exception:
-            # fallback sem join
             try:
                 res = (
                     supabase.table("matriculas")
@@ -143,9 +181,9 @@ def _carregar_turmas(turma_ids: list[str]) -> dict[str, dict]:
 
 
 def render_tab_buscar():
-    st.subheader("🔍 Buscar turmas por documento do aluno")
+    st.subheader("🔍 Buscar turmas por aluno")
     st.caption(
-        "Informe o **CPF** ou **RG** do aluno para localizar em quais turmas ele está matriculado."
+        "Informe o **nome**, **CPF** ou **RG** do aluno para localizar em quais turmas ele está matriculado."
     )
 
     if is_consulta() and ct_id_atual():
@@ -153,34 +191,33 @@ def render_tab_buscar():
 
     col_in, col_btn = st.columns([3, 1])
     with col_in:
-        doc = st.text_input(
-            "CPF ou RG*",
-            placeholder="Ex.: 123.456.789-00 ou 12.345.678-9",
-            key="busca_aluno_doc",
+        termo = st.text_input(
+            "Nome, CPF ou RG*",
+            placeholder="Ex.: Maria Silva  ·  123.456.789-00  ·  12.345.678-9",
+            key="busca_aluno_termo",
         )
     with col_btn:
-        st.write("")  # espaçamento
+        st.write("")
         buscar = st.button("🔍 Buscar", type="primary", use_container_width=True)
 
     if not buscar:
-        # mantém resultados anteriores na sessão se houver
         if not st.session_state.get("busca_doc_resultados"):
             return
 
     if buscar:
-        if not (doc or "").strip():
-            st.warning("Informe um CPF ou RG.")
+        if not (termo or "").strip():
+            st.warning("Informe um nome, CPF ou RG.")
             return
 
         with st.spinner("Buscando aluno e turmas..."):
-            alunos = _buscar_alunos_por_documento(doc)
+            alunos = _buscar_alunos(termo)
             if not alunos:
                 st.session_state["busca_doc_resultados"] = {
-                    "doc": doc,
+                    "termo": termo,
                     "alunos": [],
                     "itens": [],
                 }
-                st.info("Nenhum aluno encontrado com esse documento.")
+                st.info("Nenhum aluno encontrado com esse termo.")
                 return
 
             aluno_ids = [str(a["id"]) for a in alunos if a.get("id")]
@@ -198,7 +235,6 @@ def render_tab_buscar():
                 if _ct_user and str(turma.get("ct_id") or "") != str(_ct_user):
                     continue
                 aluno = m.get("alunos") or {}
-                # se join não veio, pega do mapa de alunos
                 if not aluno.get("name"):
                     for a in alunos:
                         if str(a.get("id")) == str(m.get("aluno_id")):
@@ -207,7 +243,7 @@ def render_tab_buscar():
                 itens.append({"matricula": m, "turma": turma, "aluno": aluno})
 
             st.session_state["busca_doc_resultados"] = {
-                "doc": doc,
+                "termo": termo,
                 "alunos": alunos,
                 "itens": itens,
             }
@@ -233,9 +269,13 @@ def render_tab_buscar():
     if not itens:
         return
 
-    st.success(f"**{len(itens)}** matrícula(s) encontrada(s) para o documento informado.")
+    termo_exib = dados.get("termo") or ""
+    st.success(
+        f"**{len(itens)}** matrícula(s) encontrada(s)"
+        + (f" para **{termo_exib}**" if termo_exib else "")
+        + "."
+    )
 
-    # Agrupa por turma para não repetir card
     por_turma: dict[str, dict] = {}
     for it in itens:
         t = it["turma"]
