@@ -2,7 +2,6 @@ from datetime import date, timedelta
 
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 import streamlit as st
 
 from src.config.database import supabase
@@ -151,6 +150,17 @@ def _kpi_html(label: str, value: str, hint: str = "", variant: str = "") -> str:
     )
 
 
+def _apply_layout(fig, title: str):
+    fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="Segoe UI, sans-serif", color="#334455", size=12),
+        margin=dict(l=40, r=20, t=48, b=40),
+        title=dict(text=title, font=dict(size=14, color="#0b1f3a")),
+    )
+    return fig
+
+
 @st.cache_data(ttl=60)
 def carregar_dados_dashboard():
     total_empresas = _count_exact("clients")
@@ -263,15 +273,6 @@ with p4:
 st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
 st.markdown('<div class="section-title">Análise de turmas</div>', unsafe_allow_html=True)
 
-PLOTLY_LAYOUT = dict(
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(0,0,0,0)",
-    font=dict(family="Inter, Segoe UI, sans-serif", color="#334",
-              size=12),
-    margin=dict(l=40, r=20, t=48, b=40),
-    title=dict(font=dict(size=14, color="#0b1f3a")),
-)
-
 col_g1, col_g2 = st.columns(2)
 
 with col_g1:
@@ -288,13 +289,8 @@ with col_g1:
         text_auto=True,
         color_discrete_sequence=["#1a5f9e"],
     )
-    fig_mes.update_layout(
-        **PLOTLY_LAYOUT,
-        title="Turmas por mês",
-        xaxis_title=None,
-        yaxis_title="Quantidade",
-        showlegend=False,
-    )
+    _apply_layout(fig_mes, "Turmas por mês")
+    fig_mes.update_layout(xaxis_title=None, yaxis_title="Quantidade", showlegend=False)
     fig_mes.update_traces(marker_line_width=0, textposition="outside")
     st.plotly_chart(fig_mes, use_container_width=True)
 
@@ -310,10 +306,9 @@ with col_g2:
         color="Status",
         color_discrete_map={"Emitido": "#2e8b57", "Pendente": "#c0392b"},
     )
+    _apply_layout(fig_donut, "Status de documentação")
     fig_donut.update_layout(
-        **PLOTLY_LAYOUT,
-        title="Status de documentação",
-        legend=dict(orientation="h", yanchor="bottom", y=-0.15, x=0.2),
+        legend=dict(orientation="h", yanchor="bottom", y=-0.15, x=0.2)
     )
     fig_donut.update_traces(textposition="inside", textinfo="percent+label")
     st.plotly_chart(fig_donut, use_container_width=True)
@@ -335,12 +330,9 @@ with col_g3:
         text_auto=True,
         color_discrete_sequence=["#3d7ab5"],
     )
+    _apply_layout(fig_mod, "Distribuição por modalidade")
     fig_mod.update_layout(
-        **PLOTLY_LAYOUT,
-        title="Distribuição por modalidade",
-        xaxis_title="Quantidade",
-        yaxis_title=None,
-        showlegend=False,
+        xaxis_title="Quantidade", yaxis_title=None, showlegend=False
     )
     st.plotly_chart(fig_mod, use_container_width=True)
 
