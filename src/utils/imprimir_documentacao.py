@@ -185,9 +185,10 @@ def gerar_pdf_tipo(
                 pdfs.append(pdf)
 
             elif tipo == "carteirinhas":
-                pdf = gerar_carteirinhas_pdf(
+                pdf, _alunos_re = gerar_carteirinhas_pdf(
                     alunos=alunos_cert,
-                    curso_nome=curso.get("name") or "Treinamento",
+                    curso=curso or None,
+                    turma=turma,
                     carga_horaria=carga,
                     data_conclusao=data_t,
                     instrutor=instrutor,
