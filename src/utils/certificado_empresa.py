@@ -3,26 +3,10 @@ import base64
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML, CSS
 
+from src.utils.pdf_assets import get_template, html_para_pdf, resolver_imagem
+
 _FUNDO_DEFAULT = "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/certificado_conecta_fundo.png"
 
-def _imagem_para_data_uri(caminho: str) -> str:
-    ext = os.path.splitext(caminho)[1].lower().lstrip(".")
-    mime = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "gif": "gif", "webp": "webp"}.get(ext, "png")
-    with open(caminho, "rb") as f:
-        b64 = base64.b64encode(f.read()).decode()
-    return f"data:image/{mime};base64,{b64}"
-
-def _resolver_imagem(caminho):
-    if not caminho:
-        return ""
-    if caminho.startswith(("http://", "https://", "data:")):
-        return caminho
-    if os.path.exists(caminho):
-        try:
-            return _imagem_para_data_uri(caminho)
-        except Exception:
-            return ""
-    return ""
 
 def formatar_cpf(cpf: str) -> str:
     cpf = (cpf or "").strip()
@@ -51,8 +35,7 @@ def gerar_certificado_empresa_pdf(
     nome_template: str = "template_certificado_empresa.html",
 ) -> bytes:
     
-    env = Environment(loader=FileSystemLoader(caminho_pasta_templates))
-    template = env.get_template(nome_template)
+    template = get_template(caminho_pasta_templates, nome_template)
 
     fundo_path = ""
     if caminho_fundo:
@@ -62,11 +45,9 @@ def gerar_certificado_empresa_pdf(
     else:
         fundo_path = _FUNDO_DEFAULT
     
-    imagem_fundo = _resolver_imagem(fundo_path)
-    if not imagem_fundo:
-        imagem_fundo = _FUNDO_DEFAULT
+    imagem_fundo = resolver_imagem(fundo_path) or resolver_imagem(_FUNDO_DEFAULT) or _FUNDO_DEFAULT
 
-    assinatura_instrutor = _resolver_imagem(
+    assinatura_instrutor = resolver_imagem(
         instrutor.get("assinatura") or instrutor.get("assinatura_url") or ""
     )
     cpf_instrutor_fmt = formatar_cpf(instrutor.get("cpf", ""))
@@ -79,7 +60,7 @@ def gerar_certificado_empresa_pdf(
     formacao_resp = (turma.get("formacao_resp_tecnico") or "").strip()
     
     assinatura_resp_url = turma.get("assinatura_resp_url", "")
-    assinatura_resp_tecnico = _resolver_imagem(assinatura_resp_url)
+    assinatura_resp_tecnico = resolver_imagem(assinatura_resp_url)
 
     total_colaboradores = len(alunos) if alunos else 0
 
@@ -119,7 +100,5 @@ def gerar_certificado_empresa_pdf(
         DIZERES_CERTIFICADO=dizeres
     )
 
-    pdf_bytes = HTML(string=html_renderizado).write_pdf(
-        stylesheets=[CSS(string="@page { size: A4 landscape; margin: 0; }")]
-    )
+    pdf_bytes = html_para_pdf(html_renderizado, landscape=True)
     return pdf_bytes
