@@ -1,31 +1,83 @@
 import streamlit as str_lit
 import pandas as pd
 import plotly.express as px
+from datetime import date, timedelta
+
 from src.config.database import supabase
 
-# Configuração da página
 str_lit.title("📊 Painel Geral (Dashboard)")
-str_lit.markdown("Acompanhe os principais indicadores do seu Centro de Treinamento em tempo real.")
+str_lit.markdown(
+    "Acompanhe os principais indicadores do seu Centro de Treinamento em tempo real."
+)
 
-# ==========================================
-# 1. BUSCA DE DADOS (EXTRAÇÃO)
-# ==========================================
-@str_lit.cache_data(ttl=60)  # Cache de 60 segundos para deixar a Home super rápida
+
+def _count_exact(table: str, filters: list | None = None) -> int:
+    """Contagem real via PostgREST (não limitada a 1000 linhas)."""
+    try:
+        q = supabase.table(table).select("id", count="exact").limit(1)
+        if filters:
+            for col, op, val in filters:
+                if op == "eq":
+                    q = q.eq(col, val)
+                elif op == "neq":
+                    q = q.neq(col, val)
+        res = q.execute()
+        if res and res.count is not None:
+            return int(res.count)
+    except Exception:
+        pass
+    return 0
+
+
+def _fetch_all(table: str, select: str, page_size: int = 1000) -> list:
+    """Busca todas as linhas paginando (Supabase/PostgREST limita 1000 por request)."""
+    out: list = []
+    start = 0
+    while True:
+        try:
+            res = (
+                supabase.table(table)
+                .select(select)
+                .range(start, start + page_size - 1)
+                .execute()
+            )
+            batch = res.data if res and isinstance(res.data, list) else []
+        except Exception:
+            break
+        out.extend(batch)
+        if len(batch) < page_size:
+            break
+        start += page_size
+        # segurança: evita loop infinito em falhas estranhas
+        if start > 200_000:
+            break
+    return out
+
+
+@str_lit.cache_data(ttl=60)
 def carregar_dados_dashboard():
-    res_turmas = (
-        supabase.table("turmas")
-        .select("id, titulo, data_treinamento, documento_emitido, modalidade, cursos(name)")
-        .execute()
+    # KPIs com contagem exacta (sem teto de 1000)
+    total_alunos = _count_exact("alunos")
+    total_empresas = _count_exact("clients")
+    total_certificados = _count_exact("matriculas", [("doc_emitida", "eq", True)])
+    total_matriculas = _count_exact("matriculas")
+    turmas_pendentes = _count_exact("turmas", [("documento_emitido", "eq", False)])
+    total_turmas = _count_exact("turmas")
+
+    # Turmas para gráficos (paginado, passa de 1000)
+    turmas = _fetch_all(
+        "turmas",
+        "id, titulo, data_treinamento, documento_emitido, modalidade, cursos(name)",
     )
-    res_alunos = supabase.table("alunos").select("id").execute()
-    res_clientes = supabase.table("clients").select("id").execute()
-    res_matriculas = supabase.table("matriculas").select("id, doc_emitida").execute()
 
     return {
-        "turmas": res_turmas.data if res_turmas else [],
-        "alunos": res_alunos.data if res_alunos else [],
-        "clientes": res_clientes.data if res_clientes else [],
-        "matriculas": res_matriculas.data if res_matriculas else [],
+        "total_alunos": total_alunos,
+        "total_empresas": total_empresas,
+        "total_certificados": total_certificados,
+        "total_matriculas": total_matriculas,
+        "turmas_pendentes": turmas_pendentes,
+        "total_turmas": total_turmas,
+        "turmas": turmas,
     }
 
 
@@ -33,44 +85,52 @@ with str_lit.spinner("Carregando indicadores..."):
     dados = carregar_dados_dashboard()
 
 df_turmas = pd.DataFrame(dados["turmas"])
-df_matriculas = pd.DataFrame(dados["matriculas"])
 
-# ==========================================
-# 2. CÁLCULO DE KPIs (MÉTRICAS NO TOPO)
-# ==========================================
-total_alunos = len(dados["alunos"])
-total_empresas = len(dados["clientes"])
+total_alunos = dados["total_alunos"]
+total_empresas = dados["total_empresas"]
+total_certificados = dados["total_certificados"]
+turmas_pendentes = dados["turmas_pendentes"]
+total_turmas = dados["total_turmas"]
+total_matriculas = dados["total_matriculas"]
 
-total_certificados = 0
-if not df_matriculas.empty:
-    total_certificados = len(df_matriculas[df_matriculas["doc_emitida"] == True])
+taxa_emissao = (
+    round(100.0 * (total_turmas - turmas_pendentes) / total_turmas, 1)
+    if total_turmas
+    else 0.0
+)
 
-turmas_pendentes = 0
-if not df_turmas.empty:
-    turmas_pendentes = len(df_turmas[df_turmas["documento_emitido"] == False])
-
-# Renderização dos KPIs
+# KPIs principais
 col1, col2, col3, col4 = str_lit.columns(4)
 with col1:
-    str_lit.metric("👥 Total de Alunos", f"{total_alunos}")
+    str_lit.metric("👥 Total de Alunos", f"{total_alunos:,}".replace(",", "."))
 with col2:
-    str_lit.metric("🏢 Empresas Atendidas", f"{total_empresas}")
+    str_lit.metric("🏢 Empresas Atendidas", f"{total_empresas:,}".replace(",", "."))
 with col3:
-    str_lit.metric("🎓 Certificados Emitidos", f"{total_certificados}")
+    str_lit.metric(
+        "🎓 Certificados Emitidos",
+        f"{total_certificados:,}".replace(",", "."),
+        help="Matrículas com documento emitido (doc_emitida = true).",
+    )
 with col4:
     delta_cor = "inverse" if turmas_pendentes > 0 else "normal"
     str_lit.metric(
         "⚠️ Turmas Pendentes",
-        f"{turmas_pendentes}",
+        f"{turmas_pendentes:,}".replace(",", "."),
         delta=f"{turmas_pendentes} sem docs",
         delta_color=delta_cor,
     )
 
+# KPIs secundários
+c5, c6, c7 = str_lit.columns(3)
+with c5:
+    str_lit.metric("📚 Total de Turmas", f"{total_turmas:,}".replace(",", "."))
+with c6:
+    str_lit.metric("🧾 Total de Matrículas", f"{total_matriculas:,}".replace(",", "."))
+with c7:
+    str_lit.metric("✅ Taxa de emissão (turmas)", f"{taxa_emissao}%")
+
 str_lit.markdown("---")
 
-# ==========================================
-# 3. GRÁFICOS INTERATIVOS
-# ==========================================
 if df_turmas.empty:
     str_lit.info("Nenhuma turma cadastrada ainda para gerar os gráficos.")
 else:
@@ -85,6 +145,33 @@ else:
         {True: "Emitido", False: "Pendente"}
     )
 
+    # Resumo do período atual
+    hoje = date.today()
+    inicio_mes = hoje.replace(day=1)
+    em_7_dias = hoje + timedelta(days=7)
+    df_mes = df_turmas[
+        (df_turmas["data_treinamento"].dt.date >= inicio_mes)
+        & (df_turmas["data_treinamento"].dt.date <= hoje)
+    ]
+    df_proximas = df_turmas[
+        (df_turmas["data_treinamento"].dt.date >= hoje)
+        & (df_turmas["data_treinamento"].dt.date <= em_7_dias)
+    ]
+    pendentes_hoje = df_turmas[
+        (df_turmas["data_treinamento"].dt.date == hoje)
+        & (df_turmas["documento_emitido"] == False)
+    ]
+
+    r1, r2, r3 = str_lit.columns(3)
+    with r1:
+        str_lit.metric("📅 Turmas neste mês", len(df_mes))
+    with r2:
+        str_lit.metric("🔜 Turmas nos próximos 7 dias", len(df_proximas))
+    with r3:
+        str_lit.metric("⏰ Pendentes de hoje", len(pendentes_hoje))
+
+    str_lit.markdown("---")
+
     col_grafico1, col_grafico2 = str_lit.columns(2)
 
     with col_grafico1:
@@ -92,7 +179,7 @@ else:
             df_turmas.groupby("mes_ano").size().reset_index(name="Quantidade")
         )
         turmas_por_mes["data_sort"] = pd.to_datetime(
-            turmas_por_mes["mes_ano"], format="%m/%Y"
+            turmas_por_mes["mes_ano"], format="%m/%Y", errors="coerce"
         )
         turmas_por_mes = turmas_por_mes.sort_values("data_sort")
 
@@ -124,13 +211,12 @@ else:
 
     str_lit.markdown("---")
 
-    # ==========================================
-    # 4. GRÁFICO INFERIOR & TABELA DE ALERTAS
-    # ==========================================
     col_grafico3, col_tabela = str_lit.columns([1, 1])
 
     with col_grafico3:
-        modalidade_counts = df_turmas["modalidade"].value_counts().reset_index()
+        modalidade_counts = (
+            df_turmas["modalidade"].fillna("N/D").value_counts().reset_index()
+        )
         modalidade_counts.columns = ["Modalidade", "Quantidade"]
 
         fig_modalidade = px.bar(
@@ -164,7 +250,6 @@ else:
                 )
                 .sort_values("Data", ascending=False)
             )
-
             str_lit.dataframe(df_exibicao, hide_index=True, use_container_width=True)
         else:
             str_lit.success(
