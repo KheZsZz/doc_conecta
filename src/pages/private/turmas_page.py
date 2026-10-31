@@ -12,7 +12,7 @@ st.markdown(
 tab_listar, tab_buscar, tab_cadastrar, tab_lote = st.tabs(
     [
         "📋 Turmas Abertas",
-        "🔍 Buscar por documento",
+        "🔍 Buscar aluno",
         "➕ Abrir Nova Turma",
         "📤 Turmas em Lote",
     ]
