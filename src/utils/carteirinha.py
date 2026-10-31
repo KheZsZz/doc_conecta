@@ -224,5 +224,6 @@ def gerar_carteirinhas_pdf(
         ESCOLA_CREDENCIADA=escola_credenciada,
     )
 
-    pdf = html_para_pdf(html, landscape=True)
+    # Template é A4 portrait — landscape forçava reflow e deixava mais lento
+    pdf = html_para_pdf(html, landscape=False)
     return pdf, alunos_com_re
