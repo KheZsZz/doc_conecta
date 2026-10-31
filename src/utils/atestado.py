@@ -89,19 +89,36 @@ def gerar_atestado_pdf_de_arquivo(
     mostrar_coluna_unidade = False
 
     carga_turma = (turma.get("carga_horaria") or "").strip() or "8 Horas"
+    nivel_turma = (
+        (turma.get("nivel") or turma.get("nivel_turma") or "").strip() or "Formação"
+    )
 
+    # Template espera: aluno.nome, aluno.cpf, aluno.Treinamento, aluno.horas
     alunos_processados = []
     for a in alunos_lista:
+        nome = (a.get("nome") or a.get("name") or "").strip()
+        horas = a.get("horas") or a.get("carga_horaria") or carga_turma or "8 Horas"
+        treinamento = (
+            a.get("Treinamento")
+            or a.get("treinamento")
+            or a.get("nivel")
+            or nivel_turma
+        )
         alunos_processados.append(
             {
-                "name": a.get("name") or a.get("nome") or "",
+                "nome": nome,
+                "name": nome,
                 "cpf": a.get("cpf") or "",
                 "rg": a.get("rg") or "",
-                "data_nasc": formatar_data_br(a.get("data_nasc") or a.get("data_nascimento")),
+                "data_nasc": formatar_data_br(
+                    a.get("data_nasc") or a.get("data_nascimento")
+                ),
                 "data_matricula": formatar_data_br(
                     a.get("data_matricula") or a.get("data_treinamento")
                 ),
-                "carga_horaria": carga_turma,
+                "horas": horas,
+                "carga_horaria": horas,
+                "Treinamento": treinamento,
                 "unidade": a.get("unidade") or "",
             }
         )
