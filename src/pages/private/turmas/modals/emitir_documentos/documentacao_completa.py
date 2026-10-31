@@ -104,16 +104,42 @@ def gerar_documentacao_completa(
             use_container_width=True,
             key=f"dl_doc_completa_{tid}",
         )
-        st.caption("Você pode baixar quantas vezes quiser. Feche o modal quando terminar.")
-        return
+        st.caption("Baixe o arquivo quantas vezes precisar.")
 
-    if not st.button(
-        "🚀 Gerar documentação completa (ZIP)",
-        type="primary",
-        use_container_width=True,
-        key=f"btn_doc_completa_{tid}",
-    ):
-        return
+        col_re, col_limpar = st.columns(2)
+        with col_re:
+            reemitir = st.button(
+                "🔄 Reemitir documentação",
+                type="primary",
+                use_container_width=True,
+                key=f"btn_reemit_doc_completa_{tid}",
+                help="Gera novamente todos os documentos e atualiza o ZIP.",
+            )
+        with col_limpar:
+            limpar = st.button(
+                "🗑️ Limpar ZIP atual",
+                use_container_width=True,
+                key=f"btn_clear_doc_completa_{tid}",
+            )
+
+        if limpar:
+            st.session_state.pop(_ss_key(tid), None)
+            st.session_state.pop(_ss_meta_key(tid), None)
+            st.rerun()
+
+        if not reemitir:
+            return
+        # Reemitir: limpa cache e segue para gerar de novo
+        st.session_state.pop(_ss_key(tid), None)
+        st.session_state.pop(_ss_meta_key(tid), None)
+    else:
+        if not st.button(
+            "🚀 Gerar documentação completa (ZIP)",
+            type="primary",
+            use_container_width=True,
+            key=f"btn_doc_completa_{tid}",
+        ):
+            return
 
     try:
         with st.spinner("Gerando todos os documentos da turma... isso pode levar alguns segundos."):
@@ -210,9 +236,10 @@ def gerar_documentacao_completa(
                     erros.append(f"Certificados Individuais: {e}")
 
                 try:
-                    pdf_cart = gerar_carteirinhas_pdf(
+                    pdf_cart, _alunos_re = gerar_carteirinhas_pdf(
                         alunos=alunos_cert,
-                        curso_nome=curso_nome,
+                        curso=curso_data or None,
+                        turma=turma_data,
                         carga_horaria=carga,
                         data_conclusao=data_trein,
                         instrutor=instrutor_data,
@@ -220,6 +247,23 @@ def gerar_documentacao_completa(
                     )
                     zf.writestr(f"{base}/04_carteirinhas.pdf", pdf_cart)
                     gerados.append("Carteirinhas")
+                except TypeError:
+                    # compat assinatura antiga
+                    try:
+                        pdf_cart = gerar_carteirinhas_pdf(
+                            alunos=alunos_cert,
+                            curso_nome=curso_nome,
+                            carga_horaria=carga,
+                            data_conclusao=data_trein,
+                            instrutor=instrutor_data,
+                            ct=ct_data or None,
+                        )
+                        if isinstance(pdf_cart, tuple):
+                            pdf_cart = pdf_cart[0]
+                        zf.writestr(f"{base}/04_carteirinhas.pdf", pdf_cart)
+                        gerados.append("Carteirinhas")
+                    except Exception as e:
+                        erros.append(f"Carteirinhas: {e}")
                 except Exception as e:
                     erros.append(f"Carteirinhas: {e}")
 
@@ -280,9 +324,9 @@ def gerar_documentacao_completa(
                 file_name=f"documentacao_{base}.zip",
                 mime="application/zip",
                 use_container_width=True,
-                key=f"dl_doc_completa_{tid}",
+                key=f"dl_doc_completa_new_{tid}",
             )
-            st.caption("Baixe o arquivo antes de fechar o modal.")
+            st.caption("Baixe o arquivo. Se precisar, use **Reemitir documentação** ao reabrir.")
 
     except Exception as e:
         st.error(f"❌ Erro ao gerar documentação completa: {e}")
