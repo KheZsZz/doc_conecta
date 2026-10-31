@@ -129,7 +129,6 @@ def gerar_documentacao_completa(
 
         if not reemitir:
             return
-        # Reemitir: limpa cache e segue para gerar de novo
         st.session_state.pop(_ss_key(tid), None)
         st.session_state.pop(_ss_meta_key(tid), None)
     else:
@@ -247,23 +246,6 @@ def gerar_documentacao_completa(
                     )
                     zf.writestr(f"{base}/04_carteirinhas.pdf", pdf_cart)
                     gerados.append("Carteirinhas")
-                except TypeError:
-                    # compat assinatura antiga
-                    try:
-                        pdf_cart = gerar_carteirinhas_pdf(
-                            alunos=alunos_cert,
-                            curso_nome=curso_nome,
-                            carga_horaria=carga,
-                            data_conclusao=data_trein,
-                            instrutor=instrutor_data,
-                            ct=ct_data or None,
-                        )
-                        if isinstance(pdf_cart, tuple):
-                            pdf_cart = pdf_cart[0]
-                        zf.writestr(f"{base}/04_carteirinhas.pdf", pdf_cart)
-                        gerados.append("Carteirinhas")
-                    except Exception as e:
-                        erros.append(f"Carteirinhas: {e}")
                 except Exception as e:
                     erros.append(f"Carteirinhas: {e}")
 
