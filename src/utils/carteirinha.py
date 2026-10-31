@@ -10,6 +10,8 @@ from typing import Any
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML, CSS
 
+from src.utils.pdf_assets import get_template, html_para_pdf, resolver_imagem
+
 URL_LOGO_CONECTA = (
     "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/logo_conecta_dourado_sem_fundo.png"
 )
@@ -22,30 +24,6 @@ TEXTO_VERSO_BOMBEIRO = (
     "Corpo de Bombeiros da PMESP e que o aluno foi aprovado. Só é "
     "válido com apresentação de um documento de identidade."
 )
-
-
-def _imagem_para_data_uri(caminho: str) -> str:
-    ext = os.path.splitext(caminho)[1].lower().lstrip(".")
-    mime = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "gif": "gif", "webp": "webp"}.get(
-        ext, "png"
-    )
-    with open(caminho, "rb") as f:
-        b64 = base64.b64encode(f.read()).decode()
-    return f"data:image/{mime};base64,{b64}"
-
-
-def _resolver_imagem(caminho_ou_url: str | None) -> str:
-    if not caminho_ou_url:
-        return ""
-    s = str(caminho_ou_url).strip()
-    if s.startswith(("http://", "https://", "data:")):
-        return s
-    if os.path.exists(s):
-        try:
-            return _imagem_para_data_uri(s)
-        except Exception:
-            return ""
-    return ""
 
 
 def _fmt_data_br(val) -> str:
@@ -108,112 +86,82 @@ def _eh_reciclagem(nivel: str = "", curso_nome: str = "") -> bool:
 
 def _numero_cartao(
     aluno: dict,
-    indice: int,
-    base: int | None,
-    *,
+    idx: int,
+    numero_cartao_base: str = "",
     gerar_se_vazio: bool = True,
 ) -> str:
-    explicit = (
-        aluno.get("re")
-        or aluno.get("numero_cartao")
-        or aluno.get("cartao_n")
-        or aluno.get("cartao_numero")
-        or ""
-    )
-    explicit = str(explicit).strip()
-    if explicit and explicit.lower() not in ("nan", "none"):
-        return explicit
-
+    re_existente = (aluno.get("re") or "").strip()
+    if re_existente:
+        return re_existente
     if not gerar_se_vazio:
         return ""
-
-    if base is not None:
-        return str(base + indice)
-
-    cpf = "".join(ch for ch in str(aluno.get("cpf") or "") if ch.isdigit())
-    if len(cpf) >= 5:
-        return cpf[-5:]
-    return str(10000 + indice)
+    base = (numero_cartao_base or "").strip()
+    if base:
+        return f"{base}{idx:04d}"
+    return f"RE{idx:06d}"
 
 
 def gerar_carteirinhas_pdf(
+    *,
     alunos: list[dict],
-    curso_nome: str,
-    carga_horaria: str,
-    data_conclusao: str,
+    turma: dict | None = None,
+    curso: dict | None = None,
     instrutor: dict | None = None,
-    ct: dict | None = None,
-    validade: str | None = None,
-    caminho_fundo: str | None = None,
-    caminho_pasta_templates: str = "src/templates",
-    nome_template: str | None = None,
-    curso_sigla: str = "",
-    numero_cartao_base: int | None = None,
-    modelo: str | None = None,
     responsavel: dict | None = None,
-    nivel: str = "",
+    ct: dict | None = None,
+    data_conclusao: str = "",
+    carga_horaria: str = "",
+    caminho_fundo: str | None = None,
+    numero_cartao_base: str = "",
+    gerar_re: bool = True,
+    caminho_pasta_templates: str = "src/templates",
+    nome_template: str = "template_carteirinha.html",
 ) -> tuple[bytes, list[dict]]:
+    turma = turma or {}
+    curso = curso or {}
     instrutor = instrutor or {}
-    ct = ct or {}
     responsavel = responsavel or {}
+    ct = ct or {}
 
-    if modelo is None:
-        modelo = (
-            "bombeiro"
-            if _eh_curso_bombeiro(curso_nome, curso_sigla)
-            else "padrao"
-        )
-
-    if nome_template is None:
-        nome_template = (
-            "template_carteirinha_bombeiro.html"
-            if modelo == "bombeiro"
-            else "template_carteirinha.html"
-        )
+    curso_nome = curso.get("name") or turma.get("curso_nome") or ""
+    curso_sigla = curso.get("sigla") or turma.get("curso_sigla") or ""
+    nivel = turma.get("nivel") or ""
+    bombeiro = _eh_curso_bombeiro(curso_nome, curso_sigla)
 
     fundo = caminho_fundo or ct.get("fundo_carteirinha_url") or ""
-    imagem_fundo = _resolver_imagem(fundo)
-    logo_ct = _resolver_imagem(ct.get("logo_url"))
-    logo_conecta = _resolver_imagem(URL_LOGO_CONECTA)
+    imagem_fundo = resolver_imagem(fundo)
+    logo_ct = resolver_imagem(ct.get("logo_url"))
+    logo_conecta = resolver_imagem(URL_LOGO_CONECTA)
 
     assinatura_src = (
         responsavel.get("assinatura_url")
         or responsavel.get("assinatura")
         or instrutor.get("assinatura")
         or instrutor.get("assinatura_url")
+        or ""
     )
-    assinatura_img = _resolver_imagem(assinatura_src)
+    assinatura_img = resolver_imagem(assinatura_src)
 
-    nome_inst = instrutor.get("name") or instrutor.get("nome") or ""
+    data_br = _fmt_data_br(data_conclusao or turma.get("data_treinamento"))
+    val_br = _validade_padrao(data_conclusao or turma.get("data_treinamento") or "")
+
+    nome_inst = (instrutor.get("name") or instrutor.get("nome") or "").strip()
     cpf_inst = _fmt_cpf(instrutor.get("cpf") or "")
+    rt_nome = (responsavel.get("nome") or responsavel.get("name") or nome_inst).strip()
+    rt_cpf = _fmt_cpf(responsavel.get("cpf") or instrutor.get("cpf") or "")
+    rt_re = (responsavel.get("re") or instrutor.get("re") or "").strip()
 
-    rt_nome = (responsavel.get("nome") or "").strip()
-    rt_cpf = _fmt_cpf(responsavel.get("cpf") or "")
-    rt_re = (responsavel.get("re") or "").strip()
+    escola_credenciada = (ct.get("name") or ct.get("full_name") or "ETEPS Conecta").strip()
 
-    data_br = _fmt_data_br(data_conclusao)
-    val_br = validade or _validade_padrao(data_conclusao)
-
-    ct_nome = ct.get("full_name") or ct.get("name") or ""
-    ct_cnpj = (ct.get("cnpj") or "").strip()
-    escola_credenciada = "Escola credenciada"
-    if ct_nome:
-        escola_credenciada = f"Escola credenciada {ct_nome}"
-    if ct_cnpj:
-        escola_credenciada += f" CNPJ: {ct_cnpj}"
-
-    reciclagem = _eh_reciclagem(nivel, curso_nome)
-    gerar_re = modelo == "bombeiro" and not reciclagem
-
-    cards: list[dict[str, Any]] = []
+    cards: list[dict] = []
     alunos_com_re: list[dict] = []
 
-    for idx, a in enumerate(alunos):
+    for idx, a in enumerate(alunos or [], start=1):
         nome = (a.get("name") or a.get("nome") or "").strip().upper()
         if not nome:
             continue
 
-        if modelo == "bombeiro":
+        if bombeiro:
             re_val = _numero_cartao(
                 a, idx, numero_cartao_base, gerar_se_vazio=gerar_re
             )
@@ -265,8 +213,7 @@ def gerar_carteirinhas_pdf(
     for i in range(0, len(cards), 4):
         paginas.append(cards[i : i + 4])
 
-    env = Environment(loader=FileSystemLoader(caminho_pasta_templates))
-    template = env.get_template(nome_template)
+    template = get_template(caminho_pasta_templates, nome_template)
     html = template.render(
         paginas=paginas,
         IMAGEM_FUNDO=imagem_fundo,
@@ -277,7 +224,5 @@ def gerar_carteirinhas_pdf(
         ESCOLA_CREDENCIADA=escola_credenciada,
     )
 
-    pdf = HTML(string=html).write_pdf(
-        stylesheets=[CSS(string="@page { size: A4 portrait; margin: 6mm; }")]
-    )
+    pdf = html_para_pdf(html, landscape=True)
     return pdf, alunos_com_re
