@@ -1,6 +1,7 @@
 import os
 import base64
 import re
+import unicodedata
 from datetime import datetime
 
 from jinja2 import Environment, FileSystemLoader
@@ -75,13 +76,18 @@ def _nome_ct_rodape(ct: dict | None) -> str:
     """Razão Social do cadastro do CT (campo full_name)."""
     if not ct:
         return ""
-    # Ordem: exatamente o campo do formulário "Razão Social (Nome Completo)"
     for key in ("full_name", "razao_social", "razao", "legal_name"):
         val = (ct.get(key) or "").strip()
         if val:
             return val
-    # fallback último recurso
     return (ct.get("name") or "").strip()
+
+
+def _chave_ordenacao_nome(nome: str) -> str:
+    """Normaliza nome para ordenação alfabética (sem acento, maiúsculas)."""
+    s = (nome or "").strip().casefold()
+    s = unicodedata.normalize("NFKD", s)
+    return "".join(ch for ch in s if not unicodedata.combining(ch))
 
 
 def gerar_atestado_pdf_de_arquivo(
@@ -155,6 +161,9 @@ def gerar_atestado_pdf_de_arquivo(
                 "unidade": a.get("unidade") or "",
             }
         )
+
+    # Sempre ordem alfabética pelo nome do aluno
+    alunos_processados.sort(key=lambda x: _chave_ordenacao_nome(x.get("nome") or ""))
 
     if ct:
         ct_nome = _nome_ct_rodape(ct)
