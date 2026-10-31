@@ -291,9 +291,10 @@ def gerar_pacote_grupo(
 
             if incluir_carteirinhas:
                 try:
-                    pdf = gerar_carteirinhas_pdf(
+                    pdf, _alunos_re = gerar_carteirinhas_pdf(
                         alunos=alunos_cert,
-                        curso_nome=curso_nome,
+                        curso=curso or None,
+                        turma=turma,
                         carga_horaria=carga,
                         data_conclusao=data_t,
                         instrutor=instrutor,
