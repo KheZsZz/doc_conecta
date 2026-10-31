@@ -99,7 +99,7 @@ def gerar_carteirinhas(
     )
 
     dados_resp = {}
-    numero_cartao_base = None
+    numero_cartao_base = ""
 
     if modelo == "bombeiro":
         st.caption(
@@ -128,7 +128,7 @@ def gerar_carteirinhas(
                 key=f"num_cart_base_{tid}",
             )
             numero_cartao_base = (
-                int(numero_base) if numero_base and numero_base > 0 else None
+                str(int(numero_base)) if numero_base and numero_base > 0 else ""
             )
     else:
         st.caption(
@@ -201,18 +201,27 @@ def gerar_carteirinhas(
                     st.caption(f"Exemplos: {nomes}")
                     return
 
+            # Assinatura atual: alunos, turma, curso, instrutor, responsavel, ct...
+            turma_ctx = dict(turma_data or {})
+            turma_ctx.setdefault("nivel", nivel)
+            turma_ctx.setdefault("curso_nome", curso_nome)
+            turma_ctx.setdefault("curso_sigla", curso_sigla)
+
+            curso_ctx = dict(curso_data or {})
+            curso_ctx.setdefault("name", curso_nome)
+            curso_ctx.setdefault("sigla", curso_sigla)
+
             pdf_bytes, alunos_com_re = gerar_carteirinhas_pdf(
                 alunos=alunos,
-                curso_nome=curso_nome,
+                turma=turma_ctx,
+                curso=curso_ctx,
                 carga_horaria=carga,
                 data_conclusao=str(data_trein),
                 instrutor=instrutor_data,
                 ct=ct_data or None,
-                curso_sigla=curso_sigla,
-                modelo=modelo,
-                numero_cartao_base=numero_cartao_base,
-                responsavel=dados_resp,
-                nivel=nivel,
+                responsavel=dados_resp or None,
+                numero_cartao_base=numero_cartao_base or "",
+                gerar_re=(modelo == "bombeiro" and not reciclagem),
             )
 
             re_gravados = 0
