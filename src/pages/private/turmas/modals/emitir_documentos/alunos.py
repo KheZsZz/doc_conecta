@@ -1,3 +1,6 @@
+import unicodedata
+
+
 def _v(val):
     """Normaliza vazio/None para string limpa."""
     if val is None:
@@ -6,6 +9,13 @@ def _v(val):
     if not s or s.lower() in ("nan", "none", "nat"):
         return ""
     return s
+
+
+def _chave_ordenacao_nome(nome: str) -> str:
+    """Chave estável para ordem alfabética (sem acento, casefold)."""
+    s = (nome or "").strip().casefold()
+    s = unicodedata.normalize("NFKD", s)
+    return "".join(ch for ch in s if not unicodedata.combining(ch))
 
 
 def _unidade_da_matricula(m: dict, unidade_padrao: str = "") -> str:
@@ -47,6 +57,7 @@ def alunos_para_atestado(
 
     Carga horária SEMPRE da turma (carga_padrao).
     Chaves alinhadas ao template: nome, Treinamento, horas (+ aliases).
+    Lista SEMPRE em ordem alfabética pelo nome (lista inteira, antes de paginar).
     Usado por: documentação completa, atestado individual, pacote período,
     imprimir documentação.
     """
@@ -78,6 +89,9 @@ def alunos_para_atestado(
                 "re": _v(info.get("re")),
             }
         )
+
+    # Ordem alfabética da lista COMPLETA (não por página)
+    alunos.sort(key=lambda a: _chave_ordenacao_nome(a.get("nome") or a.get("name") or ""))
     return alunos
 
 
@@ -107,7 +121,7 @@ def alunos_para_certificado(
 
 
 def alunos_para_lista_presenca(matriculas: list) -> list[dict]:
-    return [
+    rows = [
         {
             "Nome": _v(_info_aluno(m).get("name")) or _v(_info_aluno(m).get("nome")),
             "RG": _v(_info_aluno(m).get("rg")),
@@ -117,3 +131,5 @@ def alunos_para_lista_presenca(matriculas: list) -> list[dict]:
         }
         for m in (matriculas or [])
     ]
+    rows.sort(key=lambda r: _chave_ordenacao_nome(r.get("Nome") or ""))
+    return rows
