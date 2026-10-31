@@ -7,7 +7,6 @@ from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML, CSS
 
-from src.config.database import supabase
 from src.utils.pdf_assets import get_template, html_para_pdf, resolver_imagem
 
 # Logo Conecta (rodapé do atestado) — sem fundo
@@ -56,22 +55,6 @@ def formatar_cpf_instrutor(instrutor: dict | None) -> str:
     return f"{digitos[:3]}.{digitos[3:6]}.{digitos[6:9]}-{digitos[9:]}"
 
 
-def _recarregar_ct(ct: dict | None) -> dict:
-    """Garante dados frescos do CT (full_name / razão social) a partir do id."""
-    if not ct:
-        return {}
-    ct_id = ct.get("id")
-    if not ct_id:
-        return dict(ct)
-    try:
-        res = supabase.table("cts").select("*").eq("id", ct_id).limit(1).execute()
-        if res and res.data:
-            return res.data[0]
-    except Exception:
-        pass
-    return dict(ct)
-
-
 def _nome_ct_rodape(ct: dict | None) -> str:
     """Razão Social do cadastro do CT (campo full_name)."""
     if not ct:
@@ -108,9 +91,7 @@ def gerar_atestado_pdf_de_arquivo(
     empresa = empresa or {}
     instrutor = instrutor or {}
     curso = curso or {}
-
-    # Recarrega CT do banco para não perder full_name
-    ct = _recarregar_ct(ct)
+    ct = ct or {}
 
     template = get_template(caminho_pasta_templates, "template_atestado_corrigido.html")
 
@@ -162,7 +143,7 @@ def gerar_atestado_pdf_de_arquivo(
             }
         )
 
-    # Sempre ordem alfabética pelo nome do aluno
+    # Sempre ordem alfabética pelo nome do aluno (lista inteira)
     alunos_processados.sort(key=lambda x: _chave_ordenacao_nome(x.get("nome") or ""))
 
     if ct:
