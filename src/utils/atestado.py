@@ -6,6 +6,8 @@ from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML, CSS
 
+from src.utils.pdf_assets import get_template, html_para_pdf, resolver_imagem
+
 # Logo Conecta (rodapé do atestado) — sem fundo
 _LOGO_CONECTA = (
     "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/"
@@ -52,30 +54,6 @@ def formatar_cpf_instrutor(instrutor: dict | None) -> str:
     return f"{digitos[:3]}.{digitos[3:6]}.{digitos[6:9]}-{digitos[9:]}"
 
 
-def _imagem_para_data_uri(caminho: str) -> str:
-    ext = os.path.splitext(caminho)[1].lower().lstrip(".")
-    mime = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "gif": "gif", "webp": "webp"}.get(
-        ext, "png"
-    )
-    with open(caminho, "rb") as f:
-        b64 = base64.b64encode(f.read()).decode()
-    return f"data:image/{mime};base64,{b64}"
-
-
-def _resolver_imagem(caminho_ou_url: str) -> str:
-    if not caminho_ou_url:
-        return ""
-    caminho_ou_url = str(caminho_ou_url).strip()
-    if caminho_ou_url.startswith(("http://", "https://", "data:")):
-        return caminho_ou_url
-    if os.path.exists(caminho_ou_url):
-        try:
-            return _imagem_para_data_uri(caminho_ou_url)
-        except Exception:
-            return ""
-    return ""
-
-
 def gerar_atestado_pdf_de_arquivo(
     *,
     alunos: list | None = None,
@@ -95,8 +73,7 @@ def gerar_atestado_pdf_de_arquivo(
     instrutor = instrutor or {}
     curso = curso or {}
 
-    env = Environment(loader=FileSystemLoader(caminho_pasta_templates))
-    template = env.get_template("template_atestado_corrigido.html")
+    template = get_template(caminho_pasta_templates, "template_atestado_corrigido.html")
 
     mostrar_coluna_rg = any(_tem_valor(a.get("rg")) for a in alunos_lista)
     mostrar_coluna_nasc = any(_tem_valor(a.get("data_nasc")) for a in alunos_lista)
@@ -104,59 +81,35 @@ def gerar_atestado_pdf_de_arquivo(
     datas_unicas = {
         formatar_data_br(a.get("data_matricula") or a.get("data_treinamento"))
         for a in alunos_lista
-        if _tem_valor(a.get("data_matricula") or a.get("data_treinamento"))
     }
     datas_unicas.discard("")
     mostrar_coluna_data = len(datas_unicas) > 1
 
-    # Coluna UNIDADE desativada temporariamente
-    # mostrar_coluna_unidade = any(_tem_valor(a.get("unidade")) for a in alunos_lista)
+    # Unidade desativada por enquanto
     mostrar_coluna_unidade = False
 
-    nivel_padrao = turma.get("nivel") or turma.get("nivel_turma") or "Basico"
-    # Carga SEMPRE da turma
-    carga_turma = (
-        (turma.get("carga_horaria") or "").strip()
-        or "8 Horas"
-    )
-    # unidade_empresa = (
-    #     (empresa.get("sigla") or "").strip()
-    #     or (empresa.get("unit") or "").strip()
-    #     or ""
-    # )
-    unidade_empresa = ""
+    carga_turma = (turma.get("carga_horaria") or "").strip() or "8 Horas"
 
     alunos_processados = []
-    for aluno in alunos_lista:
-        data_raw = aluno.get("data_matricula") or aluno.get("data_treinamento") or ""
-        data_formatada = formatar_data_br(data_raw)
-        # UNIDADE desativada
-        # unidade = (aluno.get("unidade") or "").strip() or unidade_empresa
-        unidade = ""
+    for a in alunos_lista:
+        alunos_processados.append(
+            {
+                "name": a.get("name") or a.get("nome") or "",
+                "cpf": a.get("cpf") or "",
+                "rg": a.get("rg") or "",
+                "data_nasc": formatar_data_br(a.get("data_nasc") or a.get("data_nascimento")),
+                "data_matricula": formatar_data_br(
+                    a.get("data_matricula") or a.get("data_treinamento")
+                ),
+                "carga_horaria": carga_turma,
+                "unidade": a.get("unidade") or "",
+            }
+        )
 
-        item = {
-            "nome": aluno.get("nome") or aluno.get("name") or "Sem Nome",
-            "rg": str(aluno.get("rg") or "").strip(),
-            "cpf": str(aluno.get("cpf") or "").strip(),
-            "data_nasc": formatar_data_br(aluno.get("data_nasc", "")),
-            "unidade": unidade,
-            "Treinamento": aluno.get("Treinamento") or nivel_padrao,
-            "horas": carga_turma,  # sempre da turma
-            "data_matricula": data_formatada,
-            "data_treinamento": data_formatada,
-            "data": data_formatada,
-        }
-        alunos_processados.append(item)
-
-    # if not mostrar_coluna_unidade:
-    #     mostrar_coluna_unidade = any(
-    #         _tem_valor(a.get("unidade")) for a in alunos_processados
-    #     )
-
-    if ct and isinstance(ct, dict):
-        ct_nome = ct.get("full_name") or ct.get("name") or ""
+    if ct:
+        ct_nome = ct.get("name") or ct.get("full_name") or ""
         ct_cnpj = ct.get("cnpj") or ""
-        ct_endereco = ct.get("full_address") or ""
+        ct_endereco = ct.get("full_address") or ct.get("endereco") or ""
         ct_telefone = ct.get("phone") or ""
         ct_logo = ct.get("logo_url") or ""
     else:
@@ -166,14 +119,14 @@ def gerar_atestado_pdf_de_arquivo(
         ct_telefone = empresa.get("phone") or ""
         ct_logo = ""
 
-    ct_logo_resolvida = _resolver_imagem(ct_logo)
+    ct_logo_resolvida = resolver_imagem(ct_logo)
     assinatura_src = (
         instrutor.get("assinatura")
         or instrutor.get("assinatura_url")
         or instrutor.get("signature_url")
         or ""
     )
-    assinatura_resolvida = _resolver_imagem(assinatura_src)
+    assinatura_resolvida = resolver_imagem(assinatura_src)
 
     TAMANHO_PAGINA = 20
     if not alunos_processados:
@@ -200,7 +153,7 @@ def gerar_atestado_pdf_de_arquivo(
 
     html_renderizado = template.render(
         LOGO_CT=ct_logo_resolvida,
-        LOGO_CONECTA=_LOGO_CONECTA,
+        LOGO_CONECTA=resolver_imagem(_LOGO_CONECTA) or _LOGO_CONECTA,
         EMPRESA=empresa.get("name") or "",
         ENDERECO=empresa.get("full_address") or "",
         CNPJ=empresa.get("cnpj") or "",
@@ -226,7 +179,5 @@ def gerar_atestado_pdf_de_arquivo(
         paginas=paginas_alunos,
     )
 
-    pdf_bytes = HTML(string=html_renderizado).write_pdf(
-        stylesheets=[CSS(string="@page { size: A4 portrait; margin: 10mm 10mm 5mm 10mm; }")]
-    )
+    pdf_bytes = html_para_pdf(html_renderizado, landscape=False)
     return pdf_bytes
