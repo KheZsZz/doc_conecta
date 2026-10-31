@@ -7,76 +7,101 @@ import streamlit as st
 from src.config.database import supabase
 
 # ---------------------------------------------------------------------------
-# Estilo
+# Tema (claro / escuro)
 # ---------------------------------------------------------------------------
+def _tema_escuro() -> bool:
+    try:
+        return getattr(st.context, "theme", None) is not None and (
+            getattr(st.context.theme, "type", "light") == "dark"
+        )
+    except Exception:
+        return False
+
+
+_DARK = _tema_escuro()
+_TEXT = "#e8eef5" if _DARK else "#0b1f3a"
+_MUTED = "#9aabbc" if _DARK else "#5b6b7c"
+_HINT = "#8a9baa" if _DARK else "#7a8a9a"
+_CARD_BG = "rgba(255,255,255,0.04)" if _DARK else "#ffffff"
+_CARD_BORDER = "rgba(255,255,255,0.10)" if _DARK else "#e8eef5"
+_SECTION_BORDER = "rgba(255,255,255,0.12)" if _DARK else "#e8eef5"
+_ACCENT = "#5ba3e0" if _DARK else "#1a5f9e"
+_OK = "#3dd68c" if _DARK else "#1e7e34"
+_WARN = "#ff6b6b" if _DARK else "#c0392b"
+_PLOT_FONT = "#cfd8e3" if _DARK else "#334455"
+_PLOT_TITLE = "#e8eef5" if _DARK else "#0b1f3a"
+_BAR = "#5ba3e0" if _DARK else "#1a5f9e"
+_BAR2 = "#7eb6e8" if _DARK else "#3d7ab5"
+
 st.markdown(
-    """
+    f"""
 <style>
-  .dash-hero {
+  .dash-hero {{
     background: linear-gradient(135deg, #0b1f3a 0%, #123a6b 55%, #1a5f9e 100%);
     border-radius: 16px;
     padding: 1.4rem 1.6rem 1.2rem 1.6rem;
     margin-bottom: 1.25rem;
     color: #fff;
-    box-shadow: 0 8px 24px rgba(11, 31, 58, 0.25);
-  }
-  .dash-hero h1 {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  }}
+  .dash-hero h1 {{
     margin: 0 0 0.25rem 0;
     font-size: 1.55rem;
     font-weight: 700;
     letter-spacing: -0.02em;
     color: #fff !important;
-  }
-  .dash-hero p {
+  }}
+  .dash-hero p {{
     margin: 0;
     opacity: 0.85;
     font-size: 0.95rem;
-  }
-  .kpi-card {
-    background: #ffffff;
-    border: 1px solid #e8eef5;
+    color: #fff !important;
+  }}
+  .kpi-card {{
+    background: {_CARD_BG};
+    border: 1px solid {_CARD_BORDER};
     border-radius: 14px;
     padding: 1rem 1.1rem 0.85rem 1.1rem;
-    box-shadow: 0 2px 10px rgba(15, 40, 80, 0.06);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
     height: 100%;
     min-height: 104px;
-  }
-  .kpi-label {
+  }}
+  .kpi-label {{
     font-size: 0.78rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: #5b6b7c;
+    color: {_MUTED};
     margin-bottom: 0.35rem;
-  }
-  .kpi-value {
+  }}
+  .kpi-value {{
     font-size: 1.75rem;
     font-weight: 700;
-    color: #0b1f3a;
+    color: {_TEXT};
     line-height: 1.15;
-  }
-  .kpi-hint {
+  }}
+  .kpi-hint {{
     font-size: 0.78rem;
-    color: #7a8a9a;
+    color: {_HINT};
     margin-top: 0.3rem;
-  }
-  .kpi-card.warn .kpi-value { color: #c0392b; }
-  .kpi-card.ok .kpi-value { color: #1e7e34; }
-  .kpi-card.accent .kpi-value { color: #1a5f9e; }
-  .section-title {
+  }}
+  .kpi-card.warn .kpi-value {{ color: {_WARN}; }}
+  .kpi-card.ok .kpi-value {{ color: {_OK}; }}
+  .kpi-card.accent .kpi-value {{ color: {_ACCENT}; }}
+  .section-title {{
     font-size: 1.05rem;
     font-weight: 700;
-    color: #0b1f3a;
+    color: {_TEXT};
     margin: 0.4rem 0 0.85rem 0;
     padding-bottom: 0.35rem;
-    border-bottom: 2px solid #e8eef5;
-  }
-  div[data-testid="stMetric"] {
-    background: #fff;
-    border: 1px solid #e8eef5;
+    border-bottom: 2px solid {_SECTION_BORDER};
+  }}
+  div[data-testid="stMetric"] {{
+    background: {_CARD_BG};
+    border: 1px solid {_CARD_BORDER};
     border-radius: 12px;
     padding: 0.75rem 0.9rem;
-  }
+  }}
 </style>
 """,
     unsafe_allow_html=True,
@@ -154,10 +179,13 @@ def _apply_layout(fig, title: str):
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Segoe UI, sans-serif", color="#334455", size=12),
+        font=dict(family="Segoe UI, sans-serif", color=_PLOT_FONT, size=12),
         margin=dict(l=40, r=20, t=48, b=40),
-        title=dict(text=title, font=dict(size=14, color="#0b1f3a")),
+        title=dict(text=title, font=dict(size=14, color=_PLOT_TITLE)),
+        legend=dict(font=dict(color=_PLOT_FONT)),
     )
+    fig.update_xaxes(gridcolor="rgba(128,128,128,0.2)", zerolinecolor="rgba(128,128,128,0.2)")
+    fig.update_yaxes(gridcolor="rgba(128,128,128,0.2)", zerolinecolor="rgba(128,128,128,0.2)")
     return fig
 
 
@@ -287,7 +315,7 @@ with col_g1:
         x="mes_ano",
         y="Quantidade",
         text_auto=True,
-        color_discrete_sequence=["#1a5f9e"],
+        color_discrete_sequence=[_BAR],
     )
     _apply_layout(fig_mes, "Turmas por mês")
     fig_mes.update_layout(xaxis_title=None, yaxis_title="Quantidade", showlegend=False)
@@ -304,7 +332,7 @@ with col_g2:
         names="Status",
         hole=0.55,
         color="Status",
-        color_discrete_map={"Emitido": "#2e8b57", "Pendente": "#c0392b"},
+        color_discrete_map={"Emitido": _OK, "Pendente": _WARN},
     )
     _apply_layout(fig_donut, "Status de documentação")
     fig_donut.update_layout(
@@ -328,7 +356,7 @@ with col_g3:
         x="Quantidade",
         orientation="h",
         text_auto=True,
-        color_discrete_sequence=["#3d7ab5"],
+        color_discrete_sequence=[_BAR2],
     )
     _apply_layout(fig_mod, "Distribuição por modalidade")
     fig_mod.update_layout(
