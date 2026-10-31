@@ -1,6 +1,7 @@
 import io
 import re
 import zipfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import defaultdict
 from datetime import date, datetime
 
@@ -265,40 +266,56 @@ if st.button(
         with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
             usados: dict[str, int] = {}
 
-            for L in linhas:
+            def _job_aluno(L):
                 emp = empresas_cache[L["cnpj"]]
                 cur = cursos_cache[L["sigla"]]
-                try:
-                    pdf = gerar_certificado_ead_pdf(
-                        aluno={
-                            "name": L["nome"],
-                            "cpf": L.get("cpf") or "",
-                            "matricula": L.get("matricula") or "",
-                            "email": L.get("email"),
-                        },
-                        empresa=emp,
-                        curso=cur,
-                        assinante=assinante,
-                        data_inicio=L["data_inicio"],
-                        data_termino=L["data_fim"],
-                        carga_horaria=L.get("carga") or "",
-                        modalidade="EAD",
-                        nivel=L.get("nivel") or "Formação",
-                        ct=ct,
-                        data_documento=data_documento,
-                    )
-                    fname = nome_arquivo_certificado(L["nome"], L["sigla"])
-                    path = f"certificados_alunos/{fname}"
-                    if path in usados:
-                        usados[path] += 1
-                        base, ext = fname.rsplit(".", 1)
-                        path = f"certificados_alunos/{base}_{usados[path]}.{ext}"
-                    else:
-                        usados[path] = 1
-                    zf.writestr(path, pdf)
-                    ok_alunos += 1
-                except Exception as e:
-                    falhas.append(f"Aluno {L['nome']} / {L['sigla']}: {e}")
+                pdf = gerar_certificado_ead_pdf(
+                    aluno={
+                        "name": L["nome"],
+                        "cpf": L.get("cpf") or "",
+                        "matricula": L.get("matricula") or "",
+                        "email": L.get("email"),
+                    },
+                    empresa=emp,
+                    curso=cur,
+                    assinante=assinante,
+                    data_inicio=L["data_inicio"],
+                    data_termino=L["data_fim"],
+                    carga_horaria=L.get("carga") or "",
+                    modalidade="EAD",
+                    nivel=L.get("nivel") or "Formação",
+                    ct=ct,
+                    data_documento=data_documento,
+                )
+                fname = nome_arquivo_certificado(L["nome"], L["sigla"])
+                return L, fname, pdf
+
+            resultados_alunos = []
+            if len(linhas) >= 4:
+                with ThreadPoolExecutor(max_workers=3) as ex:
+                    futs = [ex.submit(_job_aluno, L) for L in linhas]
+                    for fut in as_completed(futs):
+                        try:
+                            resultados_alunos.append(fut.result())
+                        except Exception as e:
+                            falhas.append(f"Aluno: {e}")
+            else:
+                for L in linhas:
+                    try:
+                        resultados_alunos.append(_job_aluno(L))
+                    except Exception as e:
+                        falhas.append(f"Aluno {L['nome']} / {L['sigla']}: {e}")
+
+            for L, fname, pdf in resultados_alunos:
+                path = f"certificados_alunos/{fname}"
+                if path in usados:
+                    usados[path] += 1
+                    base, ext = fname.rsplit(".", 1)
+                    path = f"certificados_alunos/{base}_{usados[path]}.{ext}"
+                else:
+                    usados[path] = 1
+                zf.writestr(path, pdf)
+                ok_alunos += 1
 
             for (cnpj, sigla, nivel_g), grupo in grupos.items():
                 emp = empresas_cache.get(cnpj)
