@@ -10,6 +10,12 @@ from typing import Any
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML, CSS
 
+from src.utils.pdf_assets import (
+    get_template,
+    html_para_pdf,
+    resolver_imagem,
+)
+
 from src.pages.private.turmas.helpers import extrair_cidade_do_endereco
 
 _FUNDO_CONECTA = (
@@ -31,30 +37,6 @@ MESES_PT = {
     11: "Novembro",
     12: "Dezembro",
 }
-
-
-def _imagem_para_data_uri(caminho: str) -> str:
-    ext = os.path.splitext(caminho)[1].lower().lstrip(".")
-    mime = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "gif": "gif", "webp": "webp"}.get(
-        ext, "png"
-    )
-    with open(caminho, "rb") as f:
-        b64 = base64.b64encode(f.read()).decode()
-    return f"data:image/{mime};base64,{b64}"
-
-
-def _resolver_imagem(caminho_ou_url: str | None) -> str:
-    if not caminho_ou_url:
-        return ""
-    s = str(caminho_ou_url).strip()
-    if s.startswith(("http://", "https://", "data:")):
-        return s
-    if os.path.exists(s):
-        try:
-            return _imagem_para_data_uri(s)
-        except Exception:
-            return ""
-    return ""
 
 
 def _fmt_data_br(val) -> str:
@@ -185,8 +167,8 @@ def gerar_certificado_ead_pdf(
         or ct.get("fundo_certificado_url")
         or _FUNDO_CONECTA
     )
-    imagem_fundo = _resolver_imagem(fundo) or _FUNDO_CONECTA
-    logo_ct = _resolver_imagem(ct.get("logo_url"))
+    imagem_fundo = resolver_imagem(fundo) or resolver_imagem(_FUNDO_CONECTA) or _FUNDO_CONECTA
+    logo_ct = resolver_imagem(ct.get("logo_url"))
 
     nome_aluno = (aluno.get("name") or aluno.get("nome") or "").strip().upper()
     cpf_aluno = _fmt_cpf(aluno.get("cpf") or "")
@@ -194,12 +176,10 @@ def gerar_certificado_ead_pdf(
     matricula_aluno = str(aluno.get("matricula") or "").strip()
     if matricula_aluno.lower() in ("nan", "none", ""):
         matricula_aluno = ""
-    # CPF curto vindo da planilha também conta como matrícula
     cpf_digitos = re.sub(r"\D", "", str(aluno.get("cpf") or ""))
     if not matricula_aluno and cpf_digitos and len(cpf_digitos) != 11:
         matricula_aluno = str(aluno.get("cpf") or cpf_digitos).strip()
 
-    # Prioridade: matrícula (Itaú etc.) > RG/CPF
     if matricula_aluno:
         rg_cpf = ""
         label_doc_aluno = "Matrícula"
@@ -235,7 +215,7 @@ def gerar_certificado_ead_pdf(
         ct,
     )
 
-    ass_img = _resolver_imagem(
+    ass_img = resolver_imagem(
         assinante.get("assinatura")
         or assinante.get("assinatura_url")
         or ""
@@ -252,8 +232,7 @@ def gerar_certificado_ead_pdf(
     if carga:
         titulo_conteudo = f"{titulo_conteudo} – {carga}"
 
-    env = Environment(loader=FileSystemLoader(caminho_pasta_templates))
-    template = env.get_template(nome_template)
+    template = get_template(caminho_pasta_templates, nome_template)
 
     html = template.render(
         IMAGEM_FUNDO=imagem_fundo,
@@ -283,6 +262,4 @@ def gerar_certificado_ead_pdf(
         CURSO_TITULO_CONTEUDO=titulo_conteudo,
     )
 
-    return HTML(string=html).write_pdf(
-        stylesheets=[CSS(string="@page { size: A4 landscape; margin: 0; }")]
-    )  # type: ignore
+    return html_para_pdf(html, landscape=True)
