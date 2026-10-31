@@ -6,6 +6,7 @@ from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML, CSS
 
+from src.config.database import supabase
 from src.utils.pdf_assets import get_template, html_para_pdf, resolver_imagem
 
 # Logo Conecta (rodapé do atestado) — sem fundo
@@ -54,15 +55,33 @@ def formatar_cpf_instrutor(instrutor: dict | None) -> str:
     return f"{digitos[:3]}.{digitos[3:6]}.{digitos[6:9]}-{digitos[9:]}"
 
 
+def _recarregar_ct(ct: dict | None) -> dict:
+    """Garante dados frescos do CT (full_name / razão social) a partir do id."""
+    if not ct:
+        return {}
+    ct_id = ct.get("id")
+    if not ct_id:
+        return dict(ct)
+    try:
+        res = supabase.table("cts").select("*").eq("id", ct_id).limit(1).execute()
+        if res and res.data:
+            return res.data[0]
+    except Exception:
+        pass
+    return dict(ct)
+
+
 def _nome_ct_rodape(ct: dict | None) -> str:
-    """Razão social do CT no rodapé (full_name); fallback para nome fantasia."""
+    """Razão Social do cadastro do CT (campo full_name)."""
     if not ct:
         return ""
-    return (
-        (ct.get("full_name") or "").strip()
-        or (ct.get("razao_social") or "").strip()
-        or (ct.get("name") or "").strip()
-    )
+    # Ordem: exatamente o campo do formulário "Razão Social (Nome Completo)"
+    for key in ("full_name", "razao_social", "razao", "legal_name"):
+        val = (ct.get(key) or "").strip()
+        if val:
+            return val
+    # fallback último recurso
+    return (ct.get("name") or "").strip()
 
 
 def gerar_atestado_pdf_de_arquivo(
@@ -83,6 +102,9 @@ def gerar_atestado_pdf_de_arquivo(
     empresa = empresa or {}
     instrutor = instrutor or {}
     curso = curso or {}
+
+    # Recarrega CT do banco para não perder full_name
+    ct = _recarregar_ct(ct)
 
     template = get_template(caminho_pasta_templates, "template_atestado_corrigido.html")
 
@@ -135,7 +157,6 @@ def gerar_atestado_pdf_de_arquivo(
         )
 
     if ct:
-        # Rodapé: razão social (full_name), não o nome fantasia
         ct_nome = _nome_ct_rodape(ct)
         ct_cnpj = ct.get("cnpj") or ""
         ct_endereco = ct.get("full_address") or ct.get("endereco") or ""
