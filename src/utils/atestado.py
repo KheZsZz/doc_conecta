@@ -54,6 +54,17 @@ def formatar_cpf_instrutor(instrutor: dict | None) -> str:
     return f"{digitos[:3]}.{digitos[3:6]}.{digitos[6:9]}-{digitos[9:]}"
 
 
+def _nome_ct_rodape(ct: dict | None) -> str:
+    """Razão social do CT no rodapé (full_name); fallback para nome fantasia."""
+    if not ct:
+        return ""
+    return (
+        (ct.get("full_name") or "").strip()
+        or (ct.get("razao_social") or "").strip()
+        or (ct.get("name") or "").strip()
+    )
+
+
 def gerar_atestado_pdf_de_arquivo(
     *,
     alunos: list | None = None,
@@ -124,13 +135,17 @@ def gerar_atestado_pdf_de_arquivo(
         )
 
     if ct:
-        ct_nome = ct.get("name") or ct.get("full_name") or ""
+        # Rodapé: razão social (full_name), não o nome fantasia
+        ct_nome = _nome_ct_rodape(ct)
         ct_cnpj = ct.get("cnpj") or ""
         ct_endereco = ct.get("full_address") or ct.get("endereco") or ""
         ct_telefone = ct.get("phone") or ""
         ct_logo = ct.get("logo_url") or ""
     else:
-        ct_nome = empresa.get("name") or ""
+        ct_nome = (
+            (empresa.get("full_name") or "").strip()
+            or (empresa.get("name") or "").strip()
+        )
         ct_cnpj = empresa.get("cnpj") or ""
         ct_endereco = empresa.get("full_address") or ""
         ct_telefone = empresa.get("phone") or ""
