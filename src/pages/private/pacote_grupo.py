@@ -1,11 +1,14 @@
-"""Destino: src/pages/private/pacote_grupo.py
+"""Pacote por periodo.
 
 Geracao em LOTES: cada execucao do Streamlit processa poucas turmas (em
-paralelo), grava no ZIP em memoria, atualiza a barra de progresso e dispara
-st.rerun(). Assim nenhuma requisicao fica aberta por minutos e o limite de
-espera deixa de estourar.
+paralelo), grava no ZIP em DISCO (arquivo temporario), atualiza a barra de
+progresso e dispara st.rerun(). Nenhuma requisicao fica aberta por minutos.
+
+As turmas so sao marcadas como "emitidas" quando o usuario clica em baixar
+o ZIP — se a aba fechar no meio, nada fica marcado sem ter sido entregue.
 """
-import io
+import os
+import tempfile
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
@@ -18,11 +21,13 @@ from src.utils.pacote_grupo import (
     empresas_do_grupo,
     empresas_por_ids,
     gerar_docs_turma,
+    listar_cts_completo,
     listar_grupos,
-    listar_todas_empresas,
+    marcar_turmas_emitidas,
     responsavel_padrao,
     turmas_do_periodo,
 )
+from src.utils.imprimir_documentacao import _prefetch_maps
 
 exigir_permissao("pacote_grupo")
 
@@ -161,13 +166,30 @@ def _processar_lote(job: dict) -> None:
     lote = job["turmas"][ini : ini + TURMAS_POR_LOTE]
     opts = job["opts"]
 
+    # dados do lote inteiro em poucas consultas (em vez de 5+ por turma)
+    try:
+        cursos, instrutores, empresas_lote, mats = _prefetch_maps(lote)
+    except Exception:
+        cursos, instrutores, empresas_lote, mats = {}, {}, {}, {}
+
     def _um(turma):
         try:
+            tid = str(turma.get("id") or "")
+            pre = {
+                "curso": cursos.get(str(turma.get("curso_id") or "")),
+                "instrutor": instrutores.get(str(turma.get("instrutor_id") or "")),
+                "empresa": empresas_lote.get(str(turma.get("client_id") or "")),
+                "matriculas": mats.get(tid) or [],
+            }
+            if job["cts"]:
+                pre["ct"] = job["cts"].get(str(turma.get("ct_id") or ""), {})
             return gerar_docs_turma(
                 grupo_nome=job["grupo_nome"],
                 turma=turma,
                 empresas_por_id=job["empresas_por_id"],
                 dados_resp=job["dados_resp"],
+                pre=pre,
+                marcar=False,  # marcacao so no download
                 **opts,
             )
         except Exception as e:  # nunca derruba o lote inteiro
@@ -195,19 +217,38 @@ def _processar_lote(job: dict) -> None:
         with ThreadPoolExecutor(max_workers=workers) as ex:
             resultados = list(ex.map(_um, lote))  # mantém a ordem
 
-    with zipfile.ZipFile(job["zip"], "a", zipfile.ZIP_DEFLATED) as zf:
+    with zipfile.ZipFile(job["zip_path"], "a", zipfile.ZIP_DEFLATED) as zf:
         for arquivos, info in resultados:
             for caminho, dados in arquivos:
                 zf.writestr(caminho, dados)
             job["gerados"].extend(info["gerados"])
             job["erros"].extend(info["erros"])
             job["resumo"].append(info["resumo"])
-            if info["marcado"]:
-                job["marcadas"].append(info["titulo"])
+            if info.get("docs_ok") and info.get("tid"):
+                job["tids_ok"].append(str(info["tid"]))
 
     job["idx"] = ini + len(lote)
     if job["idx"] >= len(job["turmas"]):
         job["done"] = True
+
+
+def _ao_baixar() -> None:
+    """on_click do download: marca as turmas entregues como emitidas (1x)."""
+    j = st.session_state.get(JOB)
+    if not j or j.get("marcado_ok") is not None:
+        return
+    ok, falhas = marcar_turmas_emitidas(j["tids_ok"])
+    j["marcado_ok"] = ok
+    j["falha_marca"] = falhas
+
+
+def _limpar_job() -> None:
+    j = st.session_state.pop(JOB, None)
+    if j:
+        try:
+            os.remove(j["zip_path"])
+        except OSError:
+            pass
 
 
 if job and not job["done"]:
@@ -235,29 +276,39 @@ if job and job["done"]:
         f"**{len(job['gerados'])}** documento(s) em **{job['idx']}** de "
         f"**{len(job['turmas'])}** turma(s)."
     )
-    if job["marcadas"]:
+    if job.get("marcado_ok"):
         st.success(
-            f"✅ **{len(job['marcadas'])}** turma(s) marcada(s) como **documentação emitida**."
+            f"✅ **{len(job['marcado_ok'])}** turma(s) marcada(s) como **documentação emitida**."
         )
+    elif job["tids_ok"]:
+        st.info(
+            f"As **{len(job['tids_ok'])}** turma(s) com documentos serão marcadas como "
+            "emitidas **quando você clicar em baixar**."
+        )
+    for f in job.get("falha_marca") or []:
+        st.warning(f"⚠️ Status não atualizado — {f}")
     if job["resumo"]:
         st.dataframe(job["resumo"], use_container_width=True, hide_index=True)
     if job["erros"]:
         with st.expander("Avisos / falhas", expanded=False):
             for e in job["erros"]:
                 st.write(f"- {e}")
-    if job["gerados"]:
+    if job["gerados"] and os.path.exists(job["zip_path"]):
+        with open(job["zip_path"], "rb") as fh:
+            zip_bytes = fh.read()
         st.download_button(
             "📥 Baixar pacote (ZIP)",
-            data=job["zip"].getvalue(),
+            data=zip_bytes,
             file_name=job["nome_zip"],
             mime="application/zip",
             use_container_width=True,
             key="dl_pacote_job",
+            on_click=_ao_baixar,
         )
     else:
         st.error("Nenhum documento foi gerado.")
     if st.button("🗑️ Limpar resultado", key="pkg_clear"):
-        st.session_state.pop(JOB, None)
+        _limpar_job()
         st.rerun()
     st.markdown("---")
 
@@ -307,6 +358,13 @@ for t in turmas:
 
 st.dataframe(preview, use_container_width=True, hide_index=True)
 
+def _novo_zip_path() -> str:
+    fd, path = tempfile.mkstemp(suffix=".zip", prefix="pacote_")
+    os.close(fd)
+    os.remove(path)  # ZipFile(mode="a") cria o arquivo do zero
+    return path
+
+
 if st.button(
     "🚀 Gerar pacote de documentação",
     type="primary",
@@ -322,11 +380,14 @@ if st.button(
         "idx": 0,
         "done": False,
         "cancelado": False,
-        "zip": io.BytesIO(),
+        "zip_path": _novo_zip_path(),
         "gerados": [],
         "erros": [],
         "resumo": [],
-        "marcadas": [],
+        "tids_ok": [],
+        "marcado_ok": None,
+        "falha_marca": [],
+        "cts": listar_cts_completo(),
         "grupo_nome": grupo_nome if escopo == "Grupo empresarial" else "Todas_Empresas",
         "empresas_por_id": dict(empresas_por_id),
         "dados_resp": responsavel_padrao(),

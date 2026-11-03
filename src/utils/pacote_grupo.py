@@ -8,7 +8,10 @@ from typing import Any
 import pandas as pd
 
 from src.config.database import supabase
-from src.pages.private.turmas.helpers import formatar_data_extenso
+from src.pages.private.turmas.helpers import (
+    extrair_cidade_do_endereco,
+    formatar_data_extenso,
+)
 from src.pages.private.turmas.modals.emitir_documentos.alunos import (
     alunos_para_atestado,
     alunos_para_certificado,
@@ -152,6 +155,29 @@ def _fmt_data_br(val) -> str:
         return s
 
 
+def listar_cts_completo() -> dict[str, dict]:
+    """Todos os CTs (select *), indexados por id. 1 consulta por pacote."""
+    try:
+        res = supabase.table("cts").select("*").execute()
+        rows = res.data if res and isinstance(res.data, list) else []
+        return {str(r["id"]): r for r in rows if r.get("id")}
+    except Exception:
+        return {}
+
+
+def marcar_turmas_emitidas(tids: list[str]) -> tuple[list[str], list[str]]:
+    """Marca varias turmas como emitidas. Retorna (ok_ids, falhas_msg)."""
+    ok: list[str] = []
+    falhas: list[str] = []
+    for tid in tids:
+        sucesso, msg = marcar_documento_emitido(tid)
+        if sucesso:
+            ok.append(tid)
+        else:
+            falhas.append(f"{tid}: {msg}")
+    return ok, falhas
+
+
 def gerar_docs_turma(
     *,
     grupo_nome: str,
@@ -163,12 +189,19 @@ def gerar_docs_turma(
     incluir_cert_alunos: bool = True,
     incluir_carteirinhas: bool = True,
     incluir_lista: bool = True,
+    pre: dict | None = None,
+    marcar: bool = True,
 ) -> tuple[list[tuple[str, bytes]], dict[str, Any]]:
     """Gera os documentos de UMA turma. Seguro para rodar em thread (sem Streamlit).
 
     Retorna (arquivos[(caminho_no_zip, bytes)], info).
-    info = {titulo, gerados, erros, resumo(dict), marcado, erro_marca}
+    info = {tid, titulo, gerados, erros, resumo(dict), docs_ok, marcado, erro_marca}
+
+    pre: dados ja carregados em lote {empresa, curso, instrutor, ct, matriculas};
+         o que faltar e buscado individualmente.
+    marcar: se False, NAO marca a turma como emitida (a tela marca no download).
     """
+    pre = pre or {}
     tid = turma.get("id")
     titulo = turma.get("titulo") or "Turma"
     data_t = str(turma.get("data_treinamento") or "")[:10]
@@ -179,14 +212,24 @@ def gerar_docs_turma(
     erros: list[str] = []
 
     client_id = turma.get("client_id")
-    empresa = empresas_por_id.get(client_id) or fetch_empresa(client_id)
-    curso = fetch_curso(turma.get("curso_id"))
-    instrutor = fetch_instrutor(turma.get("instrutor_id"))
-    ct = fetch_ct(turma.get("ct_id"))
-    matriculas = fetch_matriculas(tid)
+    empresa = (
+        empresas_por_id.get(client_id)
+        or pre.get("empresa")
+        or fetch_empresa(client_id)
+    )
+    curso = pre["curso"] if pre.get("curso") else fetch_curso(turma.get("curso_id"))
+    instrutor = (
+        pre["instrutor"]
+        if pre.get("instrutor")
+        else fetch_instrutor(turma.get("instrutor_id"))
+    )
+    ct = pre["ct"] if "ct" in pre else fetch_ct(turma.get("ct_id"))
+    matriculas = pre.get("matriculas") or fetch_matriculas(tid)
 
     def _info(docs_ok: int, status: str, marcado: bool, erro_marca: str | None):
         return {
+            "tid": tid,
+            "docs_ok": docs_ok,
             "titulo": titulo,
             "gerados": gerados,
             "erros": erros,
@@ -213,7 +256,14 @@ def gerar_docs_turma(
     curso_nome = curso.get("name") or "Treinamento"
     exige_atestado = bool(curso.get("exige_atestado", True))
 
-    cidade = resolver_cidade(turma.get("ct_id"), turma)
+    if "ct" in pre:  # ct ja carregado: evita consulta por turma
+        cidade = (
+            extrair_cidade_do_endereco(ct.get("full_address"))
+            if ct
+            else "Itapecerica da Serra"
+        )
+    else:
+        cidade = resolver_cidade(turma.get("ct_id"), turma)
     cidade_data = formatar_data_extenso(data_t, cidade=cidade)
 
     alunos_cert = alunos_para_certificado(matriculas, carga, incluir_nasc=True)
@@ -319,7 +369,7 @@ def gerar_docs_turma(
 
     marcado = False
     erro_marca = None
-    if docs_ok > 0 and tid:
+    if marcar and docs_ok > 0 and tid:
         ok_marca, msg_marca = marcar_documento_emitido(tid)
         if ok_marca:
             marcado = True
