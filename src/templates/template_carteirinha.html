@@ -153,6 +153,18 @@
     font-size: 5.5pt;
     color: #555;
   }
+  .logos-row {
+    display: flex;
+    align-items: center;
+    gap: 2.5mm;
+    margin-bottom: 1mm;
+    background: #0a2f5c;
+  }
+  .logos-row img {
+    max-height: 9mm;
+    max-width: 28mm;
+    object-fit: contain;
+  }
 </style>
 </head>
 <body>
@@ -163,9 +175,10 @@
        {% if IMAGEM_FUNDO %}style="--fundo-url: url('{{ IMAGEM_FUNDO }}');"{% endif %}>
     <!-- FRENTE / TEXTO -->
     <div class="panel panel-left">
-      <div class="header-bar">
-        <span class="logo-mark">C:</span>
-        <span class="logo-text">conecta</span>
+      <div class="logos-row">
+        {% if LOGO_CONECTA %}
+        <img src="{{ LOGO_CONECTA }}" alt="Conecta" style="z-index: 1;"/>
+        {% endif %}
       </div>
       <div class="texto-cert">
         Certificamos que o portador<br/>

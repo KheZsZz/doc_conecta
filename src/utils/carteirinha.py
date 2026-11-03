@@ -214,7 +214,7 @@ def gerar_carteirinhas_pdf(
         paginas.append(cards[i : i + 4])
 
     template = get_template(caminho_pasta_templates, nome_template)
-    html = template.render(
+    html = template.render( # type: ignore
         paginas=paginas,
         IMAGEM_FUNDO=imagem_fundo,
         LOGO_CT=logo_ct,
