@@ -3,6 +3,7 @@ from datetime import date
 import streamlit as st
 from src.config.database import supabase
 
+
 @st.dialog("👥 Adicionar Aluno Manualmente", width="medium")
 def modal_adicionar_aluno(turma_id, titulo_turma, client_id, data_treinamento, carga_horaria):
     st.write(f"**Turma:** {titulo_turma}")
@@ -47,6 +48,16 @@ def modal_adicionar_aluno(turma_id, titulo_turma, client_id, data_treinamento, c
                         )
                         if aluno_res and aluno_res.data:
                             aluno_id = aluno_res.data[0]["id"]
+                        # tenta também só dígitos
+                        if not aluno_id and cpf_limpo != cpf_aluno.strip():
+                            aluno_res = (
+                                supabase.table("alunos")
+                                .select("id")
+                                .eq("cpf", cpf_limpo)
+                                .execute()
+                            )
+                            if aluno_res and aluno_res.data:
+                                aluno_id = aluno_res.data[0]["id"]
 
                 if not aluno_id:
                     aluno_res = (
@@ -61,13 +72,14 @@ def modal_adicionar_aluno(turma_id, titulo_turma, client_id, data_treinamento, c
                 data_nasc_str = data_nasc_input.isoformat() if data_nasc_input else None
 
                 if not aluno_id:
+                    # Tabela alunos NÃO tem client_id — vínculo empresa fica na matrícula
                     novo_aluno = {
                         "name": nome_aluno.strip().upper(),
                         "cpf": cpf_aluno.strip() or None,
                         "rg": rg_aluno.strip() or None,
-                        "client_id": client_id,
                         "data_nasc": data_nasc_str,
                     }
+                    novo_aluno = {k: v for k, v in novo_aluno.items() if v is not None}
                     insert_res = supabase.table("alunos").insert(novo_aluno).execute()
                     if insert_res and insert_res.data:
                         aluno_id = insert_res.data[0]["id"]
@@ -89,8 +101,17 @@ def modal_adicionar_aluno(turma_id, titulo_turma, client_id, data_treinamento, c
                             "data_treinamento": data_treinamento,
                             "carga_horaria": carga_horaria,
                         }
-                        supabase.table("matriculas").insert(nova_matricula).execute()
-                        st.success(f"✅ Aluno {nome_aluno} adicionado e matriculado com sucesso!")
+                        if client_id:
+                            nova_matricula["client_id"] = client_id
+                        try:
+                            supabase.table("matriculas").insert(nova_matricula).execute()
+                        except Exception:
+                            # fallback se client_id não existir em matriculas
+                            nova_matricula.pop("client_id", None)
+                            supabase.table("matriculas").insert(nova_matricula).execute()
+                        st.success(
+                            f"✅ Aluno {nome_aluno} adicionado e matriculado com sucesso!"
+                        )
                         st.rerun()
 
             except Exception as e:
