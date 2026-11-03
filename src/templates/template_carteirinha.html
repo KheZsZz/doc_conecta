@@ -155,6 +155,7 @@
   }
   .logos-row {
     display: flex;
+    margin: -3mm -4mm 2.5mm -4mm;
     align-items: center;
     gap: 2.5mm;
     margin-bottom: 1mm;
@@ -193,9 +194,10 @@
     </div>
     <!-- VERSO / DADOS -->
     <div class="panel panel-right">
-      <div class="header-bar">
-        <span class="logo-mark">C:</span>
-        <span class="logo-text">conecta</span>
+      <div class="logos-row">
+        {% if LOGO_CONECTA %}
+        <img src="{{ LOGO_CONECTA }}" alt="Conecta" style="z-index: 1;"/>
+        {% endif %}
       </div>
       <div class="field-label">Nome</div>
       <div class="field-box">{{ card.nome }}</div>
