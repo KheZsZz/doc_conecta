@@ -166,6 +166,13 @@
     max-width: 28mm;
     object-fit: contain;
   }
+  .assinatura-img-container {
+    height: 9mm;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    margin-bottom: 0.5mm;
+  }
 </style>
 </head>
 <body>
@@ -215,9 +222,11 @@
       <div class="field-box" style="min-height: 6mm;">{{ card.validade }}</div>
       <div class="assinatura-area">
         <div class="assinatura-box">
-          {% if card.assinatura_instrutor %}
-          <img src="{{ card.assinatura_instrutor }}" alt="assinatura"/>
-          {% endif %}
+         <div class="assinatura-img-container">
+            {% if card.assinatura_instrutor %}
+            <img src="{{ card.assinatura_instrutor }}" alt="assinatura"/>
+            {% endif %}
+          </div>
           {% if card.cpf_instrutor %}
           <div class="instrutor-cpf">CPF {{ card.cpf_instrutor }}</div>
           {% endif %}
