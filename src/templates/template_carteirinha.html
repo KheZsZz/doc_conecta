@@ -84,7 +84,6 @@
     text-align: center;
     margin-top: 1mm;
   }
-  /* Logo CT — maior e centralizado */
   .logos-parceiros {
     margin-top: auto;
     display: flex;
@@ -123,8 +122,10 @@
     gap: 2mm;
   }
   .row-2 .col { flex: 1; }
+  
   .assinatura-area {
-    margin-top: 2mm;
+    margin-top: auto;
+    padding-bottom: 1mm;
     display: flex;
     gap: 3mm;
     align-items: flex-end;
@@ -132,12 +133,34 @@
   .assinatura-box {
     flex: 1;
     text-align: center;
+    position: relative; 
+    min-height: 10mm; 
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
   }
-  .assinatura-box img {
-    max-height: 10mm;
+  
+  .assinatura-img-wrapper {
+    position: absolute;
+    bottom: 2mm; 
+    left: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    z-index: 5; 
+  }
+  .assinatura-img-wrapper img {
+    max-height: 22mm; 
     max-width: 100%;
     object-fit: contain;
-    z-index: 10;
+  }
+  
+
+  .assinatura-texto {
+    position: relative;
+    z-index: 1; 
+    width: 100%;
   }
   .assinatura-linha {
     border-top: 0.3mm solid #333;
@@ -166,13 +189,6 @@
     max-height: 9mm;
     max-width: 28mm;
     object-fit: contain;
-  }
-  .assinatura-img-container {
-    height: 9mm;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    margin-bottom: 0.5mm;
   }
 </style>
 </head>
@@ -221,24 +237,31 @@
       </div>
       <div class="field-label">Validade</div>
       <div class="field-box" style="min-height: 6mm;">{{ card.validade }}</div>
+      
       <div class="assinatura-area">
         <div class="assinatura-box">
-         <div class="assinatura-img-container">
+          <div class="assinatura-img-wrapper">
             {% if card.assinatura_instrutor %}
             <img src="{{ card.assinatura_instrutor }}" alt="assinatura"/>
             {% endif %}
           </div>
-          {% if card.cpf_instrutor %}
-          <div class="instrutor-cpf">CPF {{ card.cpf_instrutor }}</div>
-          {% endif %}
-          <div class="instrutor-nome">{{ card.nome_instrutor }}</div>
-          <div class="assinatura-linha">Instrutor responsável</div>
+          <div class="assinatura-texto">
+            {% if card.cpf_instrutor %}
+            <div class="instrutor-cpf">CPF {{ card.cpf_instrutor }}</div>
+            {% endif %}
+            <div class="instrutor-nome">{{ card.nome_instrutor }}</div>
+            <div class="assinatura-linha">Instrutor responsável</div>
+          </div>
         </div>
+        
         <div class="assinatura-box">
-          <div style="height: 10mm;"></div>
-          <div class="assinatura-linha">Assinatura do aluno</div>
+          <div class="assinatura-texto">
+            <div style="height: 7mm;"></div>
+            <div class="assinatura-linha">Assinatura do aluno</div>
+          </div>
         </div>
       </div>
+      
     </div>
   </div>
   {% endfor %}
