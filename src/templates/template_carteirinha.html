@@ -130,19 +130,20 @@
     gap: 3mm;
     align-items: flex-end;
   }
+  
   .assinatura-box {
     flex: 1;
     text-align: center;
     position: relative; 
-    min-height: 10mm; 
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
+    min-width: 0; 
   }
   
   .assinatura-img-wrapper {
     position: absolute;
-    bottom: 2mm; 
+    bottom: 6mm; 
     left: 0;
     width: 100%;
     display: flex;
@@ -156,11 +157,14 @@
     object-fit: contain;
   }
   
-
   .assinatura-texto {
     position: relative;
     z-index: 1; 
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    min-height: 8mm; 
   }
   .assinatura-linha {
     border-top: 0.3mm solid #333;
@@ -168,10 +172,14 @@
     padding-top: 0.5mm;
     font-size: 6pt;
     color: #444;
+    width: 100%;
   }
   .instrutor-nome {
     font-size: 6.5pt;
     font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .instrutor-cpf {
     font-size: 5.5pt;
@@ -239,6 +247,7 @@
       <div class="field-box" style="min-height: 6mm;">{{ card.validade }}</div>
       
       <div class="assinatura-area">
+        <!-- Instrutor -->
         <div class="assinatura-box">
           <div class="assinatura-img-wrapper">
             {% if card.assinatura_instrutor %}
@@ -256,7 +265,6 @@
         
         <div class="assinatura-box">
           <div class="assinatura-texto">
-            <div style="height: 7mm;"></div>
             <div class="assinatura-linha">Assinatura do aluno</div>
           </div>
         </div>
