@@ -14,7 +14,7 @@ from datetime import datetime as _dt
 import streamlit as st
 
 from src.auth.permissions import exigir_permissao
-from utils.pacote_grupo import (
+from src.utils.pacote_grupo import (
     empresas_do_grupo,
     empresas_por_ids,
     gerar_docs_turma,
