@@ -1,13 +1,23 @@
+"""Destino: src/pages/private/pacote_grupo.py
+
+Geracao em LOTES: cada execucao do Streamlit processa poucas turmas (em
+paralelo), grava no ZIP em memoria, atualiza a barra de progresso e dispara
+st.rerun(). Assim nenhuma requisicao fica aberta por minutos e o limite de
+espera deixa de estourar.
+"""
+import io
+import zipfile
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 from datetime import datetime as _dt
 
 import streamlit as st
 
 from src.auth.permissions import exigir_permissao
-from src.utils.pacote_grupo import (
+from utils.pacote_grupo import (
     empresas_do_grupo,
     empresas_por_ids,
-    gerar_pacote_grupo,
+    gerar_docs_turma,
     listar_grupos,
     listar_todas_empresas,
     responsavel_padrao,
@@ -15,6 +25,10 @@ from src.utils.pacote_grupo import (
 )
 
 exigir_permissao("pacote_grupo")
+
+TURMAS_POR_LOTE = 3  # turmas processadas por execucao (em paralelo)
+MAX_WORKERS = 3
+JOB = "pkg_job"
 
 st.title("📦 Pacote por Período")
 st.markdown(
@@ -50,9 +64,7 @@ if escopo == "Grupo empresarial":
     grupo_id = nome_para_id[grupo_nome]
     empresas = empresas_do_grupo(grupo_id)
     if not empresas:
-        st.warning(
-            f"O grupo **{grupo_nome}** não tem empresas vinculadas."
-        )
+        st.warning(f"O grupo **{grupo_nome}** não tem empresas vinculadas.")
         st.stop()
     client_ids = [e["id"] for e in empresas if e.get("id")]
     with st.expander(f"Empresas do grupo ({len(empresas)})", expanded=False):
@@ -67,7 +79,6 @@ else:
 st.markdown("**Período**")
 hoje = date.today()
 
-# segunda-feira da semana atual
 inicio_semana = hoje - timedelta(days=hoje.weekday())
 fim_semana = inicio_semana + timedelta(days=6)
 inicio_mes = date(hoje.year, hoje.month, 1)
@@ -104,20 +115,13 @@ def_df = st.session_state.get("pkg_df", hoje)
 col_a, col_b = st.columns(2)
 with col_a:
     data_inicio = st.date_input(
-        "Data início*",
-        value=def_di,
-        format="DD/MM/YYYY",
-        key="pkg_di_input",
+        "Data início*", value=def_di, format="DD/MM/YYYY", key="pkg_di_input"
     )
 with col_b:
     data_fim = st.date_input(
-        "Data fim*",
-        value=def_df,
-        format="DD/MM/YYYY",
-        key="pkg_df_input",
+        "Data fim*", value=def_df, format="DD/MM/YYYY", key="pkg_df_input"
     )
 
-# sincroniza session com os inputs
 st.session_state["pkg_di"] = data_inicio
 st.session_state["pkg_df"] = data_fim
 
@@ -128,11 +132,7 @@ if data_inicio > data_fim:
 # ---------- Filtro de status ----------
 filtro_status = st.selectbox(
     "Status das turmas",
-    options=[
-        "Todas",
-        "Somente pendentes (não emitidas)",
-        "Somente já emitidas",
-    ],
+    options=["Todas", "Somente pendentes (não emitidas)", "Somente já emitidas"],
     index=1,
     help="Ao gerar o pacote, as turmas com documento gerado passam a **emitidas**.",
 )
@@ -149,6 +149,118 @@ with ocol2:
 with ocol3:
     opt_lista = st.checkbox("Lista de presença", value=True)
 
+# =====================================================================
+# JOB EM LOTES (processamento / resultado) — fica ANTES do st.stop()
+# para continuar visível mesmo quando as turmas passam a "emitidas".
+# =====================================================================
+job = st.session_state.get(JOB)
+
+
+def _processar_lote(job: dict) -> None:
+    ini = job["idx"]
+    lote = job["turmas"][ini : ini + TURMAS_POR_LOTE]
+    opts = job["opts"]
+
+    def _um(turma):
+        try:
+            return gerar_docs_turma(
+                grupo_nome=job["grupo_nome"],
+                turma=turma,
+                empresas_por_id=job["empresas_por_id"],
+                dados_resp=job["dados_resp"],
+                **opts,
+            )
+        except Exception as e:  # nunca derruba o lote inteiro
+            titulo = turma.get("titulo") or "Turma"
+            return [], {
+                "titulo": titulo,
+                "gerados": [],
+                "erros": [f"{titulo}: {e}"],
+                "marcado": False,
+                "erro_marca": None,
+                "resumo": {
+                    "turma": titulo,
+                    "data": str(turma.get("data_treinamento") or "")[:10],
+                    "empresa": "",
+                    "docs": 0,
+                    "status": "falhou",
+                    "marcado": False,
+                },
+            }
+
+    workers = min(MAX_WORKERS, len(lote))
+    if workers <= 1:
+        resultados = [_um(t) for t in lote]
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            resultados = list(ex.map(_um, lote))  # mantém a ordem
+
+    with zipfile.ZipFile(job["zip"], "a", zipfile.ZIP_DEFLATED) as zf:
+        for arquivos, info in resultados:
+            for caminho, dados in arquivos:
+                zf.writestr(caminho, dados)
+            job["gerados"].extend(info["gerados"])
+            job["erros"].extend(info["erros"])
+            job["resumo"].append(info["resumo"])
+            if info["marcado"]:
+                job["marcadas"].append(info["titulo"])
+
+    job["idx"] = ini + len(lote)
+    if job["idx"] >= len(job["turmas"]):
+        job["done"] = True
+
+
+if job and not job["done"]:
+    total = len(job["turmas"])
+    st.subheader("⏳ Gerando pacote…")
+    st.progress(
+        min(job["idx"] / total, 1.0),
+        text=f"{job['idx']} de {total} turma(s) processada(s)",
+    )
+    st.caption(
+        "Mantenha esta aba aberta. O processamento é feito em etapas curtas "
+        "para não estourar o tempo limite."
+    )
+    if st.button("⛔ Cancelar e baixar o que já foi gerado", key="pkg_cancel"):
+        job["done"] = True
+        job["cancelado"] = True
+        st.rerun()
+    else:
+        _processar_lote(job)
+        st.rerun()
+
+if job and job["done"]:
+    st.subheader("✅ Pacote pronto" if not job.get("cancelado") else "⛔ Pacote parcial")
+    st.success(
+        f"**{len(job['gerados'])}** documento(s) em **{job['idx']}** de "
+        f"**{len(job['turmas'])}** turma(s)."
+    )
+    if job["marcadas"]:
+        st.success(
+            f"✅ **{len(job['marcadas'])}** turma(s) marcada(s) como **documentação emitida**."
+        )
+    if job["resumo"]:
+        st.dataframe(job["resumo"], use_container_width=True, hide_index=True)
+    if job["erros"]:
+        with st.expander("Avisos / falhas", expanded=False):
+            for e in job["erros"]:
+                st.write(f"- {e}")
+    if job["gerados"]:
+        st.download_button(
+            "📥 Baixar pacote (ZIP)",
+            data=job["zip"].getvalue(),
+            file_name=job["nome_zip"],
+            mime="application/zip",
+            use_container_width=True,
+            key="dl_pacote_job",
+        )
+    else:
+        st.error("Nenhum documento foi gerado.")
+    if st.button("🗑️ Limpar resultado", key="pkg_clear"):
+        st.session_state.pop(JOB, None)
+        st.rerun()
+    st.markdown("---")
+
 # ---------- Busca turmas ----------
 turmas = turmas_do_periodo(client_ids, data_inicio, data_fim)
 
@@ -157,13 +269,11 @@ if filtro_status == "Somente pendentes (não emitidas)":
 elif filtro_status == "Somente já emitidas":
     turmas = [t for t in turmas if t.get("documento_emitido")]
 
-# Resolve empresas para preview / geração
 ids_clientes = list({t.get("client_id") for t in turmas if t.get("client_id")})
 if escopo == "Todas as empresas":
     empresas_por_id = empresas_por_ids(ids_clientes)
 else:
     empresas_por_id = {e["id"]: e for e in empresas if e.get("id")}
-    # completa faltantes
     faltando = [i for i in ids_clientes if i not in empresas_por_id]
     if faltando:
         empresas_por_id.update(empresas_por_ids(faltando))
@@ -197,97 +307,39 @@ for t in turmas:
 
 st.dataframe(preview, use_container_width=True, hide_index=True)
 
-ss_zip = "pacote_grupo_zip"
-ss_meta = "pacote_grupo_meta"
-ss_nome = "pacote_grupo_nome"
-
-if st.session_state.get(ss_zip):
-    meta = st.session_state.get(ss_meta) or {}
-    st.success(
-        f"✅ Pacote pronto: **{meta.get('total_docs', 0)}** documento(s) "
-        f"em **{meta.get('total_turmas', 0)}** turma(s)."
-    )
-    marcadas = meta.get("turmas_marcadas") or []
-    if marcadas:
-        st.success(
-            f"✅ **{len(marcadas)}** turma(s) marcada(s) como documentação emitida."
-        )
-    if meta.get("erros"):
-        with st.expander("Avisos / falhas", expanded=False):
-            for e in meta["erros"]:
-                st.write(f"- {e}")
-    st.download_button(
-        "📥 Baixar pacote (ZIP)",
-        data=st.session_state[ss_zip],
-        file_name=st.session_state.get(ss_nome) or "pacote_periodo.zip",
-        mime="application/zip",
-        use_container_width=True,
-        key="dl_pacote_persist",
-    )
-
 if st.button(
     "🚀 Gerar pacote de documentação",
     type="primary",
     use_container_width=True,
 ):
-    with st.spinner(
-        f"Gerando documentação de {len(turmas)} turma(s)... pode levar alguns minutos."
-    ):
-        try:
-            zip_bytes, meta = gerar_pacote_grupo(
-                grupo_nome=grupo_nome if escopo == "Grupo empresarial" else "Todas_Empresas",
-                turmas=turmas,
-                empresas_por_id=empresas_por_id,
-                dados_resp=responsavel_padrao(),
-                incluir_atestado=opt_atestado,
-                incluir_cert_empresa=opt_cert_emp,
-                incluir_cert_alunos=opt_cert_alunos,
-                incluir_carteirinhas=opt_carteirinhas,
-                incluir_lista=opt_lista,
-            )
-        except Exception as e:
-            st.error(f"Erro ao gerar pacote: {e}")
-            st.stop()
-
-    if meta.get("total_docs", 0) == 0:
-        st.error("Nenhum documento foi gerado.")
-        if meta.get("erros"):
-            for e in meta["erros"]:
-                st.write(f"- {e}")
-        st.stop()
-
-    rotulo = grupo_nome.replace(" ", "_") if escopo == "Grupo empresarial" else "todas_empresas"
-    nome_zip = (
-        f"pacote_{rotulo}_"
-        f"{data_inicio.strftime('%Y%m%d')}_{data_fim.strftime('%Y%m%d')}.zip"
+    rotulo = (
+        grupo_nome.replace(" ", "_")
+        if escopo == "Grupo empresarial"
+        else "todas_empresas"
     )
-    st.session_state[ss_zip] = zip_bytes
-    st.session_state[ss_meta] = meta
-    st.session_state[ss_nome] = nome_zip
-
-    st.success(
-        f"✅ **{meta['total_docs']}** documento(s) gerados "
-        f"para **{meta['total_turmas']}** turma(s)."
-    )
-
-    marcadas = meta.get("turmas_marcadas") or []
-    if marcadas:
-        st.success(
-            f"✅ **{len(marcadas)}** turma(s) marcada(s) como **documentação emitida**."
-        )
-
-    if meta.get("resumo"):
-        st.dataframe(meta["resumo"], use_container_width=True, hide_index=True)
-    if meta.get("erros"):
-        with st.expander("Avisos / falhas", expanded=True):
-            for e in meta["erros"]:
-                st.write(f"- {e}")
-
-    st.download_button(
-        "📥 Baixar pacote (ZIP)",
-        data=zip_bytes,
-        file_name=nome_zip,
-        mime="application/zip",
-        use_container_width=True,
-        key="dl_pacote_new",
-    )
+    st.session_state[JOB] = {
+        "turmas": list(turmas),
+        "idx": 0,
+        "done": False,
+        "cancelado": False,
+        "zip": io.BytesIO(),
+        "gerados": [],
+        "erros": [],
+        "resumo": [],
+        "marcadas": [],
+        "grupo_nome": grupo_nome if escopo == "Grupo empresarial" else "Todas_Empresas",
+        "empresas_por_id": dict(empresas_por_id),
+        "dados_resp": responsavel_padrao(),
+        "opts": {
+            "incluir_atestado": opt_atestado,
+            "incluir_cert_empresa": opt_cert_emp,
+            "incluir_cert_alunos": opt_cert_alunos,
+            "incluir_carteirinhas": opt_carteirinhas,
+            "incluir_lista": opt_lista,
+        },
+        "nome_zip": (
+            f"pacote_{rotulo}_{data_inicio.strftime('%Y%m%d')}_"
+            f"{data_fim.strftime('%Y%m%d')}.zip"
+        ),
+    }
+    st.rerun()
