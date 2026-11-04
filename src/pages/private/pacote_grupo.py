@@ -160,6 +160,18 @@ with ocol1:
 with ocol2:
     opt_cert_alunos = st.checkbox("Certificados individuais", value=True)
     opt_carteirinhas = st.checkbox("Carteirinhas", value=True)
+formato_cert = "zip"
+if opt_cert_alunos:
+    _fmt = st.radio(
+        "Formato dos certificados individuais",
+        options=["Um PDF por aluno (ZIP)", "PDF único (1 página por aluno)"],
+        index=0,
+        horizontal=True,
+        key="pkg_fmt_cert",
+        help="PDF único é mais rápido de gerar e de abrir; "
+        "o ZIP entrega um arquivo separado por aluno.",
+    )
+    formato_cert = "pdf_unico" if _fmt.startswith("PDF único") else "zip"
 with ocol3:
     opt_lista = st.checkbox("Lista de presença", value=True)
 
@@ -180,11 +192,20 @@ def _processar_lote(job: dict) -> None:
     def _um(turma):
         try:
             tid = str(turma.get("id") or "")
+            mats_t = mats.get(tid) or []
+            # O fallback de _prefetch_maps (sem join) traz matrículas sem os
+            # dados do aluno; nesse caso descarta e busca individualmente,
+            # para nunca gerar certificado com nome/CPF em branco.
+            if not all(
+                isinstance(m.get("alunos"), dict) and m["alunos"].get("name")
+                for m in mats_t
+            ):
+                mats_t = []
             pre = {
                 "curso": cursos.get(str(turma.get("curso_id") or "")),
                 "instrutor": instrutores.get(str(turma.get("instrutor_id") or "")),
                 "empresa": empresas_lote.get(str(turma.get("client_id") or "")),
-                "matriculas": mats.get(tid) or [],
+                "matriculas": mats_t,
             }
             if job["cts"]:
                 pre["ct"] = job["cts"].get(str(turma.get("ct_id") or ""), {})
@@ -255,24 +276,49 @@ def _limpar_job() -> None:
             pass
 
 
-if job and not job["done"]:
-    total = len(job["turmas"])
+@st.fragment(run_every=1)
+def _painel_progresso() -> None:
+    """Roda sozinho a cada 1s, processa UM lote e atualiza só este bloco.
+
+    Não recarrega a página inteira (filtros, consulta de turmas, tabela):
+    só quando o job termina ou é cancelado é feito um rerun completo.
+    Os `st.*` ficam antes/depois do lote, nunca dentro dele, então uma
+    interrupção do Streamlit não deixa o estado do job pela metade.
+    """
+    j = st.session_state.get(JOB)
+    if not j or j["done"]:
+        st.rerun()  # job acabou (ou foi limpo): redesenha a página completa
+        return
+
+    total = len(j["turmas"])
     st.subheader("⏳ Gerando pacote…")
-    st.progress(
-        min(job["idx"] / total, 1.0),
-        text=f"{job['idx']} de {total} turma(s) processada(s)",
+    barra = st.progress(
+        min(j["idx"] / total, 1.0),
+        text=f"{j['idx']} de {total} turma(s) processada(s)",
     )
     st.caption(
         "Mantenha esta aba aberta. O processamento é feito em etapas curtas "
         "para não estourar o tempo limite."
     )
     if st.button("⛔ Cancelar e baixar o que já foi gerado", key="pkg_cancel"):
-        job["done"] = True
-        job["cancelado"] = True
+        j["done"] = True
+        j["cancelado"] = True
         st.rerun()
-    else:
-        _processar_lote(job)
+        return
+
+    _processar_lote(j)  # sem chamadas st.* dentro
+    barra.progress(
+        min(j["idx"] / total, 1.0),
+        text=f"{j['idx']} de {total} turma(s) processada(s)",
+    )
+    if j["done"]:
         st.rerun()
+
+
+if job and not job["done"]:
+    _painel_progresso()
+    # Enquanto gera, não mostra o restante (evita iniciar outro job por cima)
+    st.stop()
 
 if job and job["done"]:
     st.subheader("✅ Pacote pronto" if not job.get("cancelado") else "⛔ Pacote parcial")
@@ -408,6 +454,7 @@ if st.button(
             "incluir_cert_alunos": opt_cert_alunos,
             "incluir_carteirinhas": opt_carteirinhas,
             "incluir_lista": opt_lista,
+            "cert_alunos_formato": formato_cert,
         },
         "nome_zip": (
             f"pacote_{rotulo}_{data_inicio.strftime('%Y%m%d')}_"
