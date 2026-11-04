@@ -48,6 +48,7 @@
   }
   .panel-right {
     background: rgba(255,255,255,0.94);
+    padding-bottom: 1.2mm;
   }
   .header-bar {
     background: linear-gradient(90deg, #0b3d6e 0%, #1a5f9e 100%);
@@ -122,57 +123,61 @@
     gap: 2mm;
   }
   .row-2 .col { flex: 1; }
-  
+
   .assinatura-area {
     margin-top: auto;
-    padding-bottom: 1mm;
+    margin-bottom: 0;
+    padding-bottom: 0;
     display: flex;
     gap: 3mm;
     align-items: flex-end;
   }
-  
+
   .assinatura-box {
     flex: 1;
     text-align: center;
-    position: relative; 
+    position: relative;
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    min-width: 0; 
+    min-width: 0;
   }
-  
+
   .assinatura-img-wrapper {
     position: absolute;
-    bottom: 6mm; 
+    bottom: 3.8mm;
     left: 0;
     width: 100%;
     display: flex;
     justify-content: center;
     align-items: flex-end;
-    z-index: 5; 
+    z-index: 5;
   }
   .assinatura-img-wrapper img {
-    max-height: 22mm; 
+    max-height: 18mm;
     max-width: 100%;
     object-fit: contain;
   }
-  
+
   .assinatura-texto {
     position: relative;
-    z-index: 1; 
+    z-index: 1;
     width: 100%;
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    min-height: 8mm; 
+    min-height: 0;
   }
   .assinatura-linha {
     border-top: 0.3mm solid #333;
-    margin-top: 1mm;
-    padding-top: 0.5mm;
+    margin-top: 0.2mm;
+    margin-bottom: 0;
+    padding-top: 0.3mm;
+    padding-bottom: 0;
     font-size: 6pt;
     color: #444;
     width: 100%;
+    line-height: 1.1;
   }
   .instrutor-nome {
     font-size: 6.5pt;
@@ -245,7 +250,7 @@
       </div>
       <div class="field-label">Validade</div>
       <div class="field-box" style="min-height: 6mm;">{{ card.validade }}</div>
-      
+
       <div class="assinatura-area">
         <!-- Instrutor -->
         <div class="assinatura-box">
@@ -262,14 +267,14 @@
             <div class="assinatura-linha">Instrutor responsável</div>
           </div>
         </div>
-        
+
         <div class="assinatura-box">
           <div class="assinatura-texto">
             <div class="assinatura-linha">Assinatura do aluno</div>
           </div>
         </div>
       </div>
-      
+
     </div>
   </div>
   {% endfor %}
