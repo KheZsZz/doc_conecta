@@ -28,42 +28,42 @@ if "role" not in st.session_state:
 query_params = st.query_params
 pagina_atual = query_params.get("page")
 
-login_page = st.Page("src/pages/public/login.py", title="Login", icon="🔑")
+login_page = st.Page("src/pages/public/login.py", title="Login", icon="")
 checkin_page = st.Page(
-    "src/pages/public/cadastro_aluno.py", title="Check-in Aluno", icon="📱"
+    "src/pages/public/cadastro_aluno.py", title="Check-in Aluno", icon=""
 )
 
-home_page = st.Page("src/pages/private/home.py", title="Home", icon="🏠", default=True)
-turmas_page = st.Page("src/pages/private/turmas_page.py", title="Turmas", icon="📅")
+home_page = st.Page("src/pages/private/home.py", title="Home", icon="", default=True)
+turmas_page = st.Page("src/pages/private/turmas_page.py", title="Turmas", icon="")
 clients_page = st.Page(
-    "src/pages/private/empresas.py", title="Empresas / Clientes", icon="🏢"
+    "src/pages/private/empresas.py", title="Empresas / Clientes", icon=""
 )
-cursos_page = st.Page("src/pages/private/cursos.py", title="Cursos", icon="📚")
+cursos_page = st.Page("src/pages/private/cursos.py", title="Cursos", icon="")
 instrutores_page = st.Page(
-    "src/pages/private/instrutores.py", title="Instrutores", icon="👨‍🏫"
+    "src/pages/private/instrutores.py", title="Instrutores", icon=""
 )
 responsaveis_page = st.Page(
-    "src/pages/private/responsaveis.py", title="Responsáveis Técnicos", icon="✒️"
+    "src/pages/private/responsaveis.py", title="Responsáveis Técnicos", icon=""
 )
-cts_page = st.Page("src/pages/private/cts.py", title="CTS", icon="📝")
+cts_page = st.Page("src/pages/private/cts.py", title="CTS", icon="")
 signup_page = st.Page(
-    "src/pages/private/signup.py", title="Cadastrar Usuário", icon="👤"
+    "src/pages/private/signup.py", title="Cadastrar Usuário", icon=""
 )
-alunos_page = st.Page("src/pages/private/alunos.py", title="Alunos", icon="👨‍🎓")
+alunos_page = st.Page("src/pages/private/alunos.py", title="Alunos", icon="")
 subir_listas_page = st.Page(
-    "src/pages/private/subir_listas.py", title="Subir Listas", icon="📤"
+    "src/pages/private/subir_listas.py", title="Subir Listas", icon=""
 )
 emissao_ead_page = st.Page(
-    "src/pages/private/emissao_ead.py", title="Emissão EAD", icon="🎓"
+    "src/pages/private/emissao_ead.py", title="Emissão EAD", icon=""
 )
 pacote_grupo_page = st.Page(
-    "src/pages/private/pacote_grupo.py", title="Pacote Período", icon="📦"
+    "src/pages/private/pacote_grupo.py", title="Pacote Período", icon=""
 )
 imprimir_doc_page = st.Page(
-    "src/pages/private/imprimir_documentacao.py", title="Imprimir Documentação", icon="🖨️"
+    "src/pages/private/imprimir_documentacao.py", title="Imprimir Documentação", icon=""
 )
-mc_page = st.Page("src/pages/private/mcDonalds.py", title="mcDonalds", icon="💻")
-configs_page = st.Page("src/pages/private/configs.py", title="Configs", icon="⚙️")
+mc_page = st.Page("src/pages/private/mcDonalds.py", title="mcDonalds", icon="")
+configs_page = st.Page("src/pages/private/configs.py", title="Configs", icon="")
 
 PAGINAS = {
     "home": home_page,
