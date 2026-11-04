@@ -98,8 +98,13 @@ def turmas_do_periodo(
     client_ids: list[str] | None,
     data_inicio: date | str,
     data_fim: date | str,
+    ct_id: str | None = None,
 ) -> list[dict]:
-    """Turmas no período. Se client_ids for None ou vazio, busca de todas as empresas."""
+    """Turmas no período.
+
+    - client_ids None/vazio → todas as empresas
+    - ct_id informado → só turmas daquele CT
+    """
     di = (
         data_inicio.isoformat()
         if hasattr(data_inicio, "isoformat")
@@ -117,6 +122,8 @@ def turmas_do_periodo(
         )
         if client_ids:
             q = q.in_("client_id", client_ids)
+        if ct_id:
+            q = q.eq("ct_id", ct_id)
         res = q.execute()
         return res.data if res and isinstance(res.data, list) else []
     except Exception:
@@ -256,7 +263,7 @@ def gerar_docs_turma(
     curso_nome = curso.get("name") or "Treinamento"
     exige_atestado = bool(curso.get("exige_atestado", True))
 
-    if "ct" in pre:  # ct ja carregado: evita consulta por turma
+    if "ct" in pre:
         cidade = (
             extrair_cidade_do_endereco(ct.get("full_address"))
             if ct
