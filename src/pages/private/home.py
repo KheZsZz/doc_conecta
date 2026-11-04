@@ -5,6 +5,7 @@ import plotly.express as px
 import streamlit as st
 
 from src.config.database import supabase
+from src.auth.permissions import ct_id_atual
 
 # ---------------------------------------------------------------------------
 # Tema (claro / escuro)
@@ -132,6 +133,8 @@ def _count_exact(table: str, filters: list | None = None) -> int:
                     q = q.eq(col, val)
                 elif op == "neq":
                     q = q.neq(col, val)
+                elif op == "in":
+                    q = q.in_(col, val)
         res = q.execute()
         if res and res.count is not None:
             return int(res.count)
@@ -140,17 +143,26 @@ def _count_exact(table: str, filters: list | None = None) -> int:
     return 0
 
 
-def _fetch_all(table: str, select: str, page_size: int = 1000) -> list:
+def _fetch_all(
+    table: str,
+    select: str,
+    page_size: int = 1000,
+    filters: list | None = None,
+) -> list:
     out: list = []
     start = 0
     while True:
         try:
-            res = (
-                supabase.table(table)
-                .select(select)
-                .range(start, start + page_size - 1)
-                .execute()
-            )
+            q = supabase.table(table).select(select)
+            if filters:
+                for col, op, val in filters:
+                    if op == "eq":
+                        q = q.eq(col, val)
+                    elif op == "neq":
+                        q = q.neq(col, val)
+                    elif op == "in":
+                        q = q.in_(col, val)
+            res = q.range(start, start + page_size - 1).execute()
             batch = res.data if res and isinstance(res.data, list) else []
         except Exception:
             break
@@ -190,16 +202,51 @@ def _apply_layout(fig, title: str):
 
 
 @st.cache_data(ttl=60)
-def carregar_dados_dashboard():
-    total_empresas = _count_exact("clients")
-    total_matriculas = _count_exact("matriculas")
-    turmas_pendentes = _count_exact("turmas", [("documento_emitido", "eq", False)])
-    total_turmas = _count_exact("turmas")
+def carregar_dados_dashboard(ct_id: str | None = None):
+    """KPIs e turmas. Com ct_id, restringe ao CT do usuário."""
+    filtros_turma: list = []
+    if ct_id:
+        filtros_turma.append(("ct_id", "eq", ct_id))
+
+    total_turmas = _count_exact("turmas", filtros_turma or None)
+    turmas_pendentes = _count_exact(
+        "turmas",
+        (filtros_turma + [("documento_emitido", "eq", False)]) or None,
+    )
 
     turmas = _fetch_all(
         "turmas",
-        "id, titulo, data_treinamento, documento_emitido, modalidade, cursos(name)",
+        "id, titulo, data_treinamento, documento_emitido, modalidade, ct_id, client_id, cursos(name)",
+        filters=filtros_turma or None,
     )
+
+    if ct_id:
+        client_ids = list({str(t["client_id"]) for t in turmas if t.get("client_id")})
+        total_empresas = len(client_ids)
+        turma_ids = [str(t["id"]) for t in turmas if t.get("id")]
+        total_matriculas = 0
+        for i in range(0, len(turma_ids), 80):
+            lote = turma_ids[i : i + 80]
+            total_matriculas += _count_exact("matriculas", [("turma_id", "in", lote)])
+        ct_nome = ""
+        try:
+            res = (
+                supabase.table("cts")
+                .select("name, full_name")
+                .eq("id", ct_id)
+                .limit(1)
+                .execute()
+            )
+            if res and res.data:
+                ct_nome = (
+                    res.data[0].get("name") or res.data[0].get("full_name") or ""
+                ).strip()
+        except Exception:
+            pass
+    else:
+        total_empresas = _count_exact("clients")
+        total_matriculas = _count_exact("matriculas")
+        ct_nome = ""
 
     return {
         "total_empresas": total_empresas,
@@ -207,11 +254,20 @@ def carregar_dados_dashboard():
         "turmas_pendentes": turmas_pendentes,
         "total_turmas": total_turmas,
         "turmas": turmas,
+        "ct_id": ct_id,
+        "ct_nome": ct_nome,
     }
 
 
+_ct_dash = ct_id_atual()
 with st.spinner("Atualizando indicadores..."):
-    dados = carregar_dados_dashboard()
+    dados = carregar_dados_dashboard(_ct_dash)
+
+if dados.get("ct_id"):
+    _nome_ct = dados.get("ct_nome") or "seu CT"
+    st.caption(f"📍 Dashboard filtrado pelo CT **{_nome_ct}** (vinculado ao seu usuário).")
+else:
+    st.caption("📍 Dashboard geral — todos os CTs.")
 
 df_turmas = pd.DataFrame(dados["turmas"])
 total_empresas = dados["total_empresas"]
@@ -225,7 +281,6 @@ taxa_emissao = (
     else 0.0
 )
 
-# ---- KPIs principais ----
 k1, k2, k3, k4 = st.columns(4)
 with k1:
     st.markdown(
@@ -234,7 +289,11 @@ with k1:
     )
 with k2:
     st.markdown(
-        _kpi_html("Empresas", _fmt_num(total_empresas), "Clientes cadastrados"),
+        _kpi_html(
+            "Empresas",
+            _fmt_num(total_empresas),
+            "Com turmas neste CT" if dados.get("ct_id") else "Clientes cadastrados",
+        ),
         unsafe_allow_html=True,
     )
 with k3:
