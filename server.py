@@ -15,7 +15,7 @@ if str(root_dir) not in sys.path:
     sys.path.append(str(root_dir))
 
 st.set_page_config(
-    page_title="CRM - Emissão de Documentos", page_icon="🔥", layout="wide"
+    page_title="DocFacil Conecta", page_icon="🔥", layout="wide"
 )
 
 if "user" not in st.session_state:
