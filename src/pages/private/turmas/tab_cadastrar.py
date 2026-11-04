@@ -2,6 +2,16 @@ from datetime import datetime
 import streamlit as st
 from src.config.database import supabase
 
+
+def _label_empresa(e: dict) -> str:
+    nome = (e.get("name") or "Sem nome").strip()
+    unidade = (e.get("sigla") or "").strip()
+    cnpj = (e.get("cnpj") or "Sem CNPJ").strip()
+    if unidade:
+        return f"{nome} · {unidade} ({cnpj})"
+    return f"{nome} ({cnpj})"
+
+
 def render_tab_cadastrar():
     st.subheader("Formulário de Abertura de Turma")
     st.markdown(
@@ -12,7 +22,7 @@ def render_tab_cadastrar():
     try:
         cursos_res = supabase.table("cursos").select("id, name").execute()
         instrutores_res = supabase.table("instrutores").select("id, name").execute()
-        empresas_res = supabase.table("clients").select("id, name, cnpj").execute()
+        empresas_res = supabase.table("clients").select("id, name, cnpj, sigla").execute()
         cts_res = supabase.table("cts").select("id, name").execute()
 
         cursos_dict = {c["name"]: c["id"] for c in cursos_res.data} if cursos_res.data else {}
@@ -22,9 +32,18 @@ def render_tab_cadastrar():
 
         empresas_dict = {}
         if empresas_res.data:
-            for e in empresas_res.data:
-                cnpj_fmt = e.get("cnpj", "Sem CNPJ")
-                empresas_dict[f"{e['name']} ({cnpj_fmt})"] = e["id"]
+            ordenadas = sorted(
+                empresas_res.data,
+                key=lambda e: (
+                    (e.get("name") or "").strip().lower(),
+                    (e.get("sigla") or "").strip().lower(),
+                ),
+            )
+            for e in ordenadas:
+                label = _label_empresa(e)
+                if label in empresas_dict:
+                    label = f"{label} [{str(e.get('id', ''))[:8]}]"
+                empresas_dict[label] = e["id"]
 
         cts_dict = {c["name"]: c["id"] for c in cts_res.data} if cts_res.data else {}
 
@@ -59,6 +78,7 @@ def render_tab_cadastrar():
             empresa_selecionada = st.selectbox(
                 "Empresa Contratante (Cliente)*",
                 ["Nenhuma Empresa"] + list(empresas_dict.keys()),
+                help="Formato: Razão social · Unidade (CNPJ).",
             )
         with col5:
             ct_selecionado = st.selectbox(
@@ -74,10 +94,10 @@ def render_tab_cadastrar():
         col6, col7, col8 = st.columns(3)
         with col6:
             modalidade = st.selectbox(
-                "Modalidade", ["In Company", "Presencial (No CT)", "EAD", "Semipresencial", "Online"]
+                "Modalidade",
+                ["In Company", "Presencial (No CT)", "EAD", "Semipresencial", "Online"],
             )
         with col7:
-            # Formação primeiro — era Básico e virava padrão sem o usuário perceber
             nivel = st.selectbox(
                 "Nível",
                 ["Formação", "Básico", "Intermediário", "Avançado", "Reciclagem", "Palestra"],
