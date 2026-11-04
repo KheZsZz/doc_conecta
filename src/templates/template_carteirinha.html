@@ -89,7 +89,7 @@
     margin-top: auto;
     display: flex;
     justify-content: center;
-    align-items: center;
+    items: center;
     width: 100%;
     min-height: 16mm;
     padding: 1.5mm 0 0.5mm 0;
@@ -125,72 +125,79 @@
   .row-2 .col { flex: 1; }
 
   .assinatura-area {
-    position: absolute;
     margin-top: auto;
-    bottom: 1mm;
-    padding-bottom: 0;
+    margin-bottom: 0;
+    padding: 0;
+    width: 100%;
     display: flex;
-    gap: 3mm;
+    flex-direction: row;
+    gap: 4mm;
     align-items: flex-end;
   }
 
   .assinatura-box {
-    flex: 1;
-    text-align: center;
-    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 50%;
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    min-width: 0;
-  }
-
-  .assinatura-img-wrapper {
-    position: absolute;
-    bottom: 3.8mm;
-    left: 0;
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: flex-end;
-    z-index: 5;
-  }
-  .assinatura-img-wrapper img {
-    max-height: 18mm;
-    max-width: 100%;
-    object-fit: contain;
-  }
-
-  .assinatura-texto {
-    position: relative;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    min-height: 0;
+    align-items: stretch;
     text-align: center;
   }
-  .assinatura-linha {
-    border-top: 0.3mm solid #333;
-    margin-top: 0.2mm;
-    margin-bottom: 0;
-    padding-top: 0.3mm;
-    padding-bottom: 0;
-    font-size: 6pt;
-    color: #444;
-    width: 100%;
-    line-height: 1.1;
+
+  .assinatura-img-slot {
+    height: 12mm;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    overflow: hidden;
   }
+  .assinatura-img-slot img {
+    max-height: 12mm;
+    max-width: 95%;
+    object-fit: contain;
+    display: block;
+  }
+
+  .assinatura-linha {
+    border-top: 0.35mm solid #222;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    height: 0;
+  }
+
+  .assinatura-caption {
+    padding-top: 0.6mm;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2mm;
+    align-items: center;
+    min-height: 8mm;
+  }
+
   .instrutor-nome {
     font-size: 6.5pt;
-    font-weight: 600;
+    font-weight: 700;
+    color: #1a1a2e;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    max-width: 100%;
+    line-height: 1.15;
   }
   .instrutor-cpf {
     font-size: 5.5pt;
     color: #555;
+    line-height: 1.1;
   }
+  .assinatura-label {
+    font-size: 5.5pt;
+    color: #444;
+    line-height: 1.1;
+  }
+
   .logos-row {
     display: flex;
     margin: -3mm -4mm 2.5mm -4mm;
@@ -212,7 +219,6 @@
   {% for card in pagina %}
   <div class="card-row{% if IMAGEM_FUNDO %} has-fundo{% endif %}"
        {% if IMAGEM_FUNDO %}style="--fundo-url: url('{{ IMAGEM_FUNDO }}');"{% endif %}>
-    <!-- FRENTE / TEXTO -->
     <div class="panel panel-left">
       <div class="logos-row">
         {% if LOGO_CONECTA %}
@@ -230,7 +236,6 @@
         {% if LOGO_CT %}<img src="{{ LOGO_CT }}" alt="logo CT"/>{% endif %}
       </div>
     </div>
-    <!-- VERSO / DADOS -->
     <div class="panel panel-right">
       <div class="logos-row">
         {% if LOGO_CONECTA %}
@@ -253,25 +258,27 @@
       <div class="field-box" style="min-height: 6mm;">{{ card.validade }}</div>
 
       <div class="assinatura-area">
-        <!-- Instrutor -->
         <div class="assinatura-box">
-          <div class="assinatura-img-wrapper">
+          <div class="assinatura-img-slot">
             {% if card.assinatura_instrutor %}
             <img src="{{ card.assinatura_instrutor }}" alt="assinatura"/>
             {% endif %}
           </div>
-          <div class="assinatura-texto">
+          <div class="assinatura-linha"></div>
+          <div class="assinatura-caption">
+            <div class="instrutor-nome">{{ card.nome_instrutor }}</div>
             {% if card.cpf_instrutor %}
             <div class="instrutor-cpf">CPF {{ card.cpf_instrutor }}</div>
             {% endif %}
-            <div class="instrutor-nome">{{ card.nome_instrutor }}</div>
-            <div class="assinatura-linha">Instrutor responsável</div>
+            <div class="assinatura-label">Instrutor responsável</div>
           </div>
         </div>
 
         <div class="assinatura-box">
-          <div class="assinatura-texto">
-            <div class="assinatura-linha">Assinatura do aluno</div>
+          <div class="assinatura-img-slot"></div>
+          <div class="assinatura-linha"></div>
+          <div class="assinatura-caption">
+            <div class="assinatura-label">Assinatura do aluno</div>
           </div>
         </div>
       </div>
