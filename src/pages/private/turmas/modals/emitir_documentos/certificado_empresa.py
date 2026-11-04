@@ -39,7 +39,7 @@ def gerar_certificado_empresa(
     )
 
     if not st.button(
-        "🚀 Processar e Gerar Certificado (Empresa)",
+        "Processar e Gerar Certificado (Empresa)",
         type="primary",
         use_container_width=True,
     ):
@@ -92,7 +92,7 @@ def gerar_certificado_empresa(
                 st.warning(f"⚠️ Status do card: {msg}")
 
             st.download_button(
-                "📥 Baixar Certificado Empresa (PDF)",
+                "Baixar Certificado Empresa (PDF)",
                 data=pdf_bytes,
                 file_name=f"certificado_empresa_{titulo_turma.replace(' ', '_')}.pdf",
                 mime="application/pdf",

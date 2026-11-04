@@ -9,7 +9,7 @@ from .alunos import alunos_para_lista_presenca
 
 def gerar_lista_presenca(tid: str, titulo_turma: str) -> None:
     if not st.button(
-        "🚀 Processar e Gerar Lista", type="primary", use_container_width=True
+        "Processar e Gerar Lista", type="primary", use_container_width=True
     ):
         return
 
@@ -30,7 +30,7 @@ def gerar_lista_presenca(tid: str, titulo_turma: str) -> None:
 
             st.success("✅ Lista gerada com sucesso!")
             st.download_button(
-                label="📥 Baixar Lista de Presença (.xlsx)",
+                label="Baixar Lista de Presença (.xlsx)",
                 data=buffer.getvalue(),
                 file_name=f"lista_presenca_{titulo_turma.replace(' ', '_')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

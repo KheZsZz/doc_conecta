@@ -23,7 +23,7 @@ def _parse_data(data_str) -> date:
         return date.today()
 
 
-@st.dialog("✏️ Editar Turma", width="large")
+@st.dialog("Editar Turma", width="large")
 def modal_editar_turma(tid: str):
     try:
         t_res = supabase.table("turmas").select("*").eq("id", tid).single().execute()

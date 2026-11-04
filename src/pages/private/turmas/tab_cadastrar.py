@@ -14,10 +14,6 @@ def _label_empresa(e: dict) -> str:
 
 def render_tab_cadastrar():
     st.subheader("Formulário de Abertura de Turma")
-    st.markdown(
-        "Ao abrir uma turma, os dados do curso e instrutor ficarão atrelados. "
-        "Depois você poderá inserir os alunos e gerar os documentos na aba anterior."
-    )
 
     try:
         cursos_res = supabase.table("cursos").select("id, name").execute()
@@ -107,7 +103,7 @@ def render_tab_cadastrar():
                 "Carga Horária (Apenas números)", min_value=1, value=8, step=1
             )
 
-        submit_turma = st.form_submit_button("✅ Criar e Salvar Nova Turma", type="primary")
+        submit_turma = st.form_submit_button("Cadastrar", type="primary")
 
         if submit_turma:
             if not titulo.strip():

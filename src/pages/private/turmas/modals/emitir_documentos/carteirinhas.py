@@ -152,7 +152,7 @@ def gerar_carteirinhas(
             st.warning(f"⚠️ {meta['erro_marca']}")
 
         st.download_button(
-            "📥 Baixar Carteirinhas (PDF)",
+            "Baixar Carteirinhas (PDF)",
             data=pdf_pronto,
             file_name=f"carteirinhas_{safe}.pdf",
             mime="application/pdf",
@@ -162,7 +162,7 @@ def gerar_carteirinhas(
         st.caption("Baixe quantas vezes quiser. Feche o modal quando terminar.")
 
         if st.button(
-            "🔄 Gerar novamente",
+            "Gerar novamente",
             use_container_width=True,
             key=f"btn_regen_cart_{tid}",
         ):
@@ -172,7 +172,7 @@ def gerar_carteirinhas(
         return
 
     if not st.button(
-        "🚀 Gerar Carteirinhas (PDF)",
+        "Gerar Carteirinhas (PDF)",
         type="primary",
         use_container_width=True,
         key=f"btn_carteirinha_{tid}",
@@ -249,7 +249,7 @@ def gerar_carteirinhas(
                 st.warning(f"⚠️ Status do card: {msg}")
 
             st.download_button(
-                "📥 Baixar Carteirinhas (PDF)",
+                "Baixar Carteirinhas (PDF)",
                 data=pdf_bytes,
                 file_name=f"carteirinhas_{safe}.pdf",
                 mime="application/pdf",

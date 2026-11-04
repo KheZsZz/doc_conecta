@@ -2,7 +2,7 @@ import streamlit as st
 import uuid
 from src.config.database import supabase
 
-st.title("👨‍🏫 Gestão de Instrutores")
+st.title("Gestão de Instrutores")
 st.markdown(
     "Cadastre os instrutores e gerencie suas informações profissionais, status e assinaturas."
 )
@@ -29,7 +29,7 @@ def fazer_upload_assinatura(arquivo_upload, cpf: str):
 tab_listar, tab_cadastrar = st.tabs(["📋 Instrutores Cadastrados", "➕ Novo Instrutor"])
 
 
-@st.dialog("✏️ Editar Instrutor", width="medium")
+@st.dialog("Editar", width="medium")
 def modal_editar_instrutor(
     instrutor_id,
     nome_atual,
@@ -72,7 +72,7 @@ def modal_editar_instrutor(
             )
 
         st.markdown("---")
-        st.write("✍️ **Assinatura do Instrutor**")
+        st.write("**Assinatura do Instrutor**")
         if assinatura_atual:
             st.image(assinatura_atual, width=180, caption="Assinatura atual")
 
@@ -130,7 +130,7 @@ with tab_listar:
     st.subheader("Equipe de Instrutores")
 
     busca = st.text_input(
-        "🔍 Buscar por nome",
+        "Buscar por nome",
         placeholder="Digite o nome do instrutor...",
         key="busca_instrutor",
     )
@@ -198,7 +198,7 @@ with tab_listar:
                                 st.caption(" | ".join(detalhes))
 
                             if assinatura:
-                                st.caption("✍️ **Assinatura:** cadastrada")
+                                st.caption("**Assinatura:** cadastrada")
                             else:
                                 st.caption("⚠️ *Sem assinatura cadastrada*")
 
@@ -208,7 +208,7 @@ with tab_listar:
                                 unsafe_allow_html=True,
                             )
                             if st.button(
-                                "✏️",
+                                "Editar",
                                 key=f"edit_instr_{iid}",
                                 help="Editar",
                                 use_container_width=True,
@@ -255,7 +255,7 @@ with tab_cadastrar:
             )
 
         st.markdown("---")
-        st.write("✍️ **Assinatura do Instrutor**")
+        st.write("**Assinatura do Instrutor**")
         arquivo_assinatura_novo = st.file_uploader(
             "Enviar imagem de assinatura (PNG/JPG)",
             type=["png", "jpg", "jpeg"],

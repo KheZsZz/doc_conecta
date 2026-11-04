@@ -1,14 +1,14 @@
 import streamlit as st
 from src.config.database import supabase
 
-st.title("🏢 Gestão de Empresas")
+st.title("Gestão de Empresas")
 st.markdown(
     "Cadastre empresas (CNPJ) e **grupos empresariais** para unificar unidades "
     "com CNPJs diferentes no mesmo cliente."
 )
 
 tab_listar, tab_cadastrar, tab_grupos = st.tabs(
-    ["📋 Empresas Cadastradas", "➕ Nova Empresa", "🗂️ Grupos Empresariais"]
+    ["Listar", "Criar", "Grupos Empresariais"]
 )
 
 
@@ -34,10 +34,7 @@ def mapa_grupos(grupos: list[dict]) -> dict[str, str]:
 
 
 def opcoes_grupo(grupos: list[dict]) -> tuple[list[str], dict[str, str | None]]:
-    """
-    Retorna (labels, label -> grupo_id|None).
-    Primeira opção = sem grupo.
-    """
+
     labels = ["— Sem grupo —"]
     mapa: dict[str, str | None] = {"— Sem grupo —": None}
     for g in grupos:
@@ -59,7 +56,7 @@ def label_grupo_atual(grupo_id, grupos: list[dict]) -> str:
 # ==========================================
 # MODAL DE EDIÇÃO
 # ==========================================
-@st.dialog("✏️ Editar Empresa", width="medium")
+@st.dialog("Editar Empresa", width="medium")
 def modal_editar_empresa(
     empresa_id,
     nome_atual,
@@ -117,7 +114,7 @@ def modal_editar_empresa(
         )
 
         salvar = st.form_submit_button(
-            "💾 Salvar Alterações", type="primary", use_container_width=True
+            "Salvar", type="primary", use_container_width=True
         )
 
         if salvar:
@@ -165,7 +162,7 @@ with tab_listar:
     col_b1, col_b2 = st.columns([3, 1])
     with col_b1:
         busca = st.text_input(
-            "🔍 Buscar por nome, unidade, CNPJ ou grupo",
+            "Buscar",
             placeholder="Ex: KION, Indaiatuba, 42365296...",
             key="busca_empresa",
         )
@@ -264,7 +261,7 @@ with tab_listar:
                                 unsafe_allow_html=True,
                             )
                             if st.button(
-                                "✏️",
+                                "Editar",
                                 key=f"edit_emp_{eid}",
                                 help="Editar empresa",
                                 use_container_width=True,
@@ -374,7 +371,7 @@ with tab_grupos:
         with col_g2:
             st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
             criar_grupo = st.form_submit_button(
-                "➕ Criar grupo", type="primary", use_container_width=True
+                "Criar grupo", type="primary", use_container_width=True
             )
 
         if criar_grupo:
@@ -434,7 +431,7 @@ CREATE INDEX IF NOT EXISTS idx_clients_grupo_id ON public.clients(grupo_id);
                     st.caption(f"{n_emp} empresa(s) vinculada(s)")
                 with c2:
                     if st.button(
-                        "✏️",
+                        "Editar",
                         key=f"edit_grp_{gid}",
                         help="Renomear",
                         use_container_width=True,
@@ -442,7 +439,7 @@ CREATE INDEX IF NOT EXISTS idx_clients_grupo_id ON public.clients(grupo_id);
                         st.session_state[f"rename_grp_{gid}"] = True
                 with c3:
                     if st.button(
-                        "🗑️",
+                        "Excluir",
                         key=f"del_grp_{gid}",
                         help="Excluir grupo",
                         use_container_width=True,

@@ -299,7 +299,7 @@ def render_tab_buscar():
         with st.container(border=True):
             st.markdown(f"**{titulo}** · {badge}")
             st.caption(
-                f"📅 {data_br} · 🏢 {emp} · 📚 {curso} · 👨‍🏫 {inst} · "
+                f"{data_br} · {emp} · {curso} · {inst} · "
                 f"Modalidade: {t.get('modalidade') or '—'} · Nível: {t.get('nivel') or '—'}"
             )
             nomes = []
@@ -312,21 +312,21 @@ def render_tab_buscar():
             c1, c2, c3 = st.columns(3)
             with c1:
                 if st.button(
-                    "📄 Documentos",
+                    "Documentos",
                     key=f"busca_docs_{tid}",
                     use_container_width=True,
                 ):
                     modal_emitir_documentacao(tid, titulo, empresa_id, ct_id)
             with c2:
                 if st.button(
-                    "✏️ Editar turma",
+                    "Editar turma",
                     key=f"busca_edit_{tid}",
                     use_container_width=True,
                 ):
                     modal_editar_turma(tid)
             with c3:
                 if st.button(
-                    "👥 Matrículas",
+                    "Matrículas",
                     key=f"busca_mat_{tid}",
                     use_container_width=True,
                 ):

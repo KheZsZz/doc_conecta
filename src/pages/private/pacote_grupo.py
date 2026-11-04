@@ -1,12 +1,3 @@
-"""Pacote por periodo.
-
-Geracao em LOTES: cada execucao do Streamlit processa poucas turmas (em
-paralelo), grava no ZIP em DISCO (arquivo temporario), atualiza a barra de
-progresso e dispara st.rerun(). Nenhuma requisicao fica aberta por minutos.
-
-As turmas so sao marcadas como "emitidas" quando o usuario clica em baixar
-o ZIP — se a aba fechar no meio, nada fica marcado sem ter sido entregue.
-"""
 import os
 import tempfile
 import zipfile
@@ -31,21 +22,14 @@ from src.utils.imprimir_documentacao import _prefetch_maps
 
 exigir_permissao("pacote_grupo")
 
-TURMAS_POR_LOTE = 3  # turmas processadas por execucao (em paralelo)
+TURMAS_POR_LOTE = 3 
 MAX_WORKERS = 3
 JOB = "pkg_job"
 
-st.title("📦 Pacote por Período")
-st.markdown(
-    "Gera um **ZIP** com a documentação de turmas em um intervalo de datas.\n\n"
-    "Pode filtrar por **todas as empresas** ou por um **grupo empresarial**.\n\n"
-    "As turmas com pelo menos um documento gerado são marcadas como "
-    "**documentação emitida** automaticamente."
-)
+st.title("Pacote por Período")
 
-# ---------- Escopo ----------
 escopo = st.radio(
-    "Escopo*",
+    "",
     options=["Todas as empresas", "Grupo empresarial"],
     horizontal=True,
     help="Todas as empresas = qualquer turma no período, independente de grupo.",
@@ -78,7 +62,7 @@ if escopo == "Grupo empresarial":
             extra = f" · {unidade}" if unidade else ""
             st.caption(f"- {e.get('name')}{extra} — CNPJ {e.get('cnpj') or '—'}")
 else:
-    st.caption("Serão consideradas turmas de **todas as empresas** no período.")
+    st.caption("")
 
 # ---------- Período (atalhos + datas) ----------
 st.markdown("**Período**")
@@ -154,10 +138,7 @@ with ocol2:
 with ocol3:
     opt_lista = st.checkbox("Lista de presença", value=True)
 
-# =====================================================================
-# JOB EM LOTES (processamento / resultado) — fica ANTES do st.stop()
-# para continuar visível mesmo quando as turmas passam a "emitidas".
-# =====================================================================
+
 job = st.session_state.get(JOB)
 
 
@@ -166,7 +147,6 @@ def _processar_lote(job: dict) -> None:
     lote = job["turmas"][ini : ini + TURMAS_POR_LOTE]
     opts = job["opts"]
 
-    # dados do lote inteiro em poucas consultas (em vez de 5+ por turma)
     try:
         cursos, instrutores, empresas_lote, mats = _prefetch_maps(lote)
     except Exception:
@@ -189,10 +169,10 @@ def _processar_lote(job: dict) -> None:
                 empresas_por_id=job["empresas_por_id"],
                 dados_resp=job["dados_resp"],
                 pre=pre,
-                marcar=False,  # marcacao so no download
+                marcar=False, 
                 **opts,
             )
-        except Exception as e:  # nunca derruba o lote inteiro
+        except Exception as e: 
             titulo = turma.get("titulo") or "Turma"
             return [], {
                 "titulo": titulo,
@@ -233,7 +213,6 @@ def _processar_lote(job: dict) -> None:
 
 
 def _ao_baixar() -> None:
-    """on_click do download: marca as turmas entregues como emitidas (1x)."""
     j = st.session_state.get(JOB)
     if not j or j.get("marcado_ok") is not None:
         return

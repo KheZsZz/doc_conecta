@@ -154,7 +154,7 @@ with st.sidebar:
     ct_selecionado_dados = {}
     if cts_dict:
         ct_nome_escolhido = st.selectbox(
-            "🏢 Centro de Treinamento (CT)", options=list(cts_dict.keys())
+            "Centro de Treinamento (CT)", options=list(cts_dict.keys())
         )
         ct_selecionado_dados = cts_dict[ct_nome_escolhido]
         # Logo e dados vêm do cadastro do CT — sem upload manual
@@ -169,7 +169,7 @@ with st.sidebar:
 
     st.markdown("---")
 
-    with st.expander("👨‍🏫 Instrutor", expanded=True):
+    with st.expander("Instrutor", expanded=True):
         if not instrutores:
             st.warning("Nenhum instrutor cadastrado. Cadastre em **Instrutores**.")
             nome_instrutor = ""
@@ -209,7 +209,7 @@ with st.sidebar:
                     mime = assinatura_file.type
                     assinatura_url_final = f"data:{mime};base64,{encoded}"
 
-    with st.expander("👁️ Exibição de Colunas na Tabela", expanded=True):
+    with st.expander("Exibição de Colunas na Tabela", expanded=True):
         mostrar_rg = st.checkbox("Mostrar coluna RG", value=True)
         mostrar_nasc = st.checkbox("Mostrar coluna Data Nasc.", value=True)
         mostrar_data_conclusao = st.checkbox(
@@ -225,11 +225,7 @@ with st.sidebar:
     st.caption("Instrutor e logo vêm do cadastro — sem digitar CBO/documento manual.")
 
 # --- ÁREA PRINCIPAL ---
-st.title("🔥 Emissor de Atestados de Brigada")
-st.markdown(
-    "Gere atestados em PDF via planilha. **CT, logo, instrutor e CPF** "
-    "saem do cadastro do sistema."
-)
+st.title("Emissor de Atestados de Brigada")
 
 st.download_button(
     "📥 Baixar planilha modelo",
@@ -253,7 +249,7 @@ if uploaded_file is not None:
     col_btn, _ = st.columns([1, 2])
     with col_btn:
         gerar_btn = st.button(
-            "🚀 Processar e Gerar Atestados", type="primary", use_container_width=True
+            "Processar e Gerar Atestados", type="primary", use_container_width=True
         )
 
     if gerar_btn:
@@ -387,16 +383,16 @@ if uploaded_file is not None:
             zip_buffer.seek(0)
 
             st.markdown("---")
-            st.subheader("📊 Resultados do Processamento")
+            st.subheader("Resultados do Processamento")
 
             aba_download, aba_erros = st.tabs(
-                ["📥 Área de Download", "⚠️ Inconsistências"]
+                ["Área de Download", "Inconsistências"]
             )
             with aba_download:
                 if atestados_gerados > 0:
                     st.success(f"✅ {atestados_gerados} atestados gerados com sucesso!")
                     st.download_button(
-                        "📦 Baixar Atestados (.zip)",
+                        "Baixar Atestados (.zip)",
                         data=zip_buffer,
                         file_name="atestados.zip",
                         mime="application/zip",

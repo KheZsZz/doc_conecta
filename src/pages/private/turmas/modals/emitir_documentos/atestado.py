@@ -37,7 +37,7 @@ def gerar_atestado(
     )
 
     if not st.button(
-        "🚀 Processar e Gerar Atestado", type="primary", use_container_width=True
+        "Processar e Gerar Atestado", type="primary", use_container_width=True
     ):
         return
 

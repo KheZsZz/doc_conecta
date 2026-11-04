@@ -16,12 +16,7 @@ from src.pages.private.turmas.modals.emitir_documentos.data import fetch_ct
 
 exigir_permissao("imprimir_documentacao")
 
-st.title("🖨️ Imprimir Documentação")
-st.markdown(
-    "Gera um **PDF único** com o tipo de documento escolhido para **todas as "
-    "empresas/turmas do CT na data selecionada**.\n\n"
-    "Atestados só entram quando o **curso exige atestado** no cadastro."
-)
+st.title("Imprimir Documentação")
 
 cts = listar_cts()
 if not cts:
@@ -140,7 +135,7 @@ if st.session_state.get(ss_key):
             for e in meta["erros"]:
                 st.write(f"- {e}")
     st.download_button(
-        "📥 Baixar PDF",
+        "Baixar PDF",
         data=st.session_state[ss_key],
         file_name=st.session_state.get(ss_nome) or "documentacao.pdf",
         mime="application/pdf",
@@ -148,7 +143,7 @@ if st.session_state.get(ss_key):
         key="dl_imp_persist",
     )
 
-if st.button("🖨️ Gerar PDF consolidado", type="primary", use_container_width=True):
+if st.button("Gerar PDF consolidado", type="primary", use_container_width=True):
     ct = fetch_ct(ct_fix) or mapa_ct.get(ct_fix) or {}
     with st.spinner("Gerando PDF de todas as turmas do dia..."):
         pdf, avisos, erros = gerar_pdf_tipo(
@@ -186,7 +181,7 @@ if st.button("🖨️ Gerar PDF consolidado", type="primary", use_container_widt
             for e in erros:
                 st.write(f"- {e}")
     st.download_button(
-        "📥 Baixar PDF",
+        "Baixar PDF",
         data=pdf,
         file_name=nome_arq,
         mime="application/pdf",

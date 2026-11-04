@@ -39,7 +39,7 @@ def gerar_certificados_individuais(
     )
 
     if not st.button(
-        "🚀 Processar e Baixar Lote (ZIP)",
+        "Processar e Baixar Lote (ZIP)",
         type="primary",
         use_container_width=True,
     ):
@@ -97,7 +97,7 @@ def gerar_certificados_individuais(
                 st.warning(f"⚠️ Status do card: {msg}")
 
             st.download_button(
-                "📥 Baixar Certificados (ZIP)",
+                "Baixar Certificados (ZIP)",
                 data=zip_bytes,
                 file_name=f"certificados_{titulo_turma.replace(' ', '_')}.zip",
                 mime="application/zip",

@@ -3,7 +3,7 @@ import streamlit as st
 from src.auth.local_auth import atualizar_senha, autenticar
 from src.auth.permissions import ROLE_LABELS, role_atual
 
-st.title("⚙️ Configurações")
+st.title("Configurações")
 
 usuario = st.session_state.get("user")
 email_logado = getattr(usuario, "email", None) if usuario else None
@@ -21,7 +21,7 @@ nome = perfil.get("nome") or "—"
 st.info(f"**{nome}** · {email_logado} · {label}")
 
 st.markdown("---")
-st.subheader("🔑 Alterar senha")
+st.subheader("Alterar senha")
 
 with st.form("form_alterar_senha", clear_on_submit=True):
     senha_atual = st.text_input("Senha atual*", type="password")

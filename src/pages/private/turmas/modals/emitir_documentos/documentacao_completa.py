@@ -97,7 +97,7 @@ def gerar_documentacao_completa(
 
         base = meta.get("base") or _slug(titulo_turma)
         st.download_button(
-            "📥 Baixar documentação completa (ZIP)",
+            "Baixar documentação completa (ZIP)",
             data=zip_pronto,
             file_name=f"documentacao_{base}.zip",
             mime="application/zip",
@@ -109,7 +109,7 @@ def gerar_documentacao_completa(
         col_re, col_limpar = st.columns(2)
         with col_re:
             reemitir = st.button(
-                "🔄 Reemitir documentação",
+                "Reemitir documentação",
                 type="primary",
                 use_container_width=True,
                 key=f"btn_reemit_doc_completa_{tid}",
@@ -117,7 +117,7 @@ def gerar_documentacao_completa(
             )
         with col_limpar:
             limpar = st.button(
-                "🗑️ Limpar ZIP atual",
+                "Limpar ZIP atual",
                 use_container_width=True,
                 key=f"btn_clear_doc_completa_{tid}",
             )
@@ -133,7 +133,7 @@ def gerar_documentacao_completa(
         st.session_state.pop(_ss_meta_key(tid), None)
     else:
         if not st.button(
-            "🚀 Gerar documentação completa (ZIP)",
+            "Gerar documentação completa (ZIP)",
             type="primary",
             use_container_width=True,
             key=f"btn_doc_completa_{tid}",
@@ -301,7 +301,7 @@ def gerar_documentacao_completa(
                         st.write(f"- {e}")
 
             st.download_button(
-                "📥 Baixar documentação completa (ZIP)",
+                "Baixar documentação completa (ZIP)",
                 data=zip_bytes,
                 file_name=f"documentacao_{base}.zip",
                 mime="application/zip",

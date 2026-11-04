@@ -2,7 +2,7 @@ import streamlit as st
 import uuid
 from src.config.database import supabase
 
-st.title("✒️ Gestão de Responsáveis Técnicos")
+st.title("Responsáveis Técnicos")
 st.markdown(
     "Cadastre os responsáveis técnicos e gerencie suas assinaturas para emissão nos certificados."
 )
@@ -28,7 +28,7 @@ def fazer_upload_assinatura_resp(arquivo_upload, cpf: str):
 
 
 tab_listar, tab_cadastrar = st.tabs(
-    ["📋 Responsáveis Cadastrados", "➕ Novo Responsável Técnico"]
+    ["Responsáveis Cadastrados", "Novo Responsável Técnico"]
 )
 
 with tab_listar:

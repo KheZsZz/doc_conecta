@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from src.config.database import supabase
 
-st.title("📋 Alunos Matriculados por Turma")
+st.title("Alunos Matriculados por Turma")
 st.markdown("Consulte os alunos que realizaram o check-in através do sistema e gerencie a turma.")
 
 # 1. Busca todas as turmas cadastradas para o selectbox de forma segura
@@ -71,7 +71,7 @@ try:
         )
         
         st.markdown("---")
-        if st.button("📥 Exportar Lista da Turma (Excel/CSV)", use_container_width=True):
+        if st.button("Exportar Lista da Turma (Excel/CSV)", use_container_width=True):
             csv = df_alunos.to_csv(index=False).encode('utf-8')
             st.download_button(
                 label="Baixar Arquivo CSV",

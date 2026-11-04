@@ -2,15 +2,15 @@ import streamlit as st
 from src.config.database import supabase
 
 
-st.title("📚 Gestão de Cursos")
+st.title("Gestão de Cursos")
 st.markdown("Cadastre e gerencie os treinamentos oferecidos pela sua empresa.")
 
-tab_listar, tab_cadastrar = st.tabs(["📋 Cursos Cadastrados", "➕ Novo Curso"])
+tab_listar, tab_cadastrar = st.tabs(["Cursos Cadastrados", "Novo Curso"])
 
 # ==========================================
 # 1. MODAL / POPUP DE EDIÇÃO DO CURSO
 # ==========================================
-@st.dialog("✏️ Editar Curso", width="medium")
+@st.dialog("Editar Curso", width="medium")
 def modal_editar_curso(curso_id, nome_atual, sigla_atual, normativa_atual, dizeres_aluno_atual, dizeres_empresa_atual, exige_atestado_atual):
     with st.form(f"form_edit_curso_{curso_id}"):
         novo_nome = st.text_input("Nome do Curso*", value=nome_atual)
@@ -67,7 +67,7 @@ with tab_listar:
     st.subheader("Cursos e Treinamentos Disponíveis")
 
     busca = st.text_input(
-        "🔍 Buscar por nome ou sigla",
+        "Buscar por nome ou sigla",
         placeholder="Ex: CIPA, BRIGADA...",
         key="busca_curso",
     )
@@ -113,7 +113,7 @@ with tab_listar:
                             
                         with col_acoes:
                             st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-                            if st.button("✏️", key=f"edit_curso_{cid}", help="Editar curso", use_container_width=True):
+                            if st.button("Editar", key=f"edit_curso_{cid}", help="Editar curso", use_container_width=True):
                                 modal_editar_curso(cid, nome, sigla, normativa, dizeres_aluno, dizeres_empresa, exige_atestado)
         else:
             st.info("ℹ️ Nenhum curso cadastrado no momento.")

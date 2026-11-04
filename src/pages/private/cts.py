@@ -6,13 +6,9 @@ import streamlit as st
 
 from src.config.database import supabase
 
-st.title("🏢 Centros de Treinamento (CTs)")
-st.markdown(
-    "Gerencie os locais físicos de treinamento e suas logomarcas, "
-    "fundos de certificado e de carteirinha."
-)
+st.title("Centros de Treinamento (CTs)")
 
-tab_listar, tab_cadastrar = st.tabs(["📋 Listar CTs", "➕ Cadastrar CT"])
+tab_listar, tab_cadastrar = st.tabs(["Listar CTs", "Cadastrar CT"])
 
 
 def _content_type(arquivo_upload) -> str:

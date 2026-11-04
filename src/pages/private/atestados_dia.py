@@ -11,7 +11,7 @@ from src.utils.atestado import (  # Gerador de PDF de atestado do projeto
 
 
 def render_pagina_atestados_dia():
-    st.title("📄 Atestados do Dia")
+    st.title("Atestados do Dia")
     st.markdown(
         "Gere e baixe em lote todos os atestados emitidos no dia selecionado."
     )
@@ -19,7 +19,7 @@ def render_pagina_atestados_dia():
     # Seleção de data (padrão: hoje)
     data_filtro = st.date_input("Data de referência:", value=date.today())
 
-    if st.button("🚀 Processar e Gerar Atestados em Lote", type="primary"):
+    if st.button("Processar e Gerar Atestados em Lote", type="primary"):
         with st.spinner("Buscando registros e gerando PDFs..."):
             # 1. Consulta ao banco de dados filtrando pela data selecionada
             conn = get_connection()

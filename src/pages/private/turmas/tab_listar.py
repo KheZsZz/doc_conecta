@@ -41,7 +41,7 @@ def _excluir_turma(tid: str) -> tuple[bool, str]:
         return False, str(e)
 
 
-@st.dialog("🗑️ Excluir turma", width="small")
+@st.dialog("Excluir turma", width="small")
 def modal_excluir_turma(tid: str, titulo: str, qtd_alunos: int):
     st.warning(
         f"Tem certeza que deseja excluir a turma **{titulo}**?\n\n"
@@ -68,7 +68,7 @@ def modal_excluir_turma(tid: str, titulo: str, qtd_alunos: int):
 
 
 def render_tab_listar():
-    st.subheader("📋 Painel de Turmas e Emissão de Documentos")
+    st.subheader("Painel de Turmas e Emissão de Documentos")
 
     if is_consulta() and ct_id_atual():
         st.caption("Exibindo apenas turmas do **seu CT**.")
@@ -76,7 +76,7 @@ def render_tab_listar():
     col1, col2 = st.columns(2)
     with col1:
         busca_turma = st.text_input(
-            "🔍 Buscar (título ou empresa)", placeholder="Digite para filtrar..."
+            "Buscar (título ou empresa)", placeholder="Digite para filtrar..."
         )
     with col2:
         filtro_status = st.selectbox(
@@ -227,7 +227,7 @@ def render_tab_listar():
                 c1, c2, c3, c4, c5 = st.columns(5)
                 with c1:
                     if st.button(
-                        "📄 Documentos",
+                        "Documentos",
                         key=f"docs_{tid}",
                         use_container_width=True,
                     ):
@@ -239,14 +239,14 @@ def render_tab_listar():
                         )
                 with c2:
                     if st.button(
-                        "✏️ Editar",
+                        "Editar",
                         key=f"edit_{tid}",
                         use_container_width=True,
                     ):
                         modal_editar_turma(tid)
                 with c3:
                     if st.button(
-                        "➕ Aluno",
+                        "Aluno",
                         key=f"add_{tid}",
                         use_container_width=True,
                     ):
@@ -259,14 +259,14 @@ def render_tab_listar():
                         )
                 with c4:
                     if st.button(
-                        "👥 Matrículas",
+                        "Matrículas",
                         key=f"mat_{tid}",
                         use_container_width=True,
                     ):
                         modal_editar_matriculas(tid, titulo)
                 with c5:
                     if st.button(
-                        "🗑️ Excluir",
+                        "   Excluir",
                         key=f"del_{tid}",
                         use_container_width=True,
                     ):

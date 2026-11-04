@@ -17,13 +17,7 @@ from src.auth.permissions import (
 
 exigir_permissao("usuarios")
 
-st.title("👤 Gestão de Usuários")
-st.markdown("Cadastre, liste e defina o perfil de acesso de cada usuário.")
-
-with st.expander("O que cada perfil pode fazer", expanded=False):
-    for r in ROLES:
-        st.markdown(f"- **{ROLE_LABELS[r]}**: {ROLE_HELP[r]}")
-
+st.title("Gestão de Usuários")
 
 def _listar_cts() -> list[dict]:
     try:
@@ -34,7 +28,6 @@ def _listar_cts() -> list[dict]:
 
 
 def _cts_opcoes() -> tuple[list[str], dict[str, str]]:
-    """Retorna labels e mapa label→id (inclui '— Sem CT —')."""
     cts = _listar_cts()
     labels = ["— Sem CT —"]
     mapa = {"— Sem CT —": ""}
@@ -68,7 +61,7 @@ def _label_para_role(label: str) -> str:
     return ROLE_OPERACIONAL
 
 
-@st.dialog("✏️ Editar Usuário", width="medium")
+@st.dialog("Editar Usuário", width="medium")
 def modal_editar_usuario(
     usuario_id,
     nome_atual,
@@ -103,7 +96,7 @@ def modal_editar_usuario(
         nova_senha = st.text_input("Nova senha", type="password")
         conf_senha = st.text_input("Confirmar nova senha", type="password")
 
-        salvar = st.form_submit_button("💾 Salvar", type="primary", use_container_width=True)
+        salvar = st.form_submit_button("Salvar", type="primary", use_container_width=True)
 
         if salvar:
             role_novo = _label_para_role(novo_role_label)
@@ -138,7 +131,7 @@ def modal_editar_usuario(
                     st.error(f"Erro ao salvar: {e}")
 
 
-@st.dialog("🗑️ Remover Usuário", width="small")
+@st.dialog("Remover Usuário", width="small")
 def modal_remover_usuario(usuario_id, nome, email):
     st.warning(f"Remover **{nome}** ({email})?")
     confirmar = st.checkbox("Confirmo a exclusão", key=f"conf_del_{usuario_id}")
@@ -181,7 +174,7 @@ with tab_listar:
                 role_u = normalizar_role(u.get("role"))
                 tem_senha = bool(u.get("password_hash"))
                 status = "✅ Ativo" if ativo else "⛔ Inativo"
-                senha_flag = "🔑 Senha ok" if tem_senha else "⚠️ Sem senha"
+                senha_flag = "" if tem_senha else ""
                 ct_nome = id_para_nome.get(str(u.get("ct_id") or ""), "")
 
                 with st.container(border=True):
@@ -190,14 +183,14 @@ with tab_listar:
                         st.markdown(
                             f"**{nome}** · {status} · **{ROLE_LABELS.get(role_u, role_u)}** · {senha_flag}"
                         )
-                        parts = [f"📧 {email}"]
+                        parts = [f"e-mail:{email}"]
                         if phone:
-                            parts.append(f"📞 {phone}")
+                            parts.append(f"phone:{phone}")
                         if ct_nome and ct_nome != "— Sem CT —":
-                            parts.append(f"🏢 CT: {ct_nome}")
+                            parts.append(f"CT: {ct_nome}")
                         st.caption(" · ".join(parts))
                     with c2:
-                        if st.button("✏️ Editar", key=f"e_{uid}", use_container_width=True):
+                        if st.button("Editar", key=f"e_{uid}", use_container_width=True):
                             modal_editar_usuario(
                                 uid,
                                 nome,
@@ -208,7 +201,7 @@ with tab_listar:
                                 u.get("ct_id"),
                             )
                     with c3:
-                        if st.button("🗑️ Remover", key=f"r_{uid}", use_container_width=True):
+                        if st.button("Remover", key=f"r_{uid}", use_container_width=True):
                             modal_remover_usuario(uid, nome, email)
     except Exception as e:
         st.error(f"Erro ao listar usuários: {e}")
@@ -235,7 +228,7 @@ with tab_cadastrar:
         )
         senha = st.text_input("Senha*", type="password")
         conf = st.text_input("Confirmar Senha*", type="password")
-        ok = st.form_submit_button("✅ Cadastrar", type="primary", use_container_width=True)
+        ok = st.form_submit_button("Cadastrar", type="primary", use_container_width=True)
 
         if ok:
             role = _label_para_role(role_label)

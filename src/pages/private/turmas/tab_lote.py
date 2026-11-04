@@ -39,7 +39,7 @@ A data também aceita célula de data do Excel. No banco grava em ISO; na tela a
             """
         )
         st.download_button(
-            "📥 Baixar modelo .xlsx",
+            "Baixar modelo .xlsx",
             data=gerar_modelo_planilha(),
             file_name="modelo_turmas_lote.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -130,7 +130,7 @@ A data também aceita célula de data do Excel. No banco grava em ISO; na tela a
     st.dataframe(preview, use_container_width=True, hide_index=True)
 
     if st.button(
-        "🚀 Importar turmas",
+        "Importar turmas",
         type="primary",
         use_container_width=True,
         key="btn_import_turmas_lote",

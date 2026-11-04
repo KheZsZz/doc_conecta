@@ -199,7 +199,7 @@ def modal_editar_matriculas(tid, titulo_turma):
     )
 
     if st.button(
-        "💾 Salvar alterações da tabela",
+        "Salvar",
         type="primary",
         use_container_width=True,
         key=f"salvar_tab_{tid}",
@@ -293,7 +293,7 @@ def modal_editar_matriculas(tid, titulo_turma):
     col_ex, col_tr = st.columns(2)
 
     with col_ex:
-        st.markdown("**🗑️ Excluir da turma**")
+        st.markdown("**Excluir da turma**")
         st.caption("Remove só a matrícula. O cadastro do aluno permanece.")
         confirmar = st.checkbox(
             f"Confirmo excluir {len(selecionados)} matrícula(s)",
@@ -325,7 +325,7 @@ def modal_editar_matriculas(tid, titulo_turma):
                 st.rerun()
 
     with col_tr:
-        st.markdown("**🔄 Transferir de turma**")
+        st.markdown("**Transferir de turma**")
         try:
             outras = _carregar_outras_turmas(tid)
         except Exception as e:

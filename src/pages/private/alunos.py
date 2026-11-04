@@ -3,11 +3,7 @@ from datetime import date, datetime
 from src.config.database import supabase
 from src.auth.permissions import ct_id_atual, is_consulta
 
-st.title("🎓 Cadastro Individual de Alunos")
-st.markdown(
-    "Matricule alunos manualmente em turmas com documentação **pendente** "
-    "**do dia de hoje**."
-)
+st.title("Cadastro Individual de Alunos")
 
 if is_consulta() and ct_id_atual():
     st.caption("Exibindo apenas turmas do **seu CT**.")

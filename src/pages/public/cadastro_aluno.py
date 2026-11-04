@@ -4,7 +4,7 @@ import streamlit as st
 
 from src.config.database import supabase
 
-st.title("📱 Cadastro de Presença - Centro de Treinamento")
+st.title("Cadastro de Presença - Centro de Treinamento")
 st.write("Selecione a turma em que você está participando hoje e preencha seus dados.")
 
 

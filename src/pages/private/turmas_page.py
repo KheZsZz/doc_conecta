@@ -4,17 +4,14 @@ from src.pages.private.turmas.tab_cadastrar import render_tab_cadastrar
 from src.pages.private.turmas.tab_lote import render_tab_lote
 from src.pages.private.turmas.tab_buscar import render_tab_buscar
 
-st.title("📅 Abertura e Gestão de Turmas")
-st.markdown(
-    "Abra as turmas do centro de treinamento, importe listas de alunos e emita os documentos."
-)
+st.title("Abertura e Gestão de Turmas")
 
 tab_listar, tab_buscar, tab_cadastrar, tab_lote = st.tabs(
     [
-        "📋 Turmas Abertas",
-        "🔍 Buscar aluno",
-        "➕ Abrir Nova Turma",
-        "📤 Turmas em Lote",
+        "Turmas Abertas",
+        "Buscar aluno",
+        "Abrir Nova Turma",
+        "Turmas em Lote",
     ]
 )
 
