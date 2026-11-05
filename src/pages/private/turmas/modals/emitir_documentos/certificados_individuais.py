@@ -1,6 +1,6 @@
 import streamlit as st
 
-from src.utils.certificado import gerar_certificados_pdf_zip
+from src.utils.certificado import gerar_certificados_pdf, gerar_certificados_pdf_zip
 from src.pages.private.turmas.helpers import formatar_data_extenso
 
 from .data import (
@@ -38,10 +38,26 @@ def gerar_certificados_individuais(
         help="Quando marcado, o endereço do Centro de Treinamento aparece abaixo da modalidade no certificado.",
     )
 
+    formato = st.radio(
+        "Formato do download",
+        options=["PDF único (todos juntos)", "ZIP (um PDF por aluno)"],
+        index=0,
+        horizontal=True,
+        key=f"formato_cert_alunos_{tid}",
+        help="PDF único gera um arquivo com todos os certificados. ZIP gera um PDF separado por aluno.",
+    )
+    usar_zip = formato.startswith("ZIP")
+
+    label_btn = (
+        "Processar e Baixar Lote (ZIP)"
+        if usar_zip
+        else "Processar e Baixar Lote (PDF único)"
+    )
     if not st.button(
-        "Processar e Baixar Lote (ZIP)",
+        label_btn,
         type="primary",
         use_container_width=True,
+        key=f"btn_cert_alunos_{tid}",
     ):
         return
 
@@ -79,7 +95,7 @@ def gerar_certificados_individuais(
                 ),
             }
 
-            zip_bytes = gerar_certificados_pdf_zip(
+            kwargs = dict(
                 alunos_matriculas=alunos,
                 turma=turma_cert,
                 instrutor=instrutor_data,
@@ -89,6 +105,17 @@ def gerar_certificados_individuais(
                 cidade_data=cidade_data,
             )
 
+            if usar_zip:
+                arquivo_bytes = gerar_certificados_pdf_zip(**kwargs)
+                mime = "application/zip"
+                file_name = f"certificados_{titulo_turma.replace(' ', '_')}.zip"
+                label_dl = "Baixar Certificados (ZIP)"
+            else:
+                arquivo_bytes = gerar_certificados_pdf(**kwargs)
+                mime = "application/pdf"
+                file_name = f"certificados_{titulo_turma.replace(' ', '_')}.pdf"
+                label_dl = "Baixar Certificados (PDF único)"
+
             ok, msg = marcar_documento_emitido(tid)
             if ok:
                 st.success("✅ Certificados gerados e **turma marcada como emitida**!")
@@ -97,12 +124,12 @@ def gerar_certificados_individuais(
                 st.warning(f"⚠️ Status do card: {msg}")
 
             st.download_button(
-                "Baixar Certificados (ZIP)",
-                data=zip_bytes,
-                file_name=f"certificados_{titulo_turma.replace(' ', '_')}.zip",
-                mime="application/zip",
+                label_dl,
+                data=arquivo_bytes,
+                file_name=file_name,
+                mime=mime,
                 use_container_width=True,
-                key=f"dl_cert_zip_{tid}",
+                key=f"dl_cert_alunos_{tid}_{'zip' if usar_zip else 'pdf'}",
             )
     except Exception as e:
         st.error(f"❌ Erro ao gerar os certificados: {e}")
