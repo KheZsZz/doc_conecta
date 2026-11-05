@@ -14,15 +14,15 @@
   .page { width: 194mm; }
   .page.quebra { break-after: page; }
 
+  /* Card = imagem de fundo inteira */
   .card-row {
     position: relative;
     width: 100%;
     height: 66mm;
     margin-bottom: 4mm;
-    border: 0.4mm solid #c5cdd8;
     border-radius: 2mm;
     overflow: hidden;
-    background-color: #fff;
+    background-color: #e8e8ee;
   }
   .card-row.ultimo { margin-bottom: 0; }
   .card-row.has-fundo {
@@ -32,84 +32,98 @@
     background-repeat: no-repeat;
   }
 
+  /* Painéis transparentes — só posicionam o conteúdo */
   .panel {
     position: absolute;
     top: 0;
     bottom: 0;
     width: 50%;
-    padding: 3mm 4mm;
+    background: transparent;
   }
-  .panel-left {
-    left: 0;
-    border-right: 0.3mm dashed #b0b8c4;
-    background: rgba(255, 252, 245, 0.88);
-  }
-  .panel-right {
-    left: 50%;
-    background: rgba(255, 255, 255, 0.90);
-    padding-bottom: 1.2mm;
-  }
+  .panel-left { left: 0; }
+  .panel-right { left: 50%; }
 
-  .logos-row {
-    margin: -3mm -4mm 1mm -4mm;
-    background: #0a2f5c;
-    line-height: 0;
-    min-height: 9mm;
-    padding: 1mm 3mm;
+  /* Faixa superior: logo sobre o azul do fundo */
+  .topo {
+    position: absolute;
+    top: 1.5mm;
+    left: 3mm;
+    right: 3mm;
+    height: 8mm;
+    line-height: 8mm;
   }
-  .logos-row img {
+  .topo img {
     display: inline-block;
-    max-height: 8mm;
+    max-height: 7mm;
     max-width: 28mm;
     vertical-align: middle;
   }
 
+  /* ---- FRENTE (esquerda) ---- */
+  .frente-conteudo {
+    position: absolute;
+    top: 11mm;
+    left: 4mm;
+    right: 4mm;
+    bottom: 3mm;
+    text-align: center;
+  }
   .texto-cert {
-    font-size: 8pt;
-    line-height: 1.25;
+    font-size: 7.5pt;
+    line-height: 1.3;
     color: #222;
-    margin-top: 2.5mm;
+    text-align: left;
     margin-bottom: 2mm;
   }
   .curso-nome {
     font-size: 9pt;
     font-weight: 700;
-    text-align: center;
-    margin-top: 2mm;
     color: #0b3d6e;
+    line-height: 1.2;
+    margin: 1.5mm 0 1mm 0;
   }
   .carga {
     font-size: 8pt;
-    text-align: center;
-    margin-top: 1mm;
+    color: #333;
+    margin-bottom: 2mm;
   }
-  .logos-parceiros {
+  .logo-ct-wrap {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
     height: 14mm;
-    line-height: 14mm;
-    margin-top: 1.5mm;
     text-align: center;
+    line-height: 14mm;
   }
-  .logos-parceiros img {
+  .logo-ct-wrap img {
     display: inline-block;
-    vertical-align: middle;
     max-height: 13mm;
-    max-width: 70%;
+    max-width: 75%;
+    vertical-align: middle;
   }
 
+  /* ---- VERSO (direita) ---- */
+  .verso-conteudo {
+    position: absolute;
+    top: 11mm;
+    left: 4mm;
+    right: 4mm;
+    bottom: 18mm;
+  }
   .field-label {
-    font-size: 6.5pt;
-    color: #555;
-    margin-bottom: 0.5mm;
-    margin-top: 1.5mm;
+    font-size: 6pt;
+    color: #445;
+    margin: 1mm 0 0.3mm 0;
   }
   .field-box {
-    border: 0.35mm solid #8a94a6;
-    border-radius: 0.8mm;
-    min-height: 5.5mm;
-    padding: 0.8mm 1.5mm;
-    font-size: 8pt;
+    border: 0.3mm solid #8a94a6;
+    border-radius: 0.7mm;
+    min-height: 5mm;
+    padding: 0.6mm 1.2mm;
+    font-size: 7.5pt;
     font-weight: 600;
-    background: rgba(255, 255, 255, 0.95);
+    background: rgba(255, 255, 255, 0.55);
   }
   table.row-2 {
     width: 100%;
@@ -119,24 +133,24 @@
   table.row-2 td {
     width: 50%;
     vertical-align: top;
-    padding: 0 1mm;
+    padding: 0 0.8mm;
   }
   table.row-2 td:first-child { padding-left: 0; }
   table.row-2 td:last-child { padding-right: 0; }
 
-  /* Assinaturas: duas colunas iguais na base */
+  /* Assinaturas na base do verso */
   .assinatura-box {
     position: absolute;
-    bottom: 1.2mm;
-    width: 42.3mm;
+    bottom: 1.5mm;
+    width: 42mm;
     text-align: center;
   }
   .assinatura-box.esq { left: 4mm; }
-  .assinatura-box.dir { left: 50.3mm; }
+  .assinatura-box.dir { left: 50mm; }
 
   .assinatura-img-slot {
     position: relative;
-    height: 12mm;
+    height: 11mm;
     overflow: hidden;
   }
   .assinatura-img-wrap {
@@ -149,38 +163,34 @@
   }
   .assinatura-img-wrap img {
     display: inline-block;
-    max-height: 12mm;
+    max-height: 11mm;
     max-width: 95%;
   }
   .assinatura-linha {
-    border-top: 0.35mm solid #222;
+    border-top: 0.3mm solid #222;
     width: 100%;
     height: 0;
   }
   .assinatura-caption {
-    padding-top: 0.6mm;
-    min-height: 8mm;
-    text-align: center;
+    padding-top: 0.4mm;
+    min-height: 6.5mm;
   }
   .instrutor-nome {
-    font-size: 6.5pt;
+    font-size: 6pt;
     font-weight: 700;
-    color: #1a1a2e;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
     line-height: 1.15;
-    margin-bottom: 0.2mm;
   }
   .instrutor-cpf {
-    font-size: 5.5pt;
+    font-size: 5pt;
     color: #555;
     line-height: 1.1;
-    margin-bottom: 0.2mm;
   }
   .assinatura-label {
-    font-size: 5.5pt;
+    font-size: 5pt;
     color: #444;
     line-height: 1.1;
   }
@@ -191,44 +201,48 @@
 <div class="page{% if not loop.last %} quebra{% endif %}">
   {% for card in pagina %}
   <div class="card-row{% if IMAGEM_FUNDO %} has-fundo{% endif %}{% if loop.last %} ultimo{% endif %}">
+
     <!-- FRENTE -->
     <div class="panel panel-left">
-      <div class="logos-row">
+      <div class="topo">
         {% if LOGO_CONECTA %}<img src="{{ LOGO_CONECTA }}" alt="Conecta"/>{% endif %}
       </div>
-      <div class="texto-cert">
-        Certificamos que o portador<br/>
-        indicado no verso concluiu<br/>
-        com aproveitamento o curso:
+      <div class="frente-conteudo">
+        <div class="texto-cert">
+          Certificamos que o portador<br/>
+          indicado no verso concluiu<br/>
+          com aproveitamento o curso:
+        </div>
+        <div class="curso-nome">{{ card.curso_nome }}</div>
+        <div class="carga">Carga Horária: {{ card.carga_horaria }}</div>
+        {% if LOGO_CT %}
+        <div class="logo-ct-wrap"><img src="{{ LOGO_CT }}" alt="logo CT"/></div>
+        {% endif %}
       </div>
-      <div class="curso-nome">{{ card.curso_nome }}</div>
-      <div class="carga">Carga Horária: {{ card.carga_horaria }}</div>
-      {% if LOGO_CT %}
-      <div class="logos-parceiros"><img src="{{ LOGO_CT }}" alt="logo CT"/></div>
-      {% endif %}
     </div>
 
     <!-- VERSO -->
     <div class="panel panel-right">
-      <div class="logos-row">
+      <div class="topo">
         {% if LOGO_CONECTA %}<img src="{{ LOGO_CONECTA }}" alt="Conecta"/>{% endif %}
       </div>
-      <div class="field-label">Nome</div>
-      <div class="field-box">{{ card.nome }}</div>
-      <table class="row-2"><tr>
-        <td>
-          <div class="field-label">RG/CPF</div>
-          <div class="field-box">{{ card.documento }}</div>
-        </td>
-        <td>
-          <div class="field-label">Conclusão</div>
-          <div class="field-box">{{ card.data_conclusao }}</div>
-        </td>
-      </tr></table>
-      <div class="field-label">Validade</div>
-      <div class="field-box" style="min-height: 6mm;">{{ card.validade }}</div>
+      <div class="verso-conteudo">
+        <div class="field-label">Nome</div>
+        <div class="field-box">{{ card.nome }}</div>
+        <table class="row-2"><tr>
+          <td>
+            <div class="field-label">RG/CPF</div>
+            <div class="field-box">{{ card.documento }}</div>
+          </td>
+          <td>
+            <div class="field-label">Conclusão</div>
+            <div class="field-box">{{ card.data_conclusao }}</div>
+          </td>
+        </tr></table>
+        <div class="field-label">Validade</div>
+        <div class="field-box">{{ card.validade }}</div>
+      </div>
 
-      <!-- Instrutor -->
       <div class="assinatura-box esq">
         <div class="assinatura-img-slot">
           {% if card.assinatura_instrutor %}
@@ -247,7 +261,6 @@
         </div>
       </div>
 
-      <!-- Aluno -->
       <div class="assinatura-box dir">
         <div class="assinatura-img-slot"></div>
         <div class="assinatura-linha"></div>
@@ -256,6 +269,7 @@
         </div>
       </div>
     </div>
+
   </div>
   {% endfor %}
 </div>
