@@ -171,7 +171,7 @@ def gerar_atestado_pdf_de_arquivo(
     )
     assinatura_resolvida = resolver_imagem(assinatura_src)
 
-    TAMANHO_PAGINA = 20
+    TAMANHO_PAGINA = 30
     if not alunos_processados:
         paginas_alunos = [[]]
     else:
