@@ -27,6 +27,94 @@ def fazer_upload_assinatura_resp(arquivo_upload, cpf: str):
         return None
 
 
+@st.dialog("Editar Responsável Técnico", width="medium")
+def modal_editar_responsavel(
+    rid: str,
+    nome_atual: str,
+    cpf_atual: str,
+    re_atual: str,
+    formacao_atual: str,
+    assinatura_atual: str | None,
+    ativo_atual: bool,
+    default_atual: bool,
+):
+    with st.form(f"form_edit_resp_{rid}"):
+        novo_nome = st.text_input("Nome Completo*", value=nome_atual or "")
+        novo_cpf = st.text_input("CPF*", value=cpf_atual or "")
+        novo_re = st.text_input(
+            "RE (Registro)",
+            value=re_atual or "",
+            help="Registro profissional. Aparece junto da assinatura nos certificados.",
+        )
+        nova_formacao = st.text_input(
+            "Formação / Especialização",
+            value=formacao_atual or "",
+            help="Ex.: Engenheiro de Segurança do Trabalho, Técnico em Segurança do Trabalho.",
+        )
+
+        st.markdown("---")
+        st.write("**Assinatura**")
+        if assinatura_atual:
+            st.image(assinatura_atual, width=180, caption="Assinatura atual")
+
+        arquivo_assinatura = st.file_uploader(
+            "Enviar nova imagem de assinatura (PNG/JPG)",
+            type=["png", "jpg", "jpeg"],
+            key=f"up_edit_resp_{rid}",
+        )
+
+        novo_ativo = st.checkbox("Responsável ativo", value=bool(ativo_atual))
+        novo_default = st.checkbox(
+            "Definir como Responsável Técnico Padrão",
+            value=bool(default_atual),
+        )
+
+        salvar = st.form_submit_button(
+            "💾 Salvar Alterações", type="primary", use_container_width=True
+        )
+
+        if salvar:
+            if not (novo_nome or "").strip() or not (novo_cpf or "").strip():
+                st.warning("⚠️ Nome e CPF são obrigatórios.")
+            else:
+                try:
+                    cpf_limpo = "".join(ch for ch in novo_cpf if ch.isdigit())
+                    caminho_assinatura = assinatura_atual
+                    if arquivo_assinatura is not None:
+                        url_nova = fazer_upload_assinatura_resp(
+                            arquivo_assinatura, cpf_limpo or "semcpf"
+                        )
+                        if url_nova:
+                            caminho_assinatura = url_nova
+
+                    if novo_default:
+                        supabase.table("responsaveis_tecnicos").update(
+                            {"is_default": False}
+                        ).neq("id", rid).execute()
+
+                    payload = {
+                        "nome": novo_nome.strip(),
+                        "cpf": novo_cpf.strip(),
+                        "re": (novo_re or "").strip() or None,
+                        "formacao": (nova_formacao or "").strip() or None,
+                        "assinatura_url": caminho_assinatura,
+                        "is_active": novo_ativo,
+                        "is_default": novo_default,
+                    }
+                    supabase.table("responsaveis_tecnicos").update(payload).eq(
+                        "id", rid
+                    ).execute()
+                    st.success("✅ Responsável Técnico atualizado!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Erro ao atualizar: {e}")
+                    if "formacao" in str(e).lower():
+                        st.info(
+                            "Execute no Supabase:\n"
+                            "`ALTER TABLE responsaveis_tecnicos ADD COLUMN IF NOT EXISTS formacao text;`"
+                        )
+
+
 tab_listar, tab_cadastrar = st.tabs(
     ["Responsáveis Cadastrados", "Novo Responsável Técnico"]
 )
@@ -71,6 +159,22 @@ with tab_listar:
                         else:
                             st.caption("Sem assinatura")
                     with col3:
+                        if st.button(
+                            "Editar",
+                            key=f"edit_resp_{rid}",
+                            use_container_width=True,
+                        ):
+                            modal_editar_responsavel(
+                                rid,
+                                nome,
+                                cpf,
+                                re_val,
+                                formacao_val,
+                                assinatura_url,
+                                is_active,
+                                is_default,
+                            )
+
                         if not is_default:
                             if st.button(
                                 "Definir como Padrão",
