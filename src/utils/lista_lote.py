@@ -159,9 +159,35 @@ def _normalizar_nome(val) -> str | None:
 
 
 def _normalizar_cpf(val) -> str | None:
-    s = _limpar_texto(val)
-    if not s:
+    """Aceita str, int ou float (Excel costuma transformar CPF em número)."""
+    if val is None or (isinstance(val, float) and pd.isna(val)):
         return None
+    if isinstance(val, (int, float)) and not isinstance(val, bool):
+        try:
+            digits = f"{int(val):d}"
+        except (ValueError, OverflowError):
+            digits = re.sub(r"\D", "", str(val))
+        if not digits or len(digits) > 11:
+            digits = re.sub(r"\D", "", f"{val}")
+        if not digits or len(digits) > 11:
+            return None
+        return digits.zfill(11)
+
+    s = str(val).strip()
+    if not s or s.lower() in ("nan", "none", "nat"):
+        return None
+    if re.fullmatch(r"[0-9]+\.?[0-9]*[eE][+-]?[0-9]+", s):
+        try:
+            digits = f"{int(float(s)):d}"
+            if 0 < len(digits) <= 11:
+                return digits.zfill(11)
+        except (ValueError, OverflowError):
+            pass
+    # "0.5336700983" — Excel perdeu zero à esquerda e virou decimal
+    if re.fullmatch(r"0\.\d+", s):
+        digits = re.sub(r"\D", "", s)
+        if 0 < len(digits) <= 11:
+            return digits.zfill(11)
     digits = re.sub(r"\D", "", s)
     if not digits or len(digits) > 11:
         return None
@@ -169,7 +195,23 @@ def _normalizar_cpf(val) -> str | None:
 
 
 def normalizar_cnpj(val) -> str:
-    return re.sub(r"\D", "", str(val or ""))
+    if val is None or (isinstance(val, float) and pd.isna(val)):
+        return ""
+    if isinstance(val, (int, float)) and not isinstance(val, bool):
+        try:
+            return f"{int(val):d}".zfill(14)[-14:]
+        except (ValueError, OverflowError):
+            pass
+    s = str(val).strip()
+    if re.fullmatch(r"[0-9]+\.?[0-9]*[eE][+-]?[0-9]+", s):
+        try:
+            return f"{int(float(s)):d}".zfill(14)[-14:]
+        except (ValueError, OverflowError):
+            pass
+    dig = re.sub(r"\D", "", s)
+    if not dig:
+        return ""
+    return dig.zfill(14)[-14:] if len(dig) <= 14 else dig[:14]
 
 
 def _norm_unidade(val) -> str:
@@ -247,29 +289,37 @@ def _chave_turma(cnpj: str, data: str, unidade: str) -> str:
 
 
 def _montar_indice_turmas_por_chave() -> dict[str, list[dict]]:
+    """Indexa turmas por CNPJ|data|unidade (paginado para não perder turmas recentes)."""
     indice: dict[str, list[dict]] = {}
     try:
-        res = (
-            supabase.table("turmas")
-            .select(
-                "id, titulo, client_id, carga_horaria, data_treinamento, "
-                "clients(id, name, cnpj, sigla)"
+        page = 1000
+        start = 0
+        while start < 10_000:
+            res = (
+                supabase.table("turmas")
+                .select(
+                    "id, titulo, client_id, carga_horaria, data_treinamento, "
+                    "clients(id, name, cnpj, sigla)"
+                )
+                .order("data_treinamento", desc=True)
+                .range(start, start + page - 1)
+                .execute()
             )
-            .order("data_treinamento", desc=True)
-            .limit(2000)
-            .execute()
-        )
-        for t in res.data or []:
-            cli = t.get("clients") or {}
-            cnpj = normalizar_cnpj(cli.get("cnpj"))
-            if not cnpj:
-                continue
-            data = str(t.get("data_treinamento") or "")[:10]
-            if not data:
-                continue
-            unid = cli.get("sigla") or ""
-            key = _chave_turma(cnpj, data, unid)
-            indice.setdefault(key, []).append(t)
+            batch = res.data if res and isinstance(res.data, list) else []
+            for trow in batch:
+                cli = trow.get("clients") or {}
+                cnpj = normalizar_cnpj(cli.get("cnpj"))
+                if not cnpj:
+                    continue
+                data = str(trow.get("data_treinamento") or "")[:10]
+                if not data:
+                    continue
+                unid = cli.get("sigla") or ""
+                key = _chave_turma(cnpj, data, unid)
+                indice.setdefault(key, []).append(trow)
+            if len(batch) < page:
+                break
+            start += page
     except Exception:
         pass
     return indice
@@ -281,7 +331,9 @@ def processar_lista_lote(arquivo_bytes: bytes, nome_arquivo: str) -> dict:
         if nome_lower.endswith(".csv"):
             df = pd.read_csv(io.BytesIO(arquivo_bytes), dtype=str)
         else:
-            df = pd.read_excel(io.BytesIO(arquivo_bytes), dtype=str)
+            df = pd.read_excel(
+                io.BytesIO(arquivo_bytes), dtype=str, keep_default_na=False
+            )
     except Exception as e:
         return {
             "sucesso": False,
@@ -409,7 +461,11 @@ def processar_lista_lote_por_chave(arquivo_bytes: bytes, nome_arquivo: str) -> d
         if nome_arquivo.lower().endswith(".csv"):
             df = pd.read_csv(io.BytesIO(arquivo_bytes), dtype=str)
         else:
-            df = pd.read_excel(io.BytesIO(arquivo_bytes), dtype=str)
+            df = pd.read_excel(
+                io.BytesIO(arquivo_bytes),
+                dtype=str,
+                keep_default_na=False,
+            )
     except Exception as e:
         return {
             "sucesso": False,
@@ -454,7 +510,8 @@ def processar_lista_lote_por_chave(arquivo_bytes: bytes, nome_arquivo: str) -> d
             continue
         key = _chave_turma(cnpj, data, unidade or "")
         candidatas = indice.get(key) or []
-        if not candidatas and not (unidade or "").strip():
+        # Fallback: se não achou pela unidade, tenta só CNPJ+data (quando único)
+        if not candidatas:
             prefix = f"{cnpj}|{data}|"
             todas = []
             for k, lista in indice.items():
@@ -462,7 +519,7 @@ def processar_lista_lote_por_chave(arquivo_bytes: bytes, nome_arquivo: str) -> d
                     todas.extend(lista)
             if len(todas) == 1:
                 candidatas = todas
-            elif len(todas) > 1:
+            elif len(todas) > 1 and not (unidade or "").strip():
                 erros.append(
                     f"Linha {linha_n}: CNPJ+data tem {len(todas)} turma(s) — informe UNIDADE."
                 )
