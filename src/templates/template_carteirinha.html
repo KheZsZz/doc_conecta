@@ -3,7 +3,6 @@
 <head>
 <meta charset="utf-8"/>
 <style>
-
   @page { size: A4 portrait; margin: 8mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -14,6 +13,7 @@
   }
   .page { width: 194mm; }
   .page.quebra { break-after: page; }
+
   .card-row {
     position: relative;
     width: 100%;
@@ -22,40 +22,48 @@
     border: 0.4mm solid #c5cdd8;
     border-radius: 2mm;
     overflow: hidden;
-    background: #fff;
+    background-color: #fff;
   }
   .card-row.ultimo { margin-bottom: 0; }
   .card-row.has-fundo {
-    background-image: url('{{ IMAGEM_FUNDO }}');
-    background-size: cover;
-    background-position: center;
+    background-image: url("{{ IMAGEM_FUNDO }}");
+    background-size: 100% 100%;
+    background-position: center center;
+    background-repeat: no-repeat;
   }
+
   .panel {
     position: absolute;
-    top: 0; bottom: 0;
+    top: 0;
+    bottom: 0;
     width: 50%;
     padding: 3mm 4mm;
   }
   .panel-left {
     left: 0;
     border-right: 0.3mm dashed #b0b8c4;
-    background: rgba(255,252,245,0.92);
+    background: rgba(255, 252, 245, 0.88);
   }
   .panel-right {
     left: 50%;
-    background: rgba(255,255,255,0.94);
+    background: rgba(255, 255, 255, 0.90);
+    padding-bottom: 1.2mm;
   }
+
   .logos-row {
     margin: -3mm -4mm 1mm -4mm;
     background: #0a2f5c;
     line-height: 0;
+    min-height: 9mm;
+    padding: 1mm 3mm;
   }
   .logos-row img {
     display: inline-block;
-    max-height: 9mm;
+    max-height: 8mm;
     max-width: 28mm;
     vertical-align: middle;
   }
+
   .texto-cert {
     font-size: 8pt;
     line-height: 1.25;
@@ -76,17 +84,18 @@
     margin-top: 1mm;
   }
   .logos-parceiros {
-    height: 16mm;
-    line-height: 16mm;
+    height: 14mm;
+    line-height: 14mm;
     margin-top: 1.5mm;
     text-align: center;
   }
   .logos-parceiros img {
     display: inline-block;
     vertical-align: middle;
-    max-height: 14mm;
+    max-height: 13mm;
     max-width: 70%;
   }
+
   .field-label {
     font-size: 6.5pt;
     color: #555;
@@ -100,14 +109,22 @@
     padding: 0.8mm 1.5mm;
     font-size: 8pt;
     font-weight: 600;
-    background: #fff;
+    background: rgba(255, 255, 255, 0.95);
   }
-  table.row-2 { width: 100%; table-layout: fixed; border-collapse: collapse; }
-  table.row-2 td { width: 50%; vertical-align: top; padding: 0 1mm; }
+  table.row-2 {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+  }
+  table.row-2 td {
+    width: 50%;
+    vertical-align: top;
+    padding: 0 1mm;
+  }
   table.row-2 td:first-child { padding-left: 0; }
   table.row-2 td:last-child { padding-right: 0; }
 
-  /* Assinaturas: duas colunas iguais coladas na base do painel direito */
+  /* Assinaturas: duas colunas iguais na base */
   .assinatura-box {
     position: absolute;
     bottom: 1.2mm;
@@ -116,6 +133,7 @@
   }
   .assinatura-box.esq { left: 4mm; }
   .assinatura-box.dir { left: 50.3mm; }
+
   .assinatura-img-slot {
     position: relative;
     height: 12mm;
@@ -123,7 +141,8 @@
   }
   .assinatura-img-wrap {
     position: absolute;
-    bottom: 0; left: 0;
+    bottom: 0;
+    left: 0;
     width: 100%;
     text-align: center;
     line-height: 0;
@@ -172,7 +191,7 @@
 <div class="page{% if not loop.last %} quebra{% endif %}">
   {% for card in pagina %}
   <div class="card-row{% if IMAGEM_FUNDO %} has-fundo{% endif %}{% if loop.last %} ultimo{% endif %}">
-    <!-- FRENTE / TEXTO -->
+    <!-- FRENTE -->
     <div class="panel panel-left">
       <div class="logos-row">
         {% if LOGO_CONECTA %}<img src="{{ LOGO_CONECTA }}" alt="Conecta"/>{% endif %}
@@ -188,7 +207,8 @@
       <div class="logos-parceiros"><img src="{{ LOGO_CT }}" alt="logo CT"/></div>
       {% endif %}
     </div>
-    <!-- VERSO / DADOS -->
+
+    <!-- VERSO -->
     <div class="panel panel-right">
       <div class="logos-row">
         {% if LOGO_CONECTA %}<img src="{{ LOGO_CONECTA }}" alt="Conecta"/>{% endif %}
@@ -208,35 +228,26 @@
       <div class="field-label">Validade</div>
       <div class="field-box" style="min-height: 6mm;">{{ card.validade }}</div>
 
-      <div class="assinatura-area">
-        <div class="assinatura-box">
-          <div class="assinatura-img-slot">
-            {% if card.assinatura_instrutor %}
-            <img src="{{ card.assinatura_instrutor }}" alt="assinatura"/>
-            {% endif %}
-          </div>
-          <div class="assinatura-linha"></div>
-          <div class="assinatura-caption">
-            <div class="instrutor-nome">{{ card.nome_instrutor }}</div>
-            {% if card.cpf_instrutor %}
-            <div class="instrutor-cpf">CPF {{ card.cpf_instrutor }}</div>
-            {% endif %}
-            <div class="assinatura-label">Instrutor</div>
-          </div>
-
+      <!-- Instrutor -->
       <div class="assinatura-box esq">
         <div class="assinatura-img-slot">
           {% if card.assinatura_instrutor %}
-          <div class="assinatura-img-wrap"><img src="{{ card.assinatura_instrutor }}" alt="assinatura"/></div>
+          <div class="assinatura-img-wrap">
+            <img src="{{ card.assinatura_instrutor }}" alt="assinatura"/>
+          </div>
           {% endif %}
         </div>
         <div class="assinatura-linha"></div>
         <div class="assinatura-caption">
           <div class="instrutor-nome">{{ card.nome_instrutor }}</div>
-          {% if card.cpf_instrutor %}<div class="instrutor-cpf">CPF {{ card.cpf_instrutor }}</div>{% endif %}
+          {% if card.cpf_instrutor %}
+          <div class="instrutor-cpf">CPF {{ card.cpf_instrutor }}</div>
+          {% endif %}
           <div class="assinatura-label">Instrutor</div>
         </div>
       </div>
+
+      <!-- Aluno -->
       <div class="assinatura-box dir">
         <div class="assinatura-img-slot"></div>
         <div class="assinatura-linha"></div>
