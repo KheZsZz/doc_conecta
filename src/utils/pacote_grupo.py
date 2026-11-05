@@ -29,7 +29,7 @@ from src.pages.private.turmas.modals.emitir_documentos.data import (
 )
 from src.utils.atestado import gerar_atestado_pdf_de_arquivo
 from src.utils.carteirinha import gerar_carteirinhas_pdf
-from src.utils.certificado import gerar_certificados_pdf_zip
+from src.utils.certificado import gerar_certificados_pdf, gerar_certificados_pdf_zip
 from src.utils.certificado_empresa import gerar_certificado_empresa_pdf
 
 
@@ -98,8 +98,13 @@ def turmas_do_periodo(
     client_ids: list[str] | None,
     data_inicio: date | str,
     data_fim: date | str,
+    ct_id: str | None = None,
 ) -> list[dict]:
-    """Turmas no período. Se client_ids for None ou vazio, busca de todas as empresas."""
+    """Turmas no período.
+
+    - client_ids None/vazio → todas as empresas
+    - ct_id informado → só turmas daquele CT
+    """
     di = (
         data_inicio.isoformat()
         if hasattr(data_inicio, "isoformat")
@@ -117,6 +122,8 @@ def turmas_do_periodo(
         )
         if client_ids:
             q = q.in_("client_id", client_ids)
+        if ct_id:
+            q = q.eq("ct_id", ct_id)
         res = q.execute()
         return res.data if res and isinstance(res.data, list) else []
     except Exception:
@@ -189,6 +196,7 @@ def gerar_docs_turma(
     incluir_cert_alunos: bool = True,
     incluir_carteirinhas: bool = True,
     incluir_lista: bool = True,
+    cert_alunos_formato: str = "zip",
     pre: dict | None = None,
     marcar: bool = True,
 ) -> tuple[list[tuple[str, bytes]], dict[str, Any]]:
@@ -197,6 +205,8 @@ def gerar_docs_turma(
     Retorna (arquivos[(caminho_no_zip, bytes)], info).
     info = {tid, titulo, gerados, erros, resumo(dict), docs_ok, marcado, erro_marca}
 
+    cert_alunos_formato: "zip" (um PDF por aluno dentro de um ZIP, padrao) ou
+         "pdf_unico" (um unico PDF, uma pagina por aluno).
     pre: dados ja carregados em lote {empresa, curso, instrutor, ct, matriculas};
          o que faltar e buscado individualmente.
     marcar: se False, NAO marca a turma como emitida (a tela marca no download).
@@ -256,7 +266,7 @@ def gerar_docs_turma(
     curso_nome = curso.get("name") or "Treinamento"
     exige_atestado = bool(curso.get("exige_atestado", True))
 
-    if "ct" in pre:  # ct ja carregado: evita consulta por turma
+    if "ct" in pre:
         cidade = (
             extrair_cidade_do_endereco(ct.get("full_address"))
             if ct
@@ -323,7 +333,7 @@ def gerar_docs_turma(
 
     if incluir_cert_alunos:
         try:
-            zip_alunos = gerar_certificados_pdf_zip(
+            args_cert = dict(
                 alunos_matriculas=alunos_cert,
                 turma=turma_cert,
                 instrutor=instrutor,
@@ -332,7 +342,16 @@ def gerar_docs_turma(
                 normativa=normativa,
                 cidade_data=cidade_data,
             )
-            arquivos.append((f"{pasta}/03_certificados_individuais.zip", zip_alunos))
+            if cert_alunos_formato == "pdf_unico":
+                pdf_alunos = gerar_certificados_pdf(**args_cert)
+                arquivos.append(
+                    (f"{pasta}/03_certificados_individuais.pdf", pdf_alunos)
+                )
+            else:
+                zip_alunos = gerar_certificados_pdf_zip(**args_cert)
+                arquivos.append(
+                    (f"{pasta}/03_certificados_individuais.zip", zip_alunos)
+                )
             gerados.append(f"{titulo}/cert_alunos")
             docs_ok += 1
         except Exception as e:
