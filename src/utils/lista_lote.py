@@ -140,7 +140,7 @@ def _normalizar_colunas(df: pd.DataFrame) -> pd.DataFrame:
 def _limpar_texto(val) -> str | None:
     if val is None or (isinstance(val, float) and pd.isna(val)):
         return None
-    s = str(val).strip()
+    s = str(val).replace("\xa0", " ").replace("\u00a0", " ").strip()
     if not s or s.lower() in ("nan", "none", "nat"):
         return None
     return s
@@ -173,7 +173,7 @@ def _normalizar_cpf(val) -> str | None:
             return None
         return digits.zfill(11)
 
-    s = str(val).strip()
+    s = str(val).replace("\xa0", " ").strip()
     if not s or s.lower() in ("nan", "none", "nat"):
         return None
     if re.fullmatch(r"[0-9]+\.?[0-9]*[eE][+-]?[0-9]+", s):
@@ -183,7 +183,6 @@ def _normalizar_cpf(val) -> str | None:
                 return digits.zfill(11)
         except (ValueError, OverflowError):
             pass
-    # "0.5336700983" — Excel perdeu zero à esquerda e virou decimal
     if re.fullmatch(r"0\.\d+", s):
         digits = re.sub(r"\D", "", s)
         if 0 < len(digits) <= 11:
@@ -222,9 +221,24 @@ def _norm_unidade(val) -> str:
 
 
 def _parse_data(val) -> str | None:
-    s = _limpar_texto(val)
-    if not s:
+    """Normaliza data para YYYY-MM-DD (aceita ISO, BR e datetime do Excel)."""
+    if val is None or (isinstance(val, float) and pd.isna(val)):
         return None
+    if hasattr(val, "strftime"):
+        try:
+            return val.strftime("%Y-%m-%d")
+        except Exception:
+            pass
+    s = str(val).strip()
+    if not s or s.lower() in ("nan", "none", "nat"):
+        return None
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})", s)
+    if m:
+        return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+    m = re.match(r"^(\d{1,2})/(\d{1,2})/(\d{4})", s)
+    if m:
+        d, mth, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        return f"{y:04d}-{mth:02d}-{d:02d}"
     try:
         dt = pd.to_datetime(s, dayfirst=True, errors="coerce")
         if pd.notnull(dt):
@@ -289,34 +303,54 @@ def _chave_turma(cnpj: str, data: str, unidade: str) -> str:
 
 
 def _montar_indice_turmas_por_chave() -> dict[str, list[dict]]:
-    """Indexa turmas por CNPJ|data|unidade (paginado para não perder turmas recentes)."""
+    """Indexa turmas por CNPJ|data|unidade via clients separados."""
     indice: dict[str, list[dict]] = {}
     try:
+        clients_by_id: dict[str, dict] = {}
+        cstart = 0
+        while cstart < 20_000:
+            cres = (
+                supabase.table("clients")
+                .select("id, name, cnpj, sigla")
+                .range(cstart, cstart + 999)
+                .execute()
+            )
+            cbatch = cres.data if cres and isinstance(cres.data, list) else []
+            for c in cbatch:
+                if c.get("id"):
+                    clients_by_id[str(c["id"])] = c
+            if len(cbatch) < 1000:
+                break
+            cstart += 1000
+
         page = 1000
         start = 0
-        while start < 10_000:
+        while start < 15_000:
             res = (
                 supabase.table("turmas")
-                .select(
-                    "id, titulo, client_id, carga_horaria, data_treinamento, "
-                    "clients(id, name, cnpj, sigla)"
-                )
+                .select("id, titulo, client_id, carga_horaria, data_treinamento")
                 .order("data_treinamento", desc=True)
                 .range(start, start + page - 1)
                 .execute()
             )
             batch = res.data if res and isinstance(res.data, list) else []
             for trow in batch:
-                cli = trow.get("clients") or {}
+                cli = clients_by_id.get(str(trow.get("client_id") or "")) or {}
                 cnpj = normalizar_cnpj(cli.get("cnpj"))
                 if not cnpj:
                     continue
-                data = str(trow.get("data_treinamento") or "")[:10]
-                if not data:
+                data = _parse_data(trow.get("data_treinamento")) or str(
+                    trow.get("data_treinamento") or ""
+                )[:10]
+                if not data or len(data) < 10:
                     continue
                 unid = cli.get("sigla") or ""
+                enriched = {**trow, "clients": cli}
                 key = _chave_turma(cnpj, data, unid)
-                indice.setdefault(key, []).append(trow)
+                indice.setdefault(key, []).append(enriched)
+                key2 = _chave_turma(cnpj, data, "")
+                if key2 != key:
+                    indice.setdefault(key2, []).append(enriched)
             if len(batch) < page:
                 break
             start += page
@@ -488,6 +522,17 @@ def processar_lista_lote_por_chave(arquivo_bytes: bytes, nome_arquivo: str) -> d
             "erros": [],
         }
     indice = _montar_indice_turmas_por_chave()
+    if not indice:
+        return {
+            "sucesso": False,
+            "mensagem": (
+                "Nenhuma turma encontrada no sistema para indexar. "
+                "Confirme se as turmas do dia já foram cadastradas."
+            ),
+            "alunos_processados": 0,
+            "matriculas_criadas": 0,
+            "erros": [],
+        }
     alunos_processados = 0
     matriculas_criadas = 0
     erros: list[str] = []
@@ -509,26 +554,52 @@ def processar_lista_lote_por_chave(arquivo_bytes: bytes, nome_arquivo: str) -> d
             erros.append(f"Linha {linha_n}: NOME e CPF são obrigatórios.")
             continue
         key = _chave_turma(cnpj, data, unidade or "")
-        candidatas = indice.get(key) or []
-        # Fallback: se não achou pela unidade, tenta só CNPJ+data (quando único)
+        candidatas = list(indice.get(key) or [])
+        if not candidatas:
+            candidatas = list(indice.get(_chave_turma(cnpj, data, "")) or [])
         if not candidatas:
             prefix = f"{cnpj}|{data}|"
+            vistas = set()
             todas = []
             for k, lista in indice.items():
-                if k.startswith(prefix):
-                    todas.extend(lista)
+                if not k.startswith(prefix):
+                    continue
+                for titem in lista:
+                    tid = str(titem.get("id") or "")
+                    if tid and tid not in vistas:
+                        vistas.add(tid)
+                        todas.append(titem)
             if len(todas) == 1:
                 candidatas = todas
-            elif len(todas) > 1 and not (unidade or "").strip():
-                erros.append(
-                    f"Linha {linha_n}: CNPJ+data tem {len(todas)} turma(s) — informe UNIDADE."
-                )
-                continue
+            elif len(todas) > 1:
+                un = _norm_unidade(unidade or "")
+                if un:
+                    filtradas = []
+                    for titem in todas:
+                        sig = _norm_unidade((titem.get("clients") or {}).get("sigla") or "")
+                        tit = (titem.get("titulo") or "").lower()
+                        if un == sig or un in sig or un in tit:
+                            filtradas.append(titem)
+                    if len(filtradas) == 1:
+                        candidatas = filtradas
+                    elif not (unidade or "").strip():
+                        erros.append(
+                            f"Linha {linha_n}: CNPJ+data tem {len(todas)} turma(s) — informe UNIDADE."
+                        )
+                        continue
         if not candidatas:
             erros.append(
                 f"Linha {linha_n}: nenhuma turma para CNPJ {cnpj}, data {data}, unidade '{unidade or '—'}'."
             )
             continue
+        _seen = set()
+        _uniq = []
+        for titem in candidatas:
+            tid = str(titem.get("id") or "")
+            if tid and tid not in _seen:
+                _seen.add(tid)
+                _uniq.append(titem)
+        candidatas = _uniq
         if len(candidatas) > 1:
             titulos = ", ".join((t.get("titulo") or t.get("id") or "?")[:40] for t in candidatas[:3])
             erros.append(f"Linha {linha_n}: {len(candidatas)} turmas ambíguas ({titulos}).")
