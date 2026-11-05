@@ -54,18 +54,17 @@
       .declaracao {
         text-align: justify;
         font-size: 11pt;
-        margin-bottom: 12px;
+        margin-bottom: 11px;
         line-height: 1.5;
       }
+      .declaracao strong { font-size: 11pt; color: #1a2a5e; }
       .bloco-empresa {
         margin-bottom: 12px;
         font-size: 11pt;
       }
-      .bloco-empresa p {
-        margin: 0;
-        padding: 2px 0;
-        font-weight: bold;
-      }
+      .bloco-empresa p { margin: 0; padding: 0; line-height: 1.5; }
+      .bloco-empresa strong { font-size: 11pt; color: #1a2a5e; }
+
       .tabela-container {
         margin-bottom: 15px;
         width: 100%;
@@ -120,6 +119,7 @@
         margin-bottom: 25px;
         page-break-inside: avoid;
         break-inside: avoid;
+        border-top: 1px solid #1a2a5e;
       }
       .assinatura-img {
         height: 60px;
@@ -147,8 +147,8 @@
         bottom: 0;
         left: 0;
         right: 0;
-        border-top: 2px solid #000000;
-        border-bottom: 2px solid #000000;
+        border-top: 2px solid #1a2a5e;
+        border-bottom: 2px solid #1a2a5e;
         padding-top: 5px;
         padding-bottom: 5px;
         font-size: 9pt;
@@ -196,25 +196,10 @@
         do Corpo de Bombeiros Militar do Estado de São Paulo, e estão aptas para exercer a função de brigadista na edificação acima referenciada.
       </div>
 
-      <!-- <div class="declaracao">
-        Atesto, para os devidos fins, que as pessoas abaixo relacionadas
-        participaram com bom aproveitamento do treinamento de
-        <strong
-          >{{ CURSO_NOME }} {% if MODALIDADE_TURMA %}({{ MODALIDADE_TURMA }}){%
-          endif %}</strong
-        >{% if NIVEL_TURMA %}, nível <strong>{{ NIVEL_TURMA }}</strong>{% endif
-        %}{% if CARGA_HORARIA %}, com carga horária de
-        <strong>{{ CARGA_HORARIA }}</strong>{% endif %}. Os participantes
-        foram aprovados nas avaliações teóricas e práticas. Desta forma,
-        declaramos que os concluintes estão aptos a atuar nas ações de prevenção
-        e combate a princípios de incêndio, abandono de área e primeiros
-        socorros.
-      </div> -->
-
       <div class="bloco-empresa">
-        <p><strong>Empresa:</strong> {{ EMPRESA }}</p>
-        <p><strong>Endereço:</strong> {{ ENDERECO }}</p>
-        <p><strong>CNPJ:</strong> {{ CNPJ }}</p>
+        <p>Empresa: <strong>{{ EMPRESA }}</strong></p>
+        <p>Endereço: <strong>{{ ENDERECO }}</strong></p>
+        <p>CNPJ: <strong>{{ CNPJ }}</strong></p>
       </div>
 
       <div class="tabela-container">
