@@ -166,7 +166,7 @@
       <img class="fundo" src="{{ IMAGEM_FUNDO }}" alt="Fundo Certificado" />
 
       <div class="conteudo">
-        <div class="linha"></div>
+        <!-- <div class="linha"></div> -->
 
         <div class="texto-certificado">
           <p>Nome do aluno: <strong>{{ NOME_ALUNO }}</strong></p>
@@ -208,10 +208,10 @@
           <div class="assinatura-linha"></div>
           <div class="assinatura-texto">
             <div class="assinatura-nome">{{ NOME_INSTRUTOR }}</div>
+            <div class="assinatura-cargo">Instrutor</div>
             {% if FORMACAO_INSTRUTOR %}
             <div class="assinatura-formacao">{{ FORMACAO_INSTRUTOR }}</div>
             {% endif %}
-            <div class="assinatura-cargo">Instrutor</div>
             {% if CPF_INSTRUTOR %}
             <div class="assinatura-doc">CPF: {{ CPF_INSTRUTOR }}</div>
             {% endif %}

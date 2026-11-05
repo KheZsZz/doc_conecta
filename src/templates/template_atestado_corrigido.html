@@ -190,8 +190,13 @@
       </div>
 
       <div class="titulo">ATESTADO DE BRIGADA DE INCÊNDIO</div>
-
       <div class="declaracao">
+        Atesto, para os devidos fins, que as pessoas abaixo relacionadas participaram e concluiram,
+        com aproveitamento o treinamento de <strong>{{ CURSO_NOME }}</strong>, conforme a <strong>Instrução Técnica n° 17</strong>
+        do Corpo de Bombeiros Militar do Estado de São Paulo, e estão aptas para exercer a função de brigadista na edificação acima referenciada.
+      </div>
+
+      <!-- <div class="declaracao">
         Atesto, para os devidos fins, que as pessoas abaixo relacionadas
         participaram com bom aproveitamento do treinamento de
         <strong
@@ -204,7 +209,7 @@
         declaramos que os concluintes estão aptos a atuar nas ações de prevenção
         e combate a princípios de incêndio, abandono de área e primeiros
         socorros.
-      </div>
+      </div> -->
 
       <div class="bloco-empresa">
         <p><strong>Empresa:</strong> {{ EMPRESA }}</p>
@@ -272,10 +277,10 @@
         />
         {% endif %}
         <div class="nome-instrutor">{{ NOME_INSTRUTOR }}</div>
+        <div class="cargo-instrutor">Instrutor</div>
         {% if FORMACAO_INSTRUTOR %}
         <div class="cargo-instrutor" style="font-style: italic">{{ FORMACAO_INSTRUTOR }}</div>
         {% endif %}
-        <div class="cargo-instrutor">Instrutor/Resp. Técnico.</div>
         {% if DOC_INSTRUTOR %}
         <div class="doc-instrutor">CPF: {{ DOC_INSTRUTOR }}</div>
         {% endif %}
