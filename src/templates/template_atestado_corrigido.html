@@ -23,7 +23,7 @@
       .container {
         width: 100%;
         /* espaço para assinatura fixa + rodapé */
-        padding-bottom: 145px;
+        padding-bottom: 170px;
         page-break-after: always;
         break-after: page;
       }
@@ -116,22 +116,23 @@
         font-weight: bold;
         margin-bottom: 8px;
       }
-      /* Assinatura sempre colada acima do rodapé */
+      /* Assinatura sempre acima do rodapé (CPF/RE não podem ser cortados) */
       .bloco-assinatura {
         position: fixed;
         left: 10mm;
         right: 10mm;
-        bottom: 48px;
+        bottom: 72px; /* acima da altura do rodapé */
         text-align: center;
         margin: 0;
         page-break-inside: avoid;
         break-inside: avoid;
+        z-index: 5;
       }
       .assinatura-img {
-        height: 48px;
-        width: 160px;
+        height: 42px;
+        width: 150px;
         object-fit: contain;
-        margin-bottom: 2px;
+        margin-bottom: 1px;
         display: block;
         margin-left: auto;
         margin-right: auto;
@@ -139,14 +140,18 @@
       .nome-instrutor {
         font-weight: bold;
         font-size: 8pt;
-        margin-bottom: 2px;
+        margin-bottom: 1px;
+        line-height: 1.2;
       }
       .cargo-instrutor {
         font-size: 7pt;
-        margin-bottom: 2px;
+        margin-bottom: 1px;
+        line-height: 1.2;
       }
       .doc-instrutor {
         font-size: 7pt;
+        line-height: 1.25;
+        margin-bottom: 0;
       }
       .rodape {
         position: fixed;
@@ -155,14 +160,16 @@
         right: 0;
         border-top: 2px solid #1a2a5e;
         border-bottom: 2px solid #1a2a5e;
-        padding-top: 5px;
-        padding-bottom: 5px;
+        padding-top: 4px;
+        padding-bottom: 4px;
         font-size: 9pt;
         display: flex;
         justify-content: space-between;
         align-items: center;
         color: #000000;
         background-color: #ffffff;
+        z-index: 10;
+        min-height: 48px;
       }
       .rodape-logo {
         flex: 0 0 auto;
