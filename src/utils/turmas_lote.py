@@ -330,7 +330,6 @@ def resolver_ou_criar_empresa(
         return cache[key], None, False
 
     nome = linha["nome_empresa"].strip()
-    # UNIDADE vai apenas em `sigla` — NUNCA no name / razão social.
     payload = {
         "name": nome,
         "cnpj": cnpj,
@@ -350,7 +349,6 @@ def resolver_ou_criar_empresa(
     except Exception as e:
         msg = str(e)
         if "duplicate" in msg.lower() or "unique" in msg.lower() or "23505" in msg:
-            # Tenta reutilizar empresa existente (mesmo CNPJ + unidade)
             try:
                 q = supabase.table("clients").select("*").eq("cnpj", cnpj)
                 if unidade:
@@ -375,7 +373,6 @@ def resolver_ou_criar_empresa(
                     return emp, None, False
             except Exception:
                 pass
-            # Último recurso: diferencia pelo CNPJ, SEM unidade no nome
             try:
                 payload["name"] = f"{nome} ({cnpj[-6:]})"
                 res = supabase.table("clients").insert(payload).execute()
@@ -473,6 +470,42 @@ def montar_titulo(linha: dict, curso: dict) -> str:
     return " - ".join(partes)[:200]
 
 
+def _chave_turma_unica(client_id, data, curso_id, ct_id) -> str:
+    return f"{client_id or ''}|{str(data or '')[:10]}|{curso_id or ''}|{ct_id or ''}"
+
+
+def _cache_chaves_turmas_existentes() -> set[str]:
+    """Carrega chaves client+data+curso+CT já existentes (paginado)."""
+    chaves: set[str] = set()
+    try:
+        page = 1000
+        start = 0
+        while start < 20_000:
+            res = (
+                supabase.table("turmas")
+                .select("client_id, data_treinamento, curso_id, ct_id")
+                .order("data_treinamento", desc=True)
+                .range(start, start + page - 1)
+                .execute()
+            )
+            batch = res.data if res and isinstance(res.data, list) else []
+            for trow in batch:
+                chaves.add(
+                    _chave_turma_unica(
+                        trow.get("client_id"),
+                        trow.get("data_treinamento"),
+                        trow.get("curso_id"),
+                        trow.get("ct_id"),
+                    )
+                )
+            if len(batch) < page:
+                break
+            start += page
+    except Exception:
+        pass
+    return chaves
+
+
 def importar_turmas_lote(
     linhas: list[dict],
     *,
@@ -509,8 +542,11 @@ def importar_turmas_lote(
 
     criadas = 0
     empresas_novas = 0
+    ignoradas = 0
     erros: list[str] = []
     detalhes: list[dict] = []
+    avisos: list[str] = []
+    chaves_existentes = _cache_chaves_turmas_existentes()
 
     for linha in linhas:
         n = linha["linha"]
@@ -539,9 +575,22 @@ def importar_turmas_lote(
             continue
 
         titulo = montar_titulo(linha, curso)
+        data_t = linha["data_treinamento"]
+        chave = _chave_turma_unica(
+            emp.get("id"), data_t, curso.get("id"), ct.get("id")
+        )
+        if chave in chaves_existentes:
+            ignoradas += 1
+            avisos.append(
+                f"Linha {n}: turma já existe "
+                f"(empresa={emp.get('name')}, data={linha.get('data_treinamento_br') or data_iso_para_br(data_t)}, "
+                f"curso={curso.get('sigla') or curso.get('name')}, CT={ct.get('name')}) — ignorada."
+            )
+            continue
+
         payload = {
             "titulo": titulo,
-            "data_treinamento": linha["data_treinamento"],
+            "data_treinamento": data_t,
             "curso_id": curso.get("id"),
             "instrutor_id": inst.get("id"),
             "client_id": emp.get("id"),
@@ -555,6 +604,7 @@ def importar_turmas_lote(
         try:
             supabase.table("turmas").insert(payload).execute()
             criadas += 1
+            chaves_existentes.add(chave)
             detalhes.append(
                 {
                     "linha": n,
@@ -565,7 +615,7 @@ def importar_turmas_lote(
                     "curso": curso.get("sigla") or curso.get("name"),
                     "instrutor": inst.get("name"),
                     "data": linha.get("data_treinamento_br")
-                    or data_iso_para_br(linha["data_treinamento"]),
+                    or data_iso_para_br(data_t),
                 }
             )
         except Exception as e:
@@ -574,7 +624,9 @@ def importar_turmas_lote(
     return {
         "criadas": criadas,
         "empresas_novas": empresas_novas,
+        "ignoradas": ignoradas,
         "erros": erros,
+        "avisos": avisos,
         "detalhes": detalhes,
     }
 

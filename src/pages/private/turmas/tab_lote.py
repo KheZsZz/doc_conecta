@@ -36,6 +36,8 @@ def render_tab_lote():
 | TITULO | não | gerado automaticamente se vazio |
 
 A data também aceita célula de data do Excel. No banco grava em ISO; na tela aparece em `DD/MM/AAAA`.
+
+**Duplicidade:** não cria turma se já existir a mesma combinação **empresa + data + curso + CT**.
             """
         )
         st.download_button(
@@ -144,11 +146,20 @@ A data também aceita célula de data do Excel. No banco grava em ISO; na tela a
 
         st.success(
             f"✅ **{result['criadas']}** turma(s) criada(s). "
-            f"**{result['empresas_novas']}** empresa(s) nova(s)."
+            f"**{result['empresas_novas']}** empresa(s) nova(s). "
+            f"**{result.get('ignoradas', 0)}** já existente(s) ignorada(s)."
         )
 
         if result.get("detalhes"):
             st.dataframe(result["detalhes"], use_container_width=True, hide_index=True)
+
+        if result.get("avisos"):
+            with st.expander(
+                f"Turmas já existentes ignoradas ({len(result['avisos'])})",
+                expanded=False,
+            ):
+                for a in result["avisos"]:
+                    st.write(f"- {a}")
 
         if result.get("erros"):
             with st.expander(f"Erros ({len(result['erros'])})", expanded=True):
