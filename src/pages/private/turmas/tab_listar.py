@@ -70,10 +70,26 @@ def modal_excluir_turma(tid: str, titulo: str, qtd_alunos: int):
 def render_tab_listar():
     st.subheader("Painel de Turmas e Emissão de Documentos")
 
-    if is_consulta() and ct_id_atual():
+    _ct_user = ct_id_atual() if is_consulta() else None
+    if _ct_user:
         st.caption("Exibindo apenas turmas do **seu CT**.")
 
-    col1, col2 = st.columns(2)
+    # CTs para filtro (usuário sem CT vinculado vê todos)
+    opcoes_ct = ["Todos"]
+    mapa_ct: dict[str, str] = {}
+    try:
+        res_cts = supabase.table("cts").select("id, name").order("name").execute()
+        if res_cts and res_cts.data:
+            for c in res_cts.data:
+                nome = (c.get("name") or "Sem nome").strip()
+                if not nome:
+                    continue
+                opcoes_ct.append(nome)
+                mapa_ct[nome] = c.get("id")
+    except Exception:
+        pass
+
+    col1, col2, col_ct = st.columns(3)
     with col1:
         busca_turma = st.text_input(
             "Buscar (título ou empresa)", placeholder="Digite para filtrar..."
@@ -82,6 +98,22 @@ def render_tab_listar():
         filtro_status = st.selectbox(
             "Status dos Documentos", ["Todos", "Pendentes", "Emitidos"]
         )
+    with col_ct:
+        if _ct_user:
+            # Usuário de CT: filtro travado no próprio CT
+            nome_ct_user = next(
+                (n for n, i in mapa_ct.items() if i == _ct_user), "Seu CT"
+            )
+            st.selectbox(
+                "CT",
+                [nome_ct_user],
+                index=0,
+                key="filtro_ct_turmas",
+                disabled=True,
+            )
+            filtro_ct = nome_ct_user
+        else:
+            filtro_ct = st.selectbox("CT", opcoes_ct, key="filtro_ct_turmas")
 
     col_d1, col_d2, col_inst = st.columns(3)
     with col_d1:
@@ -124,10 +156,11 @@ def render_tab_listar():
             "cursos(name), instrutores(id, name), clients(id, name), cts(id, name)"
         )
 
-        # Consulta com CT vinculado: só turmas daquele CT; sem CT / admin / operacional: todos
-        _ct_user = ct_id_atual() if is_consulta() else None
+        # Consulta com CT vinculado: só turmas daquele CT
         if _ct_user:
             query = query.eq("ct_id", _ct_user)
+        elif filtro_ct != "Todos" and filtro_ct in mapa_ct:
+            query = query.eq("ct_id", mapa_ct[filtro_ct])
 
         if filtro_status == "Pendentes":
             query = query.eq("documento_emitido", False)
@@ -202,11 +235,12 @@ def render_tab_listar():
             empresa_nome = (t.get("clients") or {}).get("name", "Sem Empresa Vinculada")
             empresa_id = (t.get("clients") or {}).get("id") or t.get("client_id")
             ct_id = (t.get("cts") or {}).get("id") or t.get("ct_id")
+            ct_nome = (t.get("cts") or {}).get("name") or "—"
             instrutor_nome = (t.get("instrutores") or {}).get("name", "N/A")
             titulo = t.get("titulo") or "Sem título"
             icon_status = "✅" if status_doc else "⚠️"
 
-            label_expander = f"{icon_status} **{data_br}** · {empresa_nome}"
+            label_expander = f"{icon_status} **{data_br}** · {empresa_nome} · {ct_nome}"
 
             with st.expander(label_expander, expanded=False):
                 st.markdown(
@@ -216,6 +250,7 @@ def render_tab_listar():
 * **Curso:** {curso_nome}
 * **Instrutor:** {instrutor_nome}
 * **Empresa:** {empresa_nome}
+* **CT:** {ct_nome}
 * **Data treinamento:** {data_br}
 * **Modalidade:** {t.get('modalidade') or '—'}
 * **Nível:** {t.get('nivel') or '—'}
