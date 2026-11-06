@@ -13,6 +13,7 @@ from urllib.request import Request, urlopen
 
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import CSS, HTML
+from src.utils.pdf_assets import comprimir_pdf
 
 _FUNDO_DEFAULT = (
     "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/"
@@ -263,6 +264,8 @@ def gerar_certificado_html(
 
 
 def _html_para_pdf(html_str: str) -> bytes:
+    # páginas individuais: sem compactar (evita N subprocess no lote);
+    # a compactação pesada roda no PDF final / ZIP.
     return HTML(string=html_str).write_pdf(stylesheets=[_CSS_LANDSCAPE])
 
 
@@ -320,7 +323,7 @@ def gerar_certificados_pdf(
 
     output = io.BytesIO()
     writer.write(output)
-    return output.getvalue()
+    return comprimir_pdf(output.getvalue())
 
 
 def gerar_certificados_pdf_zip(
@@ -377,7 +380,7 @@ def gerar_certificados_pdf_zip(
                 candidato = f"{base}_{n}{ext}"
                 n += 1
             usados.add(candidato)
-            zip_file.writestr(candidato, pdf_bytes)
+            zip_file.writestr(candidato, comprimir_pdf(pdf_bytes))
 
     zip_buffer.seek(0)
     return zip_buffer.getvalue()
