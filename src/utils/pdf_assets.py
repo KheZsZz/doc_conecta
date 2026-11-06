@@ -4,6 +4,9 @@ from __future__ import annotations
 import base64
 import io
 import os
+import shutil
+import subprocess
+import tempfile
 from functools import lru_cache
 from urllib.request import Request, urlopen
 
@@ -20,6 +23,10 @@ MAX_PDF_WORKERS = 3
 # Limite para fundos/logos embutidos (carteirinha usa fundo em cada card)
 _MAX_IMAGE_SIDE = 1400
 _JPEG_QUALITY = 70
+
+# Compactação pós-WeasyPrint: não comprimir arquivos já pequenos
+_MIN_BYTES_COMPRESS = 350_000
+_GS_TIMEOUT_SEC = 120
 
 
 def get_template(caminho_pasta: str, nome: str):
@@ -114,6 +121,119 @@ def resolver_imagem(caminho_ou_url: str | None) -> str:
     return ""
 
 
+def _ghostscript_bin() -> str | None:
+    for name in ("gs", "gswin64c", "gswin32c"):
+        path = shutil.which(name)
+        if path:
+            return path
+    return None
+
+
+def _comprimir_com_ghostscript(pdf_bytes: bytes, preset: str = "ebook") -> bytes | None:
+    """Compacta via Ghostscript (melhor redução em PDFs com imagens)."""
+    gs = _ghostscript_bin()
+    if not gs or not pdf_bytes:
+        return None
+    preset = preset if preset in ("screen", "ebook", "printer", "prepress", "default") else "ebook"
+    tmp_in = tmp_out = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f_in:
+            f_in.write(pdf_bytes)
+            tmp_in = f_in.name
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f_out:
+            tmp_out = f_out.name
+        cmd = [
+            gs,
+            "-sDEVICE=pdfwrite",
+            "-dCompatibilityLevel=1.4",
+            f"-dPDFSETTINGS=/{preset}",
+            "-dDetectDuplicateImages=true",
+            "-dCompressFonts=true",
+            "-dNOPAUSE",
+            "-dQUIET",
+            "-dBATCH",
+            f"-sOutputFile={tmp_out}",
+            tmp_in,
+        ]
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            timeout=_GS_TIMEOUT_SEC,
+            check=False,
+        )
+        if proc.returncode != 0:
+            return None
+        with open(tmp_out, "rb") as f:
+            out = f.read()
+        if not out or out[:4] != b"%PDF":
+            return None
+        return out
+    except Exception:
+        return None
+    finally:
+        for p in (tmp_in, tmp_out):
+            if p:
+                try:
+                    os.unlink(p)
+                except Exception:
+                    pass
+
+
+def _comprimir_com_pikepdf(pdf_bytes: bytes) -> bytes | None:
+    """Fallback: recomprime streams (sem reamostrar imagens como o GS)."""
+    try:
+        import pikepdf
+    except Exception:
+        return None
+    try:
+        src = io.BytesIO(pdf_bytes)
+        dst = io.BytesIO()
+        with pikepdf.open(src) as pdf:
+            pdf.save(
+                dst,
+                compress_streams=True,
+                object_stream_mode=pikepdf.ObjectStreamMode.generate,
+                recompress_flate=True,
+                normalize_content=False,
+            )
+        out = dst.getvalue()
+        if not out or out[:4] != b"%PDF":
+            return None
+        return out
+    except Exception:
+        return None
+
+
+def comprimir_pdf(pdf_bytes: bytes, *, preset: str = "ebook") -> bytes:
+    """Compacta PDF gerado (Ghostscript preferencial; fallback pikepdf).
+
+    Se a saída não for menor, devolve o original.
+    """
+    if not pdf_bytes or len(pdf_bytes) < _MIN_BYTES_COMPRESS:
+        return pdf_bytes
+
+    original_len = len(pdf_bytes)
+    candidatos: list[bytes] = []
+
+    gs_out = _comprimir_com_ghostscript(pdf_bytes, preset=preset)
+    if gs_out:
+        candidatos.append(gs_out)
+
+    pk_out = _comprimir_com_pikepdf(pdf_bytes)
+    if pk_out:
+        candidatos.append(pk_out)
+
+    if not candidatos:
+        return pdf_bytes
+
+    melhor = min(candidatos, key=len)
+    # só troca se realmente encolher (margem de 2%)
+    if len(melhor) < int(original_len * 0.98):
+        return melhor
+    return pdf_bytes
+
+
 def html_para_pdf(html_str: str, *, landscape: bool = True) -> bytes:
     css = CSS_LANDSCAPE if landscape else CSS_PORTRAIT
-    return HTML(string=html_str).write_pdf(stylesheets=[css])
+    pdf = HTML(string=html_str).write_pdf(stylesheets=[css])
+    return comprimir_pdf(pdf)

@@ -8,3 +8,5 @@ numpy
 supabase
 plotly
 pypdf
+pikepdf
+Pillow
