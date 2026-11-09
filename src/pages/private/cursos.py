@@ -17,7 +17,7 @@ def modal_editar_curso(curso_id, nome_atual, sigla_atual, normativa_atual, dizer
         
         col1, col2 = st.columns(2)
         with col1:
-            nova_sigla = st.text_input("Sigla (Máx 5 caracteres)", value=sigla_atual if sigla_atual else "", max_chars=5)
+            nova_sigla = st.text_input("Sigla", value=sigla_atual if sigla_atual else "")
         with col2:
             nova_normativa = st.text_input("Normativa (Ex: Conforme IT 17)", value=normativa_atual if normativa_atual else "")
         
@@ -132,7 +132,7 @@ with tab_cadastrar:
         
         col1, col2 = st.columns(2)
         with col1:
-            sigla_curso = st.text_input("Sigla (Máx 5 caracteres)", max_chars=5)
+            sigla_curso = st.text_input("Sigla")
         with col2:
             normativa_curso = st.text_input("Normativa (Ex: Conforme IT 17)")
             
