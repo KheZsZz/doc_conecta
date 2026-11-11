@@ -2,190 +2,211 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <title>Certificado</title>
+    <title>Certificado - {{ NOME_ALUNO }}</title>
     <style>
-      @page {
-        size: A4 landscape;
-        margin: 0;
-      }
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      body {
-        font-family: "Arial", "Helvetica", sans-serif;
-        color: #1a2a5e;
-        font-size: 11pt;
-        line-height: 1.35;
-        background: white;
-      }
+      @page { size: A4 landscape; margin: 0; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 297mm; height: 210mm; overflow: hidden; }
+
       .pagina {
+        position: relative;
         width: 297mm;
         height: 210mm;
-        position: relative;
-        page-break-after: always;
-        break-after: page;
-        overflow: hidden;
+        background-color: #f5f3e8;
+        font-family: "Arial", "Helvetica", sans-serif;
       }
-      .pagina:last-child {
-        page-break-after: auto;
-        break-after: auto;
-      }
+
       .fundo {
         position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
         object-fit: cover;
         z-index: 0;
       }
+
       .conteudo {
-        position: relative;
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
         z-index: 1;
+        padding-left: 150px;
+        padding-right: 40px;
+        padding-top: 148px;
+        padding-bottom: 120px;
+      }
+
+      .linha {
         width: 100%;
-        height: 100%;
-        padding: 22mm 28mm 18mm 28mm;
-        display: flex;
-        flex-direction: column;
+        height: 1px;
+        background-color: #c8c0a0;
+        margin-bottom: 20px;
       }
-      .titulo-curso {
-        text-align: center;
-        font-size: 13pt;
-        font-weight: bold;
-        margin-bottom: 4mm;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-      }
-      .dizeres {
+
+      .texto-certificado {
+        font-size: 10pt;
+        color: #222;
+        line-height: 1.5;
         text-align: justify;
-        font-size: 10.5pt;
-        margin-bottom: 3mm;
+      }
+      .texto-certificado p {
+        margin: 0;
+        padding: 0;
+        line-height: 1.5;
+      }
+      .texto-certificado strong {
+        font-size: 11pt;
+        color: #1a2a5e;
+      }
+
+      .texto-certificado .espaco-dizeres {
+        display: block;
+        margin-top: 36px;
+        margin-bottom: 8px;
+        text-align: justify;
+        text-justify: inter-word;
+        max-width: 100%;
+      }
+
+      .campos {
+        margin-top: 18px;
+        font-size: 10pt;
+        color: #333;
         line-height: 1.45;
       }
-      .bloco-aluno {
-        text-align: center;
-        margin: 3mm 0 2mm 0;
+      .campos .linha-campo {
+        margin: 0;
+        padding: 0;
+        line-height: 1.45;
       }
-      .nome-aluno {
-        font-size: 16pt;
+      .campos .campo-label {
         font-weight: bold;
-        margin-bottom: 1.5mm;
-        text-transform: uppercase;
+        color: #1a2a5e;
       }
-      .doc-aluno {
+
+      .data {
+        margin-top: 14px;
         font-size: 10pt;
-        margin-bottom: 0.8mm;
+        color: #333;
       }
-      .info-linha {
-        text-align: center;
-        font-size: 10pt;
-        margin: 0.6mm 0;
-      }
-      .info-linha strong {
-        font-weight: bold;
-      }
-      .cidade-data {
-        text-align: center;
-        font-size: 10pt;
-        font-weight: bold;
-        margin-top: 4mm;
-        margin-bottom: 2mm;
-      }
+
       .assinaturas {
+        position: absolute;
+        z-index: 2;
+        left: 150px;
+        right: 40px;
+        bottom: 36mm;
         display: flex;
-        justify-content: space-around;
-        align-items: flex-end;
-        margin-top: auto;
-        padding-top: 2mm;
-        gap: 10mm;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
       }
+
       .assinatura-bloco {
+        flex: 1 1 0;
+        width: 33.33%;
+        max-width: 210px;
         text-align: center;
-        width: 45%;
       }
+
+      .assinatura-topo {
+        height: 56px;
+        width: 100%;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+      }
+
       .assinatura-img {
-        height: 38px;
-        max-width: 160px;
+        height: 56px;
+        width: auto;
+        max-width: 170px;
         object-fit: contain;
-        margin-bottom: 1px;
+        object-position: center bottom;
         display: block;
-        margin-left: auto;
-        margin-right: auto;
       }
+
+      .assinatura-linha {
+        border-top: 1px solid #555;
+        width: 90%;
+        margin: 0 auto 4px auto;
+      }
+
+      .assinatura-texto {
+        min-height: 48px;
+        padding: 0 2px;
+      }
+
       .assinatura-nome {
-        font-weight: bold;
-        font-size: 9pt;
-        margin-bottom: 0.5px;
-        line-height: 1.2;
-      }
-      .assinatura-cargo {
         font-size: 8pt;
-        margin-bottom: 0.5px;
+        font-weight: bold;
+        color: #1a2a5e;
+        text-transform: uppercase;
         line-height: 1.2;
       }
       .assinatura-formacao {
-        font-size: 7.5pt;
+        font-size: 7pt;
         font-style: italic;
-        margin-bottom: 0.5px;
+        color: #444;
+        line-height: 1.15;
+      }
+      .assinatura-cargo {
+        font-size: 7pt;
+        color: #444;
         line-height: 1.2;
       }
       .assinatura-doc {
-        font-size: 7.5pt;
-        line-height: 1.25;
+        font-size: 7pt;
+        color: #444;
+        line-height: 1.15;
       }
     </style>
   </head>
   <body>
     <div class="pagina">
-      {% if IMAGEM_FUNDO %}
-      <img class="fundo" src="{{ IMAGEM_FUNDO }}" alt="" />
-      {% endif %}
+      <img class="fundo" src="{{ IMAGEM_FUNDO }}" alt="Fundo Certificado" />
+
       <div class="conteudo">
-        <div class="titulo-curso">{{ CURSO_NOME }}</div>
+        <!-- <div class="linha"></div> -->
 
-        <div class="dizeres">{{ DIZERES_CERTIFICADO }}</div>
-
-        <div class="bloco-aluno">
-          <div class="nome-aluno">{{ NOME_ALUNO }}</div>
+        <div class="texto-certificado">
+          <p>Nome do aluno(a): <strong>{{ NOME_ALUNO }}</strong></p>
           {% if RG_CPF %}
-          <div class="doc-aluno">{{ RG_CPF }}</div>
+          <p>RG/CPF: <strong>{{ RG_CPF }}</strong></p>
           {% endif %}
           {% if DATA_NASCIMENTO %}
-          <div class="doc-aluno">Data de Nascimento: {{ DATA_NASCIMENTO }}</div>
+          <p>Data de Nascimento: <strong>{{ DATA_NASCIMENTO }}</strong></p>
           {% endif %}
+          {% if EMPRESA %}
+          <p>Empresa: <strong>{{ EMPRESA }}</strong></p>
+          {% endif %}
+          {% if ENDERECO_EMPRESA %}
+          <p>Endereço: <strong>{{ ENDERECO_EMPRESA }}</strong></p>
+          {% endif %}
+
+          <p class="espaco-dizeres">{{ DIZERES_CERTIFICADO }}</p>
         </div>
 
-        <div class="info-linha">
-          <strong>Empresa:</strong> {{ EMPRESA }}
+        <div class="campos">
+          <p class="linha-campo"><span class="campo-label">Nível:</span> {{ NIVEL }}</p>
+          <p class="linha-campo"><span class="campo-label">Modalidade:</span> {{ MODALIDADE }}</p>
+          {% if ENDERECO_CT %}
+          <p class="linha-campo"><span class="campo-label">Local do treinamento:</span> {{ ENDERECO_CT }}</p>
+          {% endif %}
+          <p class="linha-campo"><span class="campo-label">Carga Horária:</span> {{ CARGA_HORARIA }}</p>
         </div>
-        {% if ENDERECO_EMPRESA %}
-        <div class="info-linha">{{ ENDERECO_EMPRESA }}</div>
-        {% endif %}
-        <div class="info-linha">
-          <strong>Nível:</strong> {{ NIVEL }} &nbsp;|&nbsp;
-          <strong>Modalidade:</strong> {{ MODALIDADE }} &nbsp;|&nbsp;
-          <strong>Carga Horária:</strong> {{ CARGA_HORARIA }}
-        </div>
-        {% if ENDERECO_CT %}
-        <div class="info-linha">{{ ENDERECO_CT }}</div>
-        {% endif %}
-        {% if NORMATIVA %}
-        <div class="info-linha"><strong>Normativa:</strong> {{ NORMATIVA }}</div>
-        {% endif %}
 
-        <div class="cidade-data">{{ CIDADE_DATA }}</div>
+        <div class="data">{{ CIDADE_DATA }}</div>
+      </div>
 
-        <div class="assinaturas">
-          <div class="assinatura-bloco">
+      <div class="assinaturas">
+        <div class="assinatura-bloco">
+          <div class="assinatura-topo">
             {% if ASSINATURA_INSTRUTOR %}
-            <img
-              class="assinatura-img"
-              src="{{ ASSINATURA_INSTRUTOR }}"
-              alt="Assinatura Instrutor"
-            />
+            <img src="{{ ASSINATURA_INSTRUTOR }}" class="assinatura-img" alt="Assinatura Instrutor" />
             {% endif %}
+          </div>
+          <div class="assinatura-linha"></div>
+          <div class="assinatura-texto">
             <div class="assinatura-nome">{{ NOME_INSTRUTOR }}</div>
             <div class="assinatura-cargo">Instrutor</div>
             {% if FORMACAO_INSTRUTOR %}
@@ -198,20 +219,31 @@
             <div class="assinatura-doc">{{ LABEL_RE_INSTRUTOR }}: {{ RE_INSTRUTOR }}</div>
             {% endif %}
           </div>
+        </div>
 
-          <div class="assinatura-bloco">
+        <div class="assinatura-bloco">
+          <div class="assinatura-topo"></div>
+          <div class="assinatura-linha"></div>
+          <div class="assinatura-texto">
+            <div class="assinatura-nome">{{ NOME_ALUNO }}</div>
+            <div class="assinatura-cargo">Aluno</div>
+          </div>
+        </div>
+
+        {% if RESP_TECNICO %}
+        <div class="assinatura-bloco">
+          <div class="assinatura-topo">
             {% if ASSINATURA_RESP_TECNICO %}
-            <img
-              class="assinatura-img"
-              src="{{ ASSINATURA_RESP_TECNICO }}"
-              alt="Assinatura Responsável Técnico"
-            />
+            <img src="{{ ASSINATURA_RESP_TECNICO }}" class="assinatura-img" alt="Assinatura Responsável Técnico" />
             {% endif %}
+          </div>
+          <div class="assinatura-linha"></div>
+          <div class="assinatura-texto">
             <div class="assinatura-nome">{{ RESP_TECNICO }}</div>
-            <div class="assinatura-cargo">Responsável Técnico</div>
             {% if FORMACAO_RESP %}
             <div class="assinatura-formacao">{{ FORMACAO_RESP }}</div>
             {% endif %}
+            <div class="assinatura-cargo">Responsável Técnico</div>
             {% if CPF_RESP %}
             <div class="assinatura-doc">CPF: {{ CPF_RESP }}</div>
             {% endif %}
@@ -220,6 +252,7 @@
             {% endif %}
           </div>
         </div>
+        {% endif %}
       </div>
     </div>
   </body>

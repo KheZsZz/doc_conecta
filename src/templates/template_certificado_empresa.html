@@ -2,197 +2,218 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <title>Certificado Empresa</title>
+    <title>Certificado - {{ EMPRESA }}</title>
     <style>
-      @page {
-        size: A4 landscape;
-        margin: 0;
-      }
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      body {
-        font-family: "Arial", "Helvetica", sans-serif;
-        color: #1a2a5e;
-        font-size: 11pt;
-        line-height: 1.35;
-        background: white;
-      }
+      @page { size: A4 landscape; margin: 0; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 297mm; height: 210mm; overflow: hidden; }
+
       .pagina {
+        position: relative;
         width: 297mm;
         height: 210mm;
-        position: relative;
-        overflow: hidden;
+        background-color: #f5f3e8;
+        font-family: "Arial", "Helvetica", sans-serif;
       }
+
       .fundo {
         position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
         object-fit: cover;
         z-index: 0;
       }
+
       .conteudo {
-        position: relative;
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
         z-index: 1;
+        padding-left: 150px;
+        padding-right: 40px;
+        padding-top: 148px;
+        padding-bottom: 120px;
+      }
+
+      .linha {
         width: 100%;
-        height: 100%;
-        padding: 22mm 28mm 16mm 28mm;
-        display: flex;
-        flex-direction: column;
+        height: 1px;
+        background-color: #c8c0a0;
+        margin-bottom: 35px;
       }
-      .dizeres {
-        text-align: justify;
-        font-size: 11pt;
-        margin-bottom: 4mm;
+
+      .texto-certificado {
+        font-size: 10pt;
+        color: #222;
         line-height: 1.5;
+        text-align: justify;
       }
-      .bloco-empresa {
-        text-align: center;
-        margin: 3mm 0;
+      .texto-certificado p { margin: 0; padding: 0; line-height: 1.5; }
+      .texto-certificado strong { font-size: 11pt; color: #1a2a5e; }
+      .texto-certificado .espaco-dizeres { margin-top: 70px; }
+      .texto-certificado .normativa-extra {
+        display: block;
+        margin-top: 8px;
+        font-style: italic;
       }
-      .nome-empresa {
-        font-size: 15pt;
-        font-weight: bold;
-        margin-bottom: 2mm;
-        text-transform: uppercase;
+
+      .campos {
+        margin-top: 14px;
+        font-size: 10pt;
+        color: #333;
+        line-height: 1.45;
       }
-      .info-linha {
-        text-align: center;
-        font-size: 10.5pt;
-        margin: 0.8mm 0;
+      .campos .linha-campo { margin: 0; padding: 0; line-height: 1.45; }
+      .campos .campo-label { font-weight: bold; color: #1a2a5e; }
+
+      .data {
+        margin-top: 12px;
+        font-size: 10pt;
+        color: #333;
       }
-      .cidade-data {
-        text-align: center;
-        font-size: 10.5pt;
-        font-weight: bold;
-        margin-top: 5mm;
-        margin-bottom: 3mm;
-      }
+
       .assinaturas {
+        position: absolute;
+        z-index: 2;
+        left: 150px;
+        right: 40px;
+        bottom: 36mm;
         display: flex;
         justify-content: space-around;
         align-items: flex-end;
-        margin-top: auto;
-        padding-top: 2mm;
-        gap: 10mm;
       }
+
       .assinatura-bloco {
         text-align: center;
-        width: 45%;
+        width: 42%;
+        max-width: 240px;
       }
+
       .assinatura-img {
-        height: 38px;
-        max-width: 160px;
+        height: 70px;
+        width: 100%;
+        max-width: 220px;
         object-fit: contain;
-        margin-bottom: 1px;
+        object-position: center bottom;
         display: block;
-        margin-left: auto;
-        margin-right: auto;
+        margin: 0 auto 2px auto;
       }
+
+      .assinatura-placeholder {
+        height: 70px;
+        width: 100%;
+        max-width: 220px;
+        margin: 0 auto 2px auto;
+      }
+
+      .assinatura-linha {
+        border-top: 1px solid #555;
+        width: 100%;
+        margin: 0 auto 4px auto;
+      }
+
       .assinatura-nome {
+        font-size: 8.5pt;
         font-weight: bold;
-        font-size: 9pt;
-        margin-bottom: 0.5px;
-        line-height: 1.2;
-      }
-      .assinatura-cargo {
-        font-size: 8pt;
-        margin-bottom: 0.5px;
+        color: #1a2a5e;
+        text-transform: uppercase;
         line-height: 1.2;
       }
       .assinatura-formacao {
         font-size: 7.5pt;
         font-style: italic;
-        margin-bottom: 0.5px;
+        color: #444;
+        line-height: 1.15;
+      }
+      .assinatura-cargo {
+        font-size: 8pt;
+        color: #444;
         line-height: 1.2;
       }
       .assinatura-doc {
         font-size: 7.5pt;
-        line-height: 1.25;
+        color: #444;
+        line-height: 1.2;
       }
     </style>
   </head>
   <body>
     <div class="pagina">
-      {% if IMAGEM_FUNDO %}
-      <img class="fundo" src="{{ IMAGEM_FUNDO }}" alt="" />
-      {% endif %}
+      <img class="fundo" src="{{ IMAGEM_FUNDO }}" alt="Fundo Certificado" />
+
       <div class="conteudo">
-        <div class="dizeres">{{ DIZERES_CERTIFICADO }}</div>
+        <!-- <div class="linha"></div> -->
 
-        <div class="bloco-empresa">
-          <div class="nome-empresa">{{ EMPRESA }}</div>
-          {% if ENDERECO_EMPRESA %}
-          <div class="info-linha">{{ ENDERECO_EMPRESA }}</div>
-          {% endif %}
-          {% if CNPJ_EMPRESA %}
-          <div class="info-linha">CNPJ: {{ CNPJ_EMPRESA }}</div>
-          {% endif %}
+        <div class="texto-certificado">
+          <p>Empresa: <strong>{{ EMPRESA }}</strong></p>
+          <p>CNPJ: <strong>{{ CNPJ_EMPRESA }}</strong></p>
+          <p>Endereço: <strong>{{ ENDERECO_EMPRESA }}</strong></p>
+
+          <p class="espaco-dizeres">{{ DIZERES_CERTIFICADO }}</p>
+
+          <!-- {% if NORMATIVA %}
+          <span class="normativa-extra">{{ NORMATIVA }}</span>
+          {% endif %} -->
         </div>
 
-        <div class="info-linha">
-          <strong>Nível:</strong> {{ NIVEL }} &nbsp;|&nbsp;
-          <strong>Modalidade:</strong> {{ MODALIDADE }} &nbsp;|&nbsp;
-          <strong>Carga Horária:</strong> {{ CARGA_HORARIA }}
+        <div class="campos">
+          <p class="linha-campo"><span class="campo-label">Nível:</span> {{ NIVEL }}</p>
+          <p class="linha-campo"><span class="campo-label">Modalidade:</span> {{ MODALIDADE }}</p>
+          {% if ENDERECO_CT %}
+          <p class="linha-campo"><span class="campo-label">Local do treinamento:</span> {{ ENDERECO_CT }}</p>
+          {% endif %}
+          <p class="linha-campo"><span class="campo-label">Carga Horária:</span> {{ CARGA_HORARIA }}</p>
         </div>
-        {% if TOTAL_COLABORADORES %}
-        <div class="info-linha">
-          <strong>Total de colaboradores treinados:</strong> {{ TOTAL_COLABORADORES }}
+
+        {% if CIDADE_DATA %}
+        <div class="data">{{ CIDADE_DATA }}</div>
+        {% endif %}
+      </div>
+
+      <div class="assinaturas">
+        {% if NOME_INSTRUTOR %}
+        <div class="assinatura-bloco">
+          {% if ASSINATURA_INSTRUTOR %}
+          <img src="{{ ASSINATURA_INSTRUTOR }}" class="assinatura-img" alt="Assinatura Instrutor" />
+          {% else %}
+          <div class="assinatura-placeholder"></div>
+          {% endif %}
+          <div class="assinatura-linha"></div>
+          <div class="assinatura-nome">{{ NOME_INSTRUTOR }}</div>
+          <div class="assinatura-cargo">Instrutor</div>
+          {% if FORMACAO_INSTRUTOR %}
+          <div class="assinatura-formacao">{{ FORMACAO_INSTRUTOR }}</div>
+          {% endif %}
+          {% if CPF_INSTRUTOR %}
+          <div class="assinatura-doc">CPF: {{ CPF_INSTRUTOR }}</div>
+          {% endif %}
+          {% if RE_INSTRUTOR %}
+          <div class="assinatura-doc">{{ LABEL_RE_INSTRUTOR }}: {{ RE_INSTRUTOR }}</div>
+          {% endif %}
         </div>
         {% endif %}
-        {% if NORMATIVA %}
-        <div class="info-linha"><strong>Normativa:</strong> {{ NORMATIVA }}</div>
-        {% endif %}
 
-        <div class="cidade-data">{{ CIDADE_DATA }}</div>
-
-        <div class="assinaturas">
-          <div class="assinatura-bloco">
-            {% if ASSINATURA_INSTRUTOR %}
-            <img
-              class="assinatura-img"
-              src="{{ ASSINATURA_INSTRUTOR }}"
-              alt="Assinatura Instrutor"
-            />
-            {% endif %}
-            <div class="assinatura-nome">{{ NOME_INSTRUTOR }}</div>
-            <div class="assinatura-cargo">Instrutor</div>
-            {% if FORMACAO_INSTRUTOR %}
-            <div class="assinatura-formacao">{{ FORMACAO_INSTRUTOR }}</div>
-            {% endif %}
-            {% if CPF_INSTRUTOR %}
-            <div class="assinatura-doc">CPF: {{ CPF_INSTRUTOR }}</div>
-            {% endif %}
-            {% if RE_INSTRUTOR %}
-            <div class="assinatura-doc">{{ LABEL_RE_INSTRUTOR }}: {{ RE_INSTRUTOR }}</div>
-            {% endif %}
-          </div>
-
-          <div class="assinatura-bloco">
-            {% if ASSINATURA_RESP_TECNICO %}
-            <img
-              class="assinatura-img"
-              src="{{ ASSINATURA_RESP_TECNICO }}"
-              alt="Assinatura Responsável Técnico"
-            />
-            {% endif %}
-            <div class="assinatura-nome">{{ RESP_TECNICO }}</div>
-            <div class="assinatura-cargo">Responsável Técnico</div>
-            {% if FORMACAO_RESP %}
-            <div class="assinatura-formacao">{{ FORMACAO_RESP }}</div>
-            {% endif %}
-            {% if CPF_RESP %}
-            <div class="assinatura-doc">CPF: {{ CPF_RESP }}</div>
-            {% endif %}
-            {% if RE_RESP %}
-            <div class="assinatura-doc">{{ LABEL_RE_RESP }}: {{ RE_RESP }}</div>
-            {% endif %}
-          </div>
+        {% if RESP_TECNICO %}
+        <div class="assinatura-bloco">
+          {% if ASSINATURA_RESP_TECNICO %}
+          <img src="{{ ASSINATURA_RESP_TECNICO }}" class="assinatura-img" alt="Assinatura Responsável Técnico" />
+          {% else %}
+          <div class="assinatura-placeholder"></div>
+          {% endif %}
+          <div class="assinatura-linha"></div>
+          <div class="assinatura-nome">{{ RESP_TECNICO }}</div>
+          <div class="assinatura-cargo">Responsável Técnico</div>
+          {% if FORMACAO_RESP %}
+          <div class="assinatura-formacao">{{ FORMACAO_RESP }}</div>
+          {% endif %}
+          {% if CPF_RESP %}
+          <div class="assinatura-doc">CPF: {{ CPF_RESP }}</div>
+          {% endif %}
+          {% if RE_RESP %}
+          <div class="assinatura-doc">{{ LABEL_RE_RESP }}: {{ RE_RESP }}</div>
+          {% endif %}
         </div>
+        {% endif %}
       </div>
     </div>
   </body>
