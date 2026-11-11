@@ -3,7 +3,7 @@ import base64
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML, CSS
 
-from src.utils.pdf_assets import get_template, html_para_pdf, resolver_imagem, rotulo_registro_profissional
+from src.utils.pdf_assets import get_template, html_para_pdf, resolver_imagem
 
 _FUNDO_DEFAULT = "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/certificado_conecta_fundo.png"
 
@@ -91,13 +91,11 @@ def gerar_certificado_empresa_pdf(
         FORMACAO_INSTRUTOR=formacao_instrutor,
         CPF_INSTRUTOR=cpf_instrutor_fmt,
         RE_INSTRUTOR=re_instrutor,
-        LABEL_RE_INSTRUTOR=rotulo_registro_profissional(formacao_instrutor),
         ASSINATURA_INSTRUTOR=assinatura_instrutor,
         RESP_TECNICO=resp_tecnico_nome,
         FORMACAO_RESP=formacao_resp,
         CPF_RESP=cpf_resp_fmt,
         RE_RESP=re_resp,
-        LABEL_RE_RESP=rotulo_registro_profissional(formacao_resp),
         ASSINATURA_RESP_TECNICO=assinatura_resp_tecnico,
         DIZERES_CERTIFICADO=dizeres
     )
