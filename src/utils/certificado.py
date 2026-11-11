@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import CSS, HTML
-from src.utils.pdf_assets import comprimir_pdf, rotulo_registro_profissional
+from src.utils.pdf_assets import comprimir_pdf
 
 _FUNDO_DEFAULT = (
     "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/"
@@ -171,9 +171,6 @@ def _preparar_assets(
         else:
             dizeres += "."
 
-    formacao_instrutor = (instrutor.get("formacao") or "").strip()
-    formacao_resp = (turma.get("formacao_resp_tecnico") or "").strip()
-
     return {
         "imagem_fundo": imagem_fundo,
         "assinatura_instrutor": assinatura_instrutor,
@@ -184,15 +181,13 @@ def _preparar_assets(
         "modalidade": (turma.get("modalidade") or "").strip() or "Presencial",
         "nivel": (turma.get("nivel") or "").strip() or "Formação",
         "nome_instrutor": instrutor.get("name") or "",
-        "formacao_instrutor": formacao_instrutor,
+        "formacao_instrutor": (instrutor.get("formacao") or "").strip(),
         "re_instrutor": (instrutor.get("re") or "").strip(),
         "cpf_instrutor": _fmt_cpf(instrutor.get("cpf") or ""),
-        "label_re_instrutor": rotulo_registro_profissional(formacao_instrutor),
         "resp_tecnico": turma.get("resp_tecnico") or "",
-        "formacao_resp": formacao_resp,
+        "formacao_resp": (turma.get("formacao_resp_tecnico") or "").strip(),
         "re_resp": (turma.get("re_resp_tecnico") or "").strip(),
         "cpf_resp": _fmt_cpf(turma.get("cpf_resp_tecnico") or ""),
-        "label_re_resp": rotulo_registro_profissional(formacao_resp),
         "empresa_nome": empresa.get("name") or "",
         "endereco_empresa": empresa.get("full_address") or "",
         "curso_nome": turma.get("curso_nome") or "",
@@ -258,12 +253,10 @@ def gerar_certificado_html(
         FORMACAO_INSTRUTOR=assets["formacao_instrutor"],
         CPF_INSTRUTOR=assets["cpf_instrutor"],
         RE_INSTRUTOR=assets["re_instrutor"],
-        LABEL_RE_INSTRUTOR=assets["label_re_instrutor"],
         RESP_TECNICO=assets["resp_tecnico"],
         FORMACAO_RESP=assets["formacao_resp"],
         CPF_RESP=assets["cpf_resp"],
         RE_RESP=assets["re_resp"],
-        LABEL_RE_RESP=assets["label_re_resp"],
         ASSINATURA_RESP_TECNICO=assets["assinatura_resp_tecnico"],
         CURSO_NOME=assets["curso_nome"],
         DIZERES_CERTIFICADO=assets["dizeres"],
