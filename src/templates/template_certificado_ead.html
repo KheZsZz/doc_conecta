@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Certificado EAD</title>
+  <style>
+    @page {
+      size: A4 landscape;
+      margin: 0;
+    }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: "Arial", "Helvetica", sans-serif;
+      color: #1a2a5e;
+      font-size: 11pt;
+      line-height: 1.35;
+      background: white;
+    }
+    .pagina {
+      width: 297mm;
+      height: 210mm;
+      position: relative;
+      overflow: hidden;
+    }
+    .fundo {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+    }
+    .conteudo {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      padding: 20mm 26mm 16mm 26mm;
+      display: flex;
+      flex-direction: column;
+    }
+    .titulo {
+      text-align: center;
+      font-size: 14pt;
+      font-weight: bold;
+      margin-bottom: 3mm;
+      text-transform: uppercase;
+    }
+    .dizeres {
+      text-align: justify;
+      font-size: 10.5pt;
+      margin-bottom: 3mm;
+      line-height: 1.45;
+    }
+    .bloco-aluno {
+      text-align: center;
+      margin: 2mm 0;
+    }
+    .nome-aluno {
+      font-size: 15pt;
+      font-weight: bold;
+      margin-bottom: 1.5mm;
+      text-transform: uppercase;
+    }
+    .doc-aluno {
+      font-size: 10pt;
+      margin-bottom: 0.6mm;
+    }
+    .info-linha {
+      text-align: center;
+      font-size: 10pt;
+      margin: 0.6mm 0;
+    }
+    .periodo {
+      text-align: center;
+      font-size: 10pt;
+      margin: 1.5mm 0;
+    }
+    .cidade-data {
+      text-align: center;
+      font-size: 10pt;
+      font-weight: bold;
+      margin-top: 3mm;
+      margin-bottom: 2mm;
+    }
+    .assinatura-bloco {
+      text-align: center;
+      margin-top: auto;
+      padding-top: 2mm;
+    }
+    .assinatura-img {
+      height: 40px;
+      max-width: 160px;
+      object-fit: contain;
+      margin-bottom: 1px;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .assinatura-nome {
+      font-weight: bold;
+      font-size: 9pt;
+      margin-bottom: 0.5px;
+    }
+    .assinatura-cargo {
+      font-size: 8pt;
+      margin-bottom: 0.5px;
+    }
+    .assinatura-doc {
+      font-size: 7.5pt;
+      line-height: 1.25;
+    }
+    .verso {
+      page-break-before: always;
+    }
+    .corpo-conteudo {
+      padding: 12mm 18mm;
+    }
+    .conteudo-titulo {
+      font-size: 12pt;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 4mm;
+    }
+    .conteudo-texto {
+      font-size: 9.5pt;
+      line-height: 1.4;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="pagina">
+    {% if IMAGEM_FUNDO %}
+    <img class="fundo" src="{{ IMAGEM_FUNDO }}" alt="" />
+    {% endif %}
+    <div class="conteudo">
+      <div class="titulo">{{ CURSO_NOME }}</div>
+
+      <div class="dizeres">{{ DIZERES }}</div>
+
+      <div class="bloco-aluno">
+        <div class="nome-aluno">{{ NOME_ALUNO }}</div>
+        {% if CPF_ALUNO %}
+        <div class="doc-aluno">CPF: {{ CPF_ALUNO }}</div>
+        {% endif %}
+        {% if RG_ALUNO %}
+        <div class="doc-aluno">RG: {{ RG_ALUNO }}</div>
+        {% endif %}
+      </div>
+
+      {% if EMPRESA %}
+      <div class="info-linha"><strong>Empresa:</strong> {{ EMPRESA }}</div>
+      {% endif %}
+      <div class="info-linha">
+        <strong>Nível:</strong> {{ NIVEL }} &nbsp;|&nbsp;
+        <strong>Modalidade:</strong> {{ MODALIDADE }} &nbsp;|&nbsp;
+        <strong>Carga Horária:</strong> {{ CARGA_HORARIA }}
+      </div>
+
+      {% if DATA_INICIO or DATA_TERMINO %}
+      <div class="periodo">
+        {% if DATA_INICIO %}<strong>Início:</strong> {{ DATA_INICIO }}{% endif %}
+        {% if DATA_INICIO and DATA_TERMINO %} &nbsp;|&nbsp; {% endif %}
+        {% if DATA_TERMINO %}<strong>Término:</strong> {{ DATA_TERMINO }}{% endif %}
+      </div>
+      {% endif %}
+
+      <div class="cidade-data">{{ CIDADE_DATA }}</div>
+
+      <div class="assinatura-bloco">
+        {% if ASSINATURA_IMG %}
+        <img class="assinatura-img" src="{{ ASSINATURA_IMG }}" alt="Assinatura" />
+        {% endif %}
+        <div class="assinatura-nome">{{ NOME_ASSINANTE }}</div>
+        <div class="assinatura-cargo">
+          {% if FORMACAO_ASSINANTE %}{{ FORMACAO_ASSINANTE }}{% else %}Responsável{% endif %}
+        </div>
+        <div class="assinatura-doc">
+          {% if CPF_ASSINANTE %}CPF: {{ CPF_ASSINANTE }}{% endif %}
+          {% if RE_ASSINANTE %}{% if CPF_ASSINANTE %} {% endif %}{{ LABEL_RE_ASSINANTE }}: {{ RE_ASSINANTE }}{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if CONTEUDO_PROGRAMATICO %}
+  <div class="pagina verso">
+    <div class="corpo-conteudo">
+      <div class="conteudo-titulo">Conteúdo Programático</div>
+      <div class="conteudo-texto">{{ CONTEUDO_PROGRAMATICO }}</div>
+    </div>
+  </div>
+  {% endif %}
+</body>
+</html>
