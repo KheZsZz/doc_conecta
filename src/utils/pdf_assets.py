@@ -1,8 +1,6 @@
 """Assets compartilhados para geração de PDF (cache de imagens/templates)."""
 from __future__ import annotations
 
-import unicodedata
-
 import base64
 import io
 import os
@@ -22,37 +20,6 @@ CSS_LANDSCAPE = CSS(string="@page { size: A4 landscape; margin: 0; }")
 CSS_PORTRAIT = CSS(string="@page { size: A4 portrait; margin: 0; }")
 
 MAX_PDF_WORKERS = 3
-
-
-def rotulo_registro_profissional(formacao: str | None) -> str:
-    """Rótulo do registro profissional conforme a formação.
-
-    - Engenheiro → CREA
-    - Técnico de Segurança do Trabalho (TST) → RP
-    - Policial Militar → RE
-    - Demais / desconhecido → RE
-    """
-    f = (formacao or "").strip()
-    if not f:
-        return "RE"
-    f = unicodedata.normalize("NFKD", f)
-    f = "".join(ch for ch in f if not unicodedata.combining(ch)).casefold()
-
-    if "engenheir" in f or "crea" in f:
-        return "CREA"
-    if (
-        "tst" in f
-        or ("tecnico" in f and "seguranca" in f)
-        or ("tec " in f and "seguranca" in f)
-        or "tecnico de seguranca" in f
-        or "tecnico em seguranca" in f
-    ):
-        return "RP"
-    if "policial" in f or "militar" in f:
-        return "RE"
-    return "RE"
-
-
 # Limite para fundos/logos embutidos (carteirinha usa fundo em cada card)
 _MAX_IMAGE_SIDE = 1400
 _JPEG_QUALITY = 70
@@ -260,6 +227,7 @@ def comprimir_pdf(pdf_bytes: bytes, *, preset: str = "ebook") -> bytes:
         return pdf_bytes
 
     melhor = min(candidatos, key=len)
+    # só troca se realmente encolher (margem de 2%)
     if len(melhor) < int(original_len * 0.98):
         return melhor
     return pdf_bytes
