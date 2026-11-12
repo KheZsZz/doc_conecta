@@ -14,6 +14,12 @@ def formatar_cpf(cpf: str) -> str:
         return f"{cpf[:3]}.{cpf[3:6]}.{cpf[6:9]}-{cpf[9:]}"
     return cpf
 
+def formatar_cnpj(cnpj: str) -> str:
+    cnpj = (cnpj or "").strip()
+    if len(cnpj) == 14 and cnpj.isdigit():
+        return f"{cnpj[:2]}.{cnpj[2:5]}.{cnpj[5:8]}/{cnpj[8:12]}-{cnpj[12:]}"
+    return cnpj
+
 def _endereco_ct(ct: dict | None, mostrar: bool) -> str:
     if not mostrar or not ct:
         return ""
@@ -27,10 +33,10 @@ def gerar_certificado_empresa_pdf(
     instrutor: dict,
     empresa: dict,
     ct: dict | None = None,
-    alunos: list = None,
+    alunos: list = None, # type: ignore
     normativa: str = "",
     cidade_data: str = "",
-    caminho_fundo: str = None,
+    caminho_fundo: str = None, # type: ignore
     caminho_pasta_templates: str = "src/templates",
     nome_template: str = "template_certificado_empresa.html",
 ) -> bytes:
@@ -50,6 +56,7 @@ def gerar_certificado_empresa_pdf(
     assinatura_instrutor = resolver_imagem(
         instrutor.get("assinatura") or instrutor.get("assinatura_url") or ""
     )
+    cnpj_empresa_fmt = formatar_cnpj(empresa.get("cnpj", ""))
     cpf_instrutor_fmt = formatar_cpf(instrutor.get("cpf", ""))
     re_instrutor = (instrutor.get("re") or "").strip()
     formacao_instrutor = (instrutor.get("formacao") or "").strip()
@@ -75,11 +82,11 @@ def gerar_certificado_empresa_pdf(
     mostrar_end_ct = bool(turma.get("mostrar_endereco_ct"))
     endereco_ct = _endereco_ct(ct, mostrar_end_ct)
 
-    html_renderizado = template.render(
+    html_renderizado = template.render( # type: ignore
         IMAGEM_FUNDO=imagem_fundo,
         EMPRESA=empresa.get("name", ""),
         ENDERECO_EMPRESA=empresa.get("full_address", ""),
-        CNPJ_EMPRESA=empresa.get("cnpj", ""),
+        CNPJ_EMPRESA=cnpj_empresa_fmt,
         NIVEL=nivel,
         MODALIDADE=modalidade,
         # ENDERECO_CT=endereco_ct,
