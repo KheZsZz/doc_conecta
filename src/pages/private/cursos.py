@@ -38,6 +38,15 @@ def modal_editar_curso(curso_id, nome_atual, sigla_atual, normativa_atual, dizer
             value=exige_atestado_atual,
             help="Desmarque se o curso (ex: CIPA) não emitir atestado."
         )
+        
+        novo_prazo_validade = st.number_input(
+            "Prazo de Validade do Curso (em anos)", 
+            min_value=1, 
+            max_value=5, 
+            value=1, 
+            step=1,
+            help="Defina o prazo de validade do curso em anos."
+        )
 
         salvar = st.form_submit_button("💾 Salvar Alterações", type="primary", use_container_width=True)
         
@@ -52,7 +61,8 @@ def modal_editar_curso(curso_id, nome_atual, sigla_atual, normativa_atual, dizer
                         "normativa": nova_normativa.strip() if nova_normativa else None,
                         "dizeres_certificado_aluno": novos_dizeres_aluno.strip() if novos_dizeres_aluno else None,
                         "dizeres_certificado_empresa": novos_dizeres_empresa.strip() if novos_dizeres_empresa else None,
-                        "exige_atestado": novo_exige_atestado
+                        "exige_atestado": novo_exige_atestado,
+                        "prazo_validade_anos": novo_prazo_validade if novo_prazo_validade else 1
                     }
                     supabase.table("cursos").update(payload).eq("id", curso_id).execute()
                     st.success("✅ Curso atualizado com sucesso!")
@@ -97,7 +107,8 @@ with tab_listar:
                     dizeres_aluno = c.get("dizeres_certificado_aluno", "")
                     dizeres_empresa = c.get("dizeres_certificado_empresa", "")
                     exige_atestado = c.get("exige_atestado", True)
-                    
+                    prazo_validade_anos = c.get("prazo_validade_anos", 1)
+
                     sigla_display = f" [{sigla}]" if sigla else ""
                     
                     with st.container(border=True):
@@ -148,6 +159,15 @@ with tab_cadastrar:
         
         exige_atestado_curso = st.checkbox("Emite Atestado de Empresa (Brigada)?", value=True)
         
+        prazo_validade_curso = st.number_input(
+            "Prazo de Validade do Curso (em anos)", 
+            min_value=1, 
+            max_value=5, 
+            value=1, 
+            step=1,
+            help="Defina o prazo de validade do curso em anos."
+        )
+        
         submit_btn = st.form_submit_button("Criar Curso", type="primary")
         
         if submit_btn:
@@ -161,7 +181,8 @@ with tab_cadastrar:
                         "normativa": normativa_curso.strip() if normativa_curso else None,
                         "dizeres_certificado_aluno": dizeres_aluno_curso.strip() if dizeres_aluno_curso else None,
                         "dizeres_certificado_empresa": dizeres_empresa_curso.strip() if dizeres_empresa_curso else None,
-                        "exige_atestado": exige_atestado_curso
+                        "exige_atestado": exige_atestado_curso,
+                        "prazo_validade_anos": prazo_validade_curso if prazo_validade_curso else 1
                     }
                     supabase.table("cursos").insert(novo_curso_payload).execute()
                     st.success(f"✅ Curso '{nome_curso}' criado com sucesso!")
