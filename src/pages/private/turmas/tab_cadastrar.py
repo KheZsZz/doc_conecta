@@ -91,7 +91,7 @@ def render_tab_cadastrar():
         with col6:
             modalidade = st.selectbox(
                 "Modalidade",
-                ["In Company", "Presencial (Centro de Treinamento)", "EAD", "Semipresencial", "Online"],
+                ["In Company", "Presencial (Centro de Treinamento)", "EAD", "Semipresencial", "Online", "In Company - Centro de treinamento"],
             )
         with col7:
             nivel = st.selectbox(
