@@ -11,45 +11,65 @@ tab_listar, tab_cadastrar = st.tabs(["Cursos Cadastrados", "Novo Curso"])
 # 1. MODAL / POPUP DE EDIÇÃO DO CURSO
 # ==========================================
 @st.dialog("Editar Curso", width="medium")
-def modal_editar_curso(curso_id, nome_atual, sigla_atual, normativa_atual, dizeres_aluno_atual, dizeres_empresa_atual, exige_atestado_atual):
+def modal_editar_curso(
+    curso_id,
+    nome_atual,
+    sigla_atual,
+    normativa_atual,
+    dizeres_aluno_atual,
+    dizeres_empresa_atual,
+    exige_atestado_atual,
+    prazo_validade_atual=1,
+):
     with st.form(f"form_edit_curso_{curso_id}"):
         novo_nome = st.text_input("Nome do Curso*", value=nome_atual)
-        
+
         col1, col2 = st.columns(2)
         with col1:
             nova_sigla = st.text_input("Sigla", value=sigla_atual if sigla_atual else "")
         with col2:
-            nova_normativa = st.text_input("Normativa (Ex: Conforme IT 17)", value=normativa_atual if normativa_atual else "")
-        
+            nova_normativa = st.text_input(
+                "Normativa (Ex: Conforme IT 17)",
+                value=normativa_atual if normativa_atual else "",
+            )
+
         novos_dizeres_aluno = st.text_area(
-            "Dizeres do Certificado do Aluno", 
+            "Dizeres do Certificado do Aluno",
             value=dizeres_aluno_atual if dizeres_aluno_atual else "",
-            help="Texto impresso no certificado individual do aluno."
+            help="Texto impresso no certificado individual do aluno.",
         )
 
         novos_dizeres_empresa = st.text_area(
-            "Dizeres do Certificado da Empresa", 
+            "Dizeres do Certificado da Empresa",
             value=dizeres_empresa_atual if dizeres_empresa_atual else "",
-            help="Texto impresso no certificado corporativo da empresa."
-        )
-        
-        novo_exige_atestado = st.checkbox(
-            "Emite Atestado de Empresa (Brigada)?", 
-            value=exige_atestado_atual,
-            help="Desmarque se o curso (ex: CIPA) não emitir atestado."
-        )
-        
-        novo_prazo_validade = st.number_input(
-            "Prazo de Validade do Curso (em anos)", 
-            min_value=1, 
-            max_value=5, 
-            value=1, 
-            step=1,
-            help="Defina o prazo de validade do curso em anos."
+            help="Texto impresso no certificado corporativo da empresa.",
         )
 
-        salvar = st.form_submit_button("💾 Salvar Alterações", type="primary", use_container_width=True)
-        
+        novo_exige_atestado = st.checkbox(
+            "Emite Atestado de Empresa (Brigada)?",
+            value=exige_atestado_atual,
+            help="Desmarque se o curso (ex: CIPA) não emitir atestado.",
+        )
+
+        try:
+            prazo_ini = int(prazo_validade_atual or 1)
+        except (TypeError, ValueError):
+            prazo_ini = 1
+        prazo_ini = max(1, min(prazo_ini, 5))
+
+        novo_prazo_validade = st.number_input(
+            "Prazo de Validade do Curso (em anos)",
+            min_value=1,
+            max_value=5,
+            value=prazo_ini,
+            step=1,
+            help="Prazo usado na data de validade das carteirinhas.",
+        )
+
+        salvar = st.form_submit_button(
+            "💾 Salvar Alterações", type="primary", use_container_width=True
+        )
+
         if salvar:
             if not novo_nome.strip():
                 st.warning("⚠️️ O nome do curso é obrigatório.")
@@ -59,16 +79,23 @@ def modal_editar_curso(curso_id, nome_atual, sigla_atual, normativa_atual, dizer
                         "name": novo_nome.strip(),
                         "sigla": nova_sigla.strip().upper() if nova_sigla else None,
                         "normativa": nova_normativa.strip() if nova_normativa else None,
-                        "dizeres_certificado_aluno": novos_dizeres_aluno.strip() if novos_dizeres_aluno else None,
-                        "dizeres_certificado_empresa": novos_dizeres_empresa.strip() if novos_dizeres_empresa else None,
+                        "dizeres_certificado_aluno": novos_dizeres_aluno.strip()
+                        if novos_dizeres_aluno
+                        else None,
+                        "dizeres_certificado_empresa": novos_dizeres_empresa.strip()
+                        if novos_dizeres_empresa
+                        else None,
                         "exige_atestado": novo_exige_atestado,
-                        "prazo_validade_anos": novo_prazo_validade if novo_prazo_validade else 1
+                        "prazo_validade_anos": int(novo_prazo_validade)
+                        if novo_prazo_validade
+                        else 1,
                     }
                     supabase.table("cursos").update(payload).eq("id", curso_id).execute()
                     st.success("✅ Curso atualizado com sucesso!")
                     st.rerun()
                 except Exception as e:
                     st.error(f"❌ Erro ao atualizar curso: {e}")
+
 
 # ==========================================
 # ABA 1: LISTAGEM DE CURSOS (EM CARDS)
@@ -81,16 +108,17 @@ with tab_listar:
         placeholder="Ex: CIPA, BRIGADA...",
         key="busca_curso",
     )
-    
+
     try:
         response = supabase.table("cursos").select("*").order("name").execute()
-        
+
         if response and isinstance(response.data, list) and len(response.data) > 0:
             lista = response.data
             if busca.strip():
                 q = busca.strip().lower()
                 lista = [
-                    c for c in lista
+                    c
+                    for c in lista
                     if q in str(c.get("name") or "").lower()
                     or q in str(c.get("sigla") or "").lower()
                 ]
@@ -110,25 +138,44 @@ with tab_listar:
                     prazo_validade_anos = c.get("prazo_validade_anos", 1)
 
                     sigla_display = f" [{sigla}]" if sigla else ""
-                    
+
                     with st.container(border=True):
                         col_info, col_acoes = st.columns([5, 1])
-                        
+
                         with col_info:
                             st.markdown(f"**{nome}**{sigla_display}")
                             tags = []
-                            if normativa: tags.append(f"📜 Normativa: {normativa}")
-                            if not exige_atestado: tags.append("🚫 Sem Atestado")
+                            if normativa:
+                                tags.append(f"📜 Normativa: {normativa}")
+                            if not exige_atestado:
+                                tags.append("🚫 Sem Atestado")
+                            tags.append(f"⏳ Validade: {prazo_validade_anos} ano(s)")
                             if tags:
                                 st.caption(" | ".join(tags))
-                            
+
                         with col_acoes:
-                            st.markdown("<div style='height: 5px;'></div>", unsafe_allow_html=True)
-                            if st.button("Editar", key=f"edit_curso_{cid}", help="Editar curso", use_container_width=True):
-                                modal_editar_curso(cid, nome, sigla, normativa, dizeres_aluno, dizeres_empresa, exige_atestado)
+                            st.markdown(
+                                "<div style='height: 5px;'></div>", unsafe_allow_html=True
+                            )
+                            if st.button(
+                                "Editar",
+                                key=f"edit_curso_{cid}",
+                                help="Editar curso",
+                                use_container_width=True,
+                            ):
+                                modal_editar_curso(
+                                    cid,
+                                    nome,
+                                    sigla,
+                                    normativa,
+                                    dizeres_aluno,
+                                    dizeres_empresa,
+                                    exige_atestado,
+                                    prazo_validade_anos,
+                                )
         else:
             st.info("ℹ️ Nenhum curso cadastrado no momento.")
-            
+
     except Exception as e:
         st.error(f"Erro ao carregar cursos: {e}")
 
@@ -137,39 +184,41 @@ with tab_listar:
 # ==========================================
 with tab_cadastrar:
     st.subheader("Cadastrar Novo Curso")
-    
+
     with st.form("form_novo_curso", clear_on_submit=True):
         nome_curso = st.text_input("Nome do Curso*")
-        
+
         col1, col2 = st.columns(2)
         with col1:
             sigla_curso = st.text_input("Sigla")
         with col2:
             normativa_curso = st.text_input("Normativa (Ex: Conforme IT 17)")
-            
+
         dizeres_aluno_curso = st.text_area(
-            "Dizeres do Certificado do Aluno", 
-            help="Texto base para o certificado individual."
+            "Dizeres do Certificado do Aluno",
+            help="Texto base para o certificado individual.",
         )
 
         dizeres_empresa_curso = st.text_area(
-            "Dizeres do Certificado da Empresa", 
-            help="Texto base para o certificado corporativo."
+            "Dizeres do Certificado da Empresa",
+            help="Texto base para o certificado corporativo.",
         )
-        
-        exige_atestado_curso = st.checkbox("Emite Atestado de Empresa (Brigada)?", value=True)
-        
+
+        exige_atestado_curso = st.checkbox(
+            "Emite Atestado de Empresa (Brigada)?", value=True
+        )
+
         prazo_validade_curso = st.number_input(
-            "Prazo de Validade do Curso (em anos)", 
-            min_value=1, 
-            max_value=5, 
-            value=1, 
+            "Prazo de Validade do Curso (em anos)",
+            min_value=1,
+            max_value=5,
+            value=1,
             step=1,
-            help="Defina o prazo de validade do curso em anos."
+            help="Prazo usado na data de validade das carteirinhas.",
         )
-        
+
         submit_btn = st.form_submit_button("Criar Curso", type="primary")
-        
+
         if submit_btn:
             if not nome_curso.strip():
                 st.warning("⚠️ O nome do curso é obrigatório.")
@@ -179,10 +228,16 @@ with tab_cadastrar:
                         "name": nome_curso.strip(),
                         "sigla": sigla_curso.strip().upper() if sigla_curso else None,
                         "normativa": normativa_curso.strip() if normativa_curso else None,
-                        "dizeres_certificado_aluno": dizeres_aluno_curso.strip() if dizeres_aluno_curso else None,
-                        "dizeres_certificado_empresa": dizeres_empresa_curso.strip() if dizeres_empresa_curso else None,
+                        "dizeres_certificado_aluno": dizeres_aluno_curso.strip()
+                        if dizeres_aluno_curso
+                        else None,
+                        "dizeres_certificado_empresa": dizeres_empresa_curso.strip()
+                        if dizeres_empresa_curso
+                        else None,
                         "exige_atestado": exige_atestado_curso,
-                        "prazo_validade_anos": prazo_validade_curso if prazo_validade_curso else 1
+                        "prazo_validade_anos": int(prazo_validade_curso)
+                        if prazo_validade_curso
+                        else 1,
                     }
                     supabase.table("cursos").insert(novo_curso_payload).execute()
                     st.success(f"✅ Curso '{nome_curso}' criado com sucesso!")
