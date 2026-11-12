@@ -55,11 +55,34 @@ def _documento_aluno(aluno: dict) -> str:
     return rg
 
 
+def _anos_validade(curso: dict | None, turma: dict | None = None) -> int:
+    """Lê prazo_validade_anos do curso (fallback turma / 1 ano)."""
+    curso = curso or {}
+    turma = turma or {}
+    raw = (
+        curso.get("prazo_validade_anos")
+        or curso.get("prazo_validade")
+        or turma.get("prazo_validade_anos")
+        or 1
+    )
+    try:
+        anos = int(raw)
+    except (TypeError, ValueError):
+        anos = 1
+    return max(1, min(anos, 10))
+
+
 def _validade_padrao(data_conclusao: str, anos: int = 1) -> str:
     s = str(data_conclusao or "").split("T")[0][:10]
     try:
         dt = datetime.strptime(s, "%Y-%m-%d")
-        return (dt + timedelta(days=365 * anos)).strftime("%d/%m/%Y")
+        # soma anos calendário (preserva dia/mês quando possível)
+        try:
+            fim = dt.replace(year=dt.year + int(anos))
+        except ValueError:
+            # 29/02 em ano não bissexto → 28/02
+            fim = dt.replace(year=dt.year + int(anos), day=28)
+        return fim.strftime("%d/%m/%Y")
     except Exception:
         return ""
 
@@ -142,8 +165,10 @@ def gerar_carteirinhas_pdf(
     )
     assinatura_img = resolver_imagem(assinatura_src)
 
-    data_br = _fmt_data_br(data_conclusao or turma.get("data_treinamento"))
-    val_br = _validade_padrao(data_conclusao or turma.get("data_treinamento") or "")
+    data_base = data_conclusao or turma.get("data_treinamento") or ""
+    data_br = _fmt_data_br(data_base)
+    anos_val = _anos_validade(curso, turma)
+    val_br = _validade_padrao(data_base, anos=anos_val)
 
     nome_inst = (instrutor.get("name") or instrutor.get("nome") or "").strip()
     cpf_inst = _fmt_cpf(instrutor.get("cpf") or "")
