@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import CSS, HTML
-from src.utils.pdf_assets import comprimir_pdf
+from src.utils.pdf_assets import comprimir_pdf, rotulo_registro_profissional
 
 _FUNDO_DEFAULT = (
     "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/"
@@ -192,6 +192,8 @@ def _preparar_assets(
         "endereco_empresa": empresa.get("full_address") or "",
         "curso_nome": turma.get("curso_nome") or "",
         "normativa": normativa or "",
+        "label_re_resp": rotulo_registro_profissional((turma.get("formacao_resp_tecnico") or "").strip()),
+        "label_re_instrutor": rotulo_registro_profissional((instrutor.get("formacao") or "").strip()),
     }
 
 
@@ -260,6 +262,9 @@ def gerar_certificado_html(
         ASSINATURA_RESP_TECNICO=assets["assinatura_resp_tecnico"],
         CURSO_NOME=assets["curso_nome"],
         DIZERES_CERTIFICADO=assets["dizeres"],
+        LABEL_RE_INSTRUTOR=assets["label_re_instrutor"],
+        LABEL_RE_RESP=assets["label_re_resp"],
+        
     )
 
 
