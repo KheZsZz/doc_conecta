@@ -1,5 +1,6 @@
 from datetime import date
 
+import pandas as pd
 import streamlit as st
 
 from src.auth.permissions import (
@@ -13,6 +14,7 @@ from src.utils.imprimir_documentacao import (
     listar_cts,
     turmas_do_ct_na_data,
 )
+from src.pages.private.turmas.helpers import label_empresa
 from src.pages.private.turmas.modals.emitir_documentos.data import fetch_ct
 
 exigir_permissao("imprimir_documentacao")
@@ -89,39 +91,68 @@ if not turmas:
     st.info("Nenhuma turma neste CT na data selecionada.")
     st.stop()
 
-preview = []
-for t in turmas:
-    preview.append(
-        {
-            "Turma": t.get("titulo") or "",
-            "Empresa ID": str(t.get("client_id") or "")[:8] + "…",
-            "Curso ID": str(t.get("curso_id") or "")[:8] + "…",
-            "Emitido": "Sim" if t.get("documento_emitido") else "Não",
-        }
-    )
-# enriquece nomes se possível
+# Nomes das empresas (Nome (CNPJ) - Unidade) para a tabela
+emp_map: dict = {}
 try:
     from src.config.database import supabase
 
     emp_ids = list({t.get("client_id") for t in turmas if t.get("client_id")})
-    emp_map = {}
     if emp_ids:
         res = (
             supabase.table("clients")
-            .select("id, name")
+            .select("id, name, cnpj, sigla")
             .in_("id", emp_ids)
             .execute()
         )
         if res and res.data:
-            emp_map = {r["id"]: r.get("name") for r in res.data}
-    for i, t in enumerate(turmas):
-        preview[i]["Empresa"] = emp_map.get(t.get("client_id")) or "—"
-        preview[i].pop("Empresa ID", None)
-        preview[i].pop("Curso ID", None)
+            emp_map = {r["id"]: label_empresa(r) for r in res.data}
 except Exception:
     pass
 
-st.dataframe(preview, use_container_width=True, hide_index=True)
+# Seleção de turmas: por padrão todas marcadas; recomeça ao trocar CT/data
+_base = (str(ct_fix), data_ref.isoformat())
+_cfg = st.session_state.get("imp_sel_cfg")
+if not _cfg or _cfg.get("base") != _base:
+    _cfg = {"base": _base, "ver": 0, "padrao": True}
+    st.session_state["imp_sel_cfg"] = _cfg
+
+c_sel1, c_sel2, _ = st.columns([1, 1, 3])
+with c_sel1:
+    if st.button("Marcar todas", use_container_width=True):
+        _cfg["ver"] += 1
+        _cfg["padrao"] = True
+        st.rerun()
+with c_sel2:
+    if st.button("Desmarcar todas", use_container_width=True):
+        _cfg["ver"] += 1
+        _cfg["padrao"] = False
+        st.rerun()
+
+preview = pd.DataFrame(
+    [
+        {
+            "Incluir": _cfg["padrao"],
+            "Empresa": emp_map.get(t.get("client_id")) or "—",
+            "Turma": t.get("titulo") or "",
+            "Emitido": "Sim" if t.get("documento_emitido") else "Não",
+        }
+        for t in turmas
+    ]
+)
+editado = st.data_editor(
+    preview,
+    use_container_width=True,
+    hide_index=True,
+    disabled=["Empresa", "Turma", "Emitido"],
+    column_config={
+        "Incluir": st.column_config.CheckboxColumn(
+            "Incluir", help="Desmarque para não gerar os documentos desta turma."
+        ),
+    },
+    key=f"imp_sel_{_base[0]}_{_base[1]}_{_cfg['ver']}",
+)
+turmas_sel = [turmas[i] for i in editado.index[editado["Incluir"]]]
+st.caption(f"**{len(turmas_sel)}** de **{len(turmas)}** turma(s) selecionada(s).")
 
 ss_key = "imp_doc_pdf"
 ss_nome = "imp_doc_nome"
@@ -154,20 +185,21 @@ if st.button(
     "Gerar documentação completa (ZIP)" if completa else "Gerar PDF consolidado",
     type="primary",
     use_container_width=True,
+    disabled=not turmas_sel,
 ):
     ct = fetch_ct(ct_fix) or mapa_ct.get(ct_fix) or {}
     if completa:
-        with st.spinner("Gerando os 4 PDFs de todas as turmas do dia (pode levar alguns minutos)..."):
+        with st.spinner("Gerando os 4 PDFs das turmas selecionadas (pode levar alguns minutos)..."):
             pdf, avisos, erros = gerar_zip_documentacao_completa(
-                turmas=turmas,
+                turmas=turmas_sel,
                 ct=ct,
                 data_ref=data_ref,
             )
     else:
-        with st.spinner("Gerando PDF de todas as turmas do dia..."):
+        with st.spinner("Gerando PDF das turmas selecionadas..."):
             pdf, avisos, erros = gerar_pdf_tipo(
                 tipo=tipo,
-                turmas=turmas,
+                turmas=turmas_sel,
                 ct=ct,
             )
 
@@ -190,9 +222,9 @@ if st.button(
     st.session_state[ss_mime] = mime
     st.session_state[ss_meta] = {
         "msg": (
-            f"ZIP gerado com os documentos de **{len(turmas)}** turma(s)."
+            f"ZIP gerado com os documentos de **{len(turmas_sel)}** turma(s)."
             if completa
-            else f"PDF gerado com documentos de **{len(turmas)}** turma(s)."
+            else f"PDF gerado com documentos de **{len(turmas_sel)}** turma(s)."
         ),
         "avisos": avisos,
         "erros": erros,
