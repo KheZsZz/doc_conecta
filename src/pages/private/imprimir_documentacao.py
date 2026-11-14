@@ -9,6 +9,7 @@ from src.auth.permissions import (
 )
 from src.utils.imprimir_documentacao import (
     gerar_pdf_tipo,
+    gerar_zip_documentacao_completa,
     listar_cts,
     turmas_do_ct_na_data,
 )
@@ -59,6 +60,7 @@ data_ref = st.date_input(
 tipo_label = st.radio(
     "Tipo de documento*",
     options=[
+        "Documentação completa (ZIP com 1 PDF de cada tipo)",
         "Certificados dos alunos",
         "Certificados da empresa",
         "Atestados (somente cursos que exigem)",
@@ -67,7 +69,9 @@ tipo_label = st.radio(
     horizontal=False,
 )
 
+TIPO_COMPLETA = "completa"
 TIPO_MAP = {
+    "Documentação completa (ZIP com 1 PDF de cada tipo)": TIPO_COMPLETA,
     "Certificados dos alunos": "cert_alunos",
     "Certificados da empresa": "cert_empresa",
     "Atestados (somente cursos que exigem)": "atestado",
@@ -122,10 +126,11 @@ st.dataframe(preview, use_container_width=True, hide_index=True)
 ss_key = "imp_doc_pdf"
 ss_nome = "imp_doc_nome"
 ss_meta = "imp_doc_meta"
+ss_mime = "imp_doc_mime"
 
 if st.session_state.get(ss_key):
     meta = st.session_state.get(ss_meta) or {}
-    st.success(meta.get("msg") or "PDF pronto.")
+    st.success(meta.get("msg") or "Arquivo pronto.")
     if meta.get("avisos"):
         with st.expander("Avisos", expanded=False):
             for a in meta["avisos"]:
@@ -134,23 +139,37 @@ if st.session_state.get(ss_key):
         with st.expander("Falhas", expanded=False):
             for e in meta["erros"]:
                 st.write(f"- {e}")
+    _eh_zip = st.session_state.get(ss_mime) == "application/zip"
     st.download_button(
-        "Baixar PDF",
+        "Baixar ZIP" if _eh_zip else "Baixar PDF",
         data=st.session_state[ss_key],
         file_name=st.session_state.get(ss_nome) or "documentacao.pdf",
-        mime="application/pdf",
+        mime=st.session_state.get(ss_mime) or "application/pdf",
         use_container_width=True,
         key="dl_imp_persist",
     )
 
-if st.button("Gerar PDF consolidado", type="primary", use_container_width=True):
+completa = tipo == TIPO_COMPLETA
+if st.button(
+    "Gerar documentação completa (ZIP)" if completa else "Gerar PDF consolidado",
+    type="primary",
+    use_container_width=True,
+):
     ct = fetch_ct(ct_fix) or mapa_ct.get(ct_fix) or {}
-    with st.spinner("Gerando PDF de todas as turmas do dia..."):
-        pdf, avisos, erros = gerar_pdf_tipo(
-            tipo=tipo,
-            turmas=turmas,
-            ct=ct,
-        )
+    if completa:
+        with st.spinner("Gerando os 4 PDFs de todas as turmas do dia (pode levar alguns minutos)..."):
+            pdf, avisos, erros = gerar_zip_documentacao_completa(
+                turmas=turmas,
+                ct=ct,
+                data_ref=data_ref,
+            )
+    else:
+        with st.spinner("Gerando PDF de todas as turmas do dia..."):
+            pdf, avisos, erros = gerar_pdf_tipo(
+                tipo=tipo,
+                turmas=turmas,
+                ct=ct,
+            )
 
     if not pdf:
         st.error("Nenhum documento gerado.")
@@ -161,13 +180,20 @@ if st.button("Gerar PDF consolidado", type="primary", use_container_width=True):
         st.stop()
 
     slug_ct = (nome_por_id.get(ct_fix) or "ct").replace(" ", "_")[:40]
+    ext = "zip" if completa else "pdf"
+    mime = "application/zip" if completa else "application/pdf"
     nome_arq = (
-        f"{tipo}_{slug_ct}_{data_ref.strftime('%Y%m%d')}.pdf"
+        f"{'documentacao_completa' if completa else tipo}_{slug_ct}_{data_ref.strftime('%Y%m%d')}.{ext}"
     )
     st.session_state[ss_key] = pdf
     st.session_state[ss_nome] = nome_arq
+    st.session_state[ss_mime] = mime
     st.session_state[ss_meta] = {
-        "msg": f"PDF gerado com documentos de **{len(turmas)}** turma(s).",
+        "msg": (
+            f"ZIP gerado com os documentos de **{len(turmas)}** turma(s)."
+            if completa
+            else f"PDF gerado com documentos de **{len(turmas)}** turma(s)."
+        ),
         "avisos": avisos,
         "erros": erros,
     }
@@ -181,10 +207,10 @@ if st.button("Gerar PDF consolidado", type="primary", use_container_width=True):
             for e in erros:
                 st.write(f"- {e}")
     st.download_button(
-        "Baixar PDF",
+        "Baixar ZIP" if completa else "Baixar PDF",
         data=pdf,
         file_name=nome_arq,
-        mime="application/pdf",
+        mime=mime,
         use_container_width=True,
         key="dl_imp_new",
     )
