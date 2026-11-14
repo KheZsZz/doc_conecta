@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import io
+import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
 from typing import Any
@@ -275,6 +276,7 @@ def gerar_pdf_tipo(
     turmas: list[dict],
     ct: dict,
     dados_resp: dict | None = None,
+    prefetch: tuple[dict, dict, dict, dict] | None = None,
 ) -> tuple[bytes | None, list[str], list[str]]:
     """
     tipo: cert_alunos | cert_empresa | atestado | carteirinhas
@@ -282,6 +284,7 @@ def gerar_pdf_tipo(
 
     Otimizações:
     - prefetch de cursos/instrutores/empresas/matrículas em lote
+      (pode ser passado em `prefetch` para reaproveitar entre vários tipos)
     - geração de PDF das turmas em paralelo (ThreadPool)
     """
     dados_resp = dados_resp or responsavel_padrao()
@@ -291,7 +294,7 @@ def gerar_pdf_tipo(
     if not turmas:
         return None, avisos, erros
 
-    cursos, instrutores, empresas, mats_por_turma = _prefetch_maps(turmas)
+    cursos, instrutores, empresas, mats_por_turma = prefetch or _prefetch_maps(turmas)
 
     jobs = []
     for turma in turmas:
@@ -357,3 +360,66 @@ def gerar_pdf_tipo(
         return _merge_pdfs(pdfs), avisos, erros
     except Exception as e:
         return None, avisos, erros + [f"Falha ao unir PDFs: {e}"]
+
+
+# Ordem e nome dos arquivos dentro do ZIP da documentação completa.
+DOCUMENTACAO_COMPLETA_ITENS: list[tuple[str, str, str]] = [
+    ("cert_empresa", "certificados_empresas", "Certificados das empresas"),
+    ("cert_alunos", "certificados_alunos", "Certificados dos alunos"),
+    ("carteirinhas", "carteirinhas", "Carteirinhas"),
+    ("atestado", "atestados", "Atestados"),
+]
+
+
+def gerar_zip_documentacao_completa(
+    *,
+    turmas: list[dict],
+    ct: dict,
+    data_ref: date | str,
+    dados_resp: dict | None = None,
+) -> tuple[bytes | None, list[str], list[str]]:
+    """
+    Gera um ZIP com um PDF por tipo de documento (todas as turmas da data em
+    cada PDF): certificados das empresas, certificados dos alunos,
+    carteirinhas e atestados.
+    Retorna (zip_bytes|None, avisos, erros). Tipos sem documentos ficam fora do ZIP.
+    """
+    avisos: list[str] = []
+    erros: list[str] = []
+
+    if not turmas:
+        return None, avisos, erros
+
+    dados_resp = dados_resp or responsavel_padrao()
+    prefetch = _prefetch_maps(turmas)  # uma única carga para os 4 tipos
+    di = data_ref.strftime("%Y%m%d") if hasattr(data_ref, "strftime") else str(data_ref)[:10].replace("-", "")
+
+    buf = io.BytesIO()
+    qtd = 0
+    avisos_vistos: set[str] = set()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for ordem, (tipo, slug, rotulo) in enumerate(DOCUMENTACAO_COMPLETA_ITENS, start=1):
+            pdf, av, er = gerar_pdf_tipo(
+                tipo=tipo,
+                turmas=turmas,
+                ct=ct,
+                dados_resp=dados_resp,
+                prefetch=prefetch,
+            )
+            for a in av:
+                # "sem alunos" se repetiria nos 4 tipos; os demais avisos levam o rótulo.
+                chave = a if "sem alunos" in a else f"{rotulo} — {a}"
+                if chave not in avisos_vistos:
+                    avisos_vistos.add(chave)
+                    avisos.append(chave)
+            erros.extend(f"{rotulo} — {e}" for e in er)
+
+            if not pdf:
+                avisos.append(f"{rotulo}: nenhum documento gerado — arquivo não incluído no ZIP.")
+                continue
+            zf.writestr(f"{ordem:02d}_{slug}_{di}.pdf", pdf)
+            qtd += 1
+
+    if not qtd:
+        return None, avisos, erros
+    return buf.getvalue(), avisos, erros
