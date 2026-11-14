@@ -7,6 +7,21 @@ MESES_PT = {
     9: "setembro", 10: "outubro", 11: "novembro", 12: "dezembro"
 }
 
+def so_digitos(valor) -> str:
+    return re.sub(r"\D", "", str(valor or ""))
+
+
+def label_empresa(e: dict) -> str:
+    """Rótulo da empresa nos selects: NOME DA EMPRESA (CNPJ) - UNIDADE."""
+    nome = (e.get("name") or "Sem nome").strip()
+    cnpj = (e.get("cnpj") or "Sem CNPJ").strip()
+    unidade = (e.get("sigla") or "").strip()
+    label = f"{nome} ({cnpj})"
+    if unidade:
+        label += f" - {unidade}"
+    return label
+
+
 def extrair_cidade_do_endereco(endereco: str | None) -> str:
     if not endereco:
         return "Itapecerica da Serra"

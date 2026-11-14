@@ -1,9 +1,11 @@
+import re
 from datetime import datetime
 
 import streamlit as st
 
 from src.config.database import supabase
 from src.auth.permissions import ct_id_atual, is_consulta
+from src.pages.private.turmas.helpers import so_digitos
 from src.pages.private.turmas.modals import (
     modal_adicionar_aluno,
     modal_editar_matriculas,
@@ -92,7 +94,8 @@ def render_tab_listar():
     col1, col2, col_ct = st.columns(3)
     with col1:
         busca_turma = st.text_input(
-            "Buscar (título ou empresa)", placeholder="Digite para filtrar..."
+            "Buscar (título, empresa ou CNPJ)",
+            placeholder="Título, nome da empresa ou CNPJ...",
         )
     with col2:
         filtro_status = st.selectbox(
@@ -153,7 +156,7 @@ def render_tab_listar():
         query = supabase.table("turmas").select(
             "id, titulo, modalidade, nivel, carga_horaria, data_treinamento, "
             "documento_emitido, created_at, instrutor_id, client_id, ct_id, "
-            "cursos(name), instrutores(id, name), clients(id, name), cts(id, name)"
+            "cursos(name), instrutores(id, name), clients(id, name, cnpj, sigla), cts(id, name)"
         )
 
         # Consulta com CT vinculado: só turmas daquele CT
@@ -182,14 +185,29 @@ def render_tab_listar():
         turmas_exibir = list(res_turmas.data)
 
         if busca_turma.strip():
-            busca_lower = busca_turma.lower()
-            turmas_exibir = [
-                t
-                for t in turmas_exibir
-                if busca_lower in str(t.get("titulo", "")).lower()
-                or busca_lower in str((t.get("clients") or {}).get("name", "")).lower()
-                or busca_lower in str(t.get("id", "")).lower()
-            ]
+            busca_lower = busca_turma.strip().lower()
+            # Termo que parece CNPJ (só dígitos e pontuação): compara só os dígitos,
+            # assim "12.345.678" e "12345678" encontram o mesmo CNPJ.
+            busca_cnpj = (
+                so_digitos(busca_lower)
+                if re.fullmatch(r"[\d.\-/\s]+", busca_lower)
+                else ""
+            )
+
+            def _confere(t: dict) -> bool:
+                cli = t.get("clients") or {}
+                cnpj = str(cli.get("cnpj") or "")
+                if busca_cnpj and busca_cnpj in so_digitos(cnpj):
+                    return True
+                return (
+                    busca_lower in str(t.get("titulo", "")).lower()
+                    or busca_lower in str(cli.get("name", "")).lower()
+                    or busca_lower in str(cli.get("sigla") or "").lower()
+                    or busca_lower in cnpj.lower()
+                    or busca_lower in str(t.get("id", "")).lower()
+                )
+
+            turmas_exibir = [t for t in turmas_exibir if _confere(t)]
 
         if data_de or data_ate:
             filtradas = []
@@ -234,6 +252,8 @@ def render_tab_listar():
             curso_nome = (t.get("cursos") or {}).get("name", "N/A")
             empresa_nome = (t.get("clients") or {}).get("name", "Sem Empresa Vinculada")
             empresa_id = (t.get("clients") or {}).get("id") or t.get("client_id")
+            _cnpj = ((t.get("clients") or {}).get("cnpj") or "").strip()
+            empresa_cnpj_txt = f" (CNPJ {_cnpj})" if _cnpj else ""
             ct_id = (t.get("cts") or {}).get("id") or t.get("ct_id")
             ct_nome = (t.get("cts") or {}).get("name") or "—"
             instrutor_nome = (t.get("instrutores") or {}).get("name", "N/A")
@@ -249,7 +269,7 @@ def render_tab_listar():
 * **Título:** {titulo}
 * **Curso:** {curso_nome}
 * **Instrutor:** {instrutor_nome}
-* **Empresa:** {empresa_nome}
+* **Empresa:** {empresa_nome}{empresa_cnpj_txt}
 * **CT:** {ct_nome}
 * **Data treinamento:** {data_br}
 * **Modalidade:** {t.get('modalidade') or '—'}

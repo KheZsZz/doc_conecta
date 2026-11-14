@@ -1,15 +1,7 @@
 from datetime import datetime
 import streamlit as st
 from src.config.database import supabase
-
-
-def _label_empresa(e: dict) -> str:
-    nome = (e.get("name") or "Sem nome").strip()
-    unidade = (e.get("sigla") or "").strip()
-    cnpj = (e.get("cnpj") or "Sem CNPJ").strip()
-    if unidade:
-        return f"{nome} · {unidade} ({cnpj})"
-    return f"{nome} ({cnpj})"
+from src.pages.private.turmas.helpers import label_empresa
 
 
 def render_tab_cadastrar():
@@ -36,7 +28,7 @@ def render_tab_cadastrar():
                 ),
             )
             for e in ordenadas:
-                label = _label_empresa(e)
+                label = label_empresa(e)
                 if label in empresas_dict:
                     label = f"{label} [{str(e.get('id', ''))[:8]}]"
                 empresas_dict[label] = e["id"]
@@ -74,7 +66,7 @@ def render_tab_cadastrar():
             empresa_selecionada = st.selectbox(
                 "Empresa Contratante (Cliente)*",
                 ["Nenhuma Empresa"] + list(empresas_dict.keys()),
-                help="Formato: Razão social · Unidade (CNPJ).",
+                help="Formato: Nome da empresa (CNPJ) - Unidade. Digite para pesquisar por nome ou CNPJ.",
             )
         with col5:
             ct_selecionado = st.selectbox(
