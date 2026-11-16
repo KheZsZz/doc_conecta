@@ -24,13 +24,163 @@ def _fmt_data_br(data_str) -> str:
         return s
 
 
-def _parse_iso(data_str):
-    if not data_str:
-        return None
+TURMAS_POR_PAGINA = 100  # teto: 100 turmas por página
+MAX_EMPRESAS_BUSCA = 200  # limite de empresas no filtro por nome/CNPJ (tamanho da URL)
+PAG_KEY = "turmas_pagina_atual"
+SIG_KEY = "turmas_filtros_sig"
+
+_SELECT_TURMAS = (
+    "id, titulo, modalidade, nivel, carga_horaria, data_treinamento, "
+    "documento_emitido, created_at, instrutor_id, client_id, ct_id, "
+    "cursos(name), instrutores(id, name), clients(id, name, cnpj, sigla), cts(id, name)"
+)
+_UUID_RE = re.compile(
+    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+)
+
+
+def _expr_busca(termo: str) -> tuple[str | None, bool]:
+    """Monta o filtro `or` do PostgREST (título, empresa/sigla/CNPJ ou id exato).
+
+    Retorna (expressão | None, truncado). `truncado` indica que mais empresas
+    casaram do que o limite MAX_EMPRESAS_BUSCA.
+    """
+    termo = (termo or "").strip()
+    if not termo:
+        return None, False
+
+    # vírgula, parênteses e curingas quebrariam a sintaxe do filtro
+    t = re.sub(r"[,()%*\\]", " ", termo)
+    t = re.sub(r"\s+", " ", t).strip()
+    if not t:
+        return None, False
+
+    partes = [f"titulo.ilike.%{t}%"]
+    if _UUID_RE.fullmatch(termo):
+        partes.append(f"id.eq.{termo}")
+
+    filtros_cli = [f"name.ilike.%{t}%", f"sigla.ilike.%{t}%", f"cnpj.ilike.%{t}%"]
+    if re.fullmatch(r"[\d.\-/\s]+", t):
+        dig = so_digitos(t)
+        if dig:
+            filtros_cli.append(f"cnpj.ilike.%{dig}%")
+
+    truncado = False
     try:
-        return datetime.strptime(str(data_str)[:10], "%Y-%m-%d").date()
+        res = (
+            supabase.table("clients")
+            .select("id")
+            .or_(",".join(filtros_cli))
+            .limit(MAX_EMPRESAS_BUSCA + 1)
+            .execute()
+        )
+        ids = [str(r["id"]) for r in (res.data or []) if r.get("id")]
+        if len(ids) > MAX_EMPRESAS_BUSCA:
+            ids = ids[:MAX_EMPRESAS_BUSCA]
+            truncado = True
+        if ids:
+            partes.append(f"client_id.in.({','.join(ids)})")
     except Exception:
-        return None
+        pass
+
+    return ",".join(partes), truncado
+
+
+def _aplicar_filtros(q, f: dict):
+    if f.get("ct_id"):
+        q = q.eq("ct_id", f["ct_id"])
+    if f.get("status") == "Pendentes":
+        q = q.eq("documento_emitido", False)
+    elif f.get("status") == "Emitidos":
+        q = q.eq("documento_emitido", True)
+    if f.get("instrutor_id"):
+        q = q.eq("instrutor_id", f["instrutor_id"])
+    if f.get("data_de"):
+        q = q.gte("data_treinamento", f["data_de"].isoformat())
+    if f.get("data_ate"):
+        q = q.lte("data_treinamento", f["data_ate"].isoformat())
+    if f.get("expr_busca"):
+        q = q.or_(f["expr_busca"])
+    return q
+
+
+def _contar_turmas(f: dict) -> int:
+    q = supabase.table("turmas").select("id", count="exact")
+    res = _aplicar_filtros(q, f).limit(1).execute()
+    return int(res.count or 0)
+
+
+def _buscar_pagina(f: dict, pagina: int) -> list[dict]:
+    ini = (pagina - 1) * TURMAS_POR_PAGINA
+    fim = ini + TURMAS_POR_PAGINA - 1
+    ultimo_erro: Exception | None = None
+    # pendentes primeiro; depois mais recentes; `id` como desempate (páginas estáveis)
+    for col_ord in ("created_at", "data_treinamento"):
+        try:
+            q = supabase.table("turmas").select(_SELECT_TURMAS)
+            q = _aplicar_filtros(q, f)
+            res = (
+                q.order("documento_emitido")
+                .order(col_ord, desc=True)
+                .order("id")
+                .range(ini, fim)
+                .execute()
+            )
+            return list(res.data or [])
+        except Exception as e:
+            ultimo_erro = e
+    raise ultimo_erro  # type: ignore[misc]
+
+
+def _ir_pagina(p: int) -> None:
+    st.session_state[PAG_KEY] = p
+
+
+def _render_paginacao(pagina: int, total_paginas: int, sufixo: str) -> None:
+    if total_paginas <= 1:
+        return
+    c1, c2, c3, c4, c5 = st.columns([1, 1, 3, 1, 1])
+    c1.button(
+        "⏮",
+        key=f"pag_primeira_{sufixo}",
+        disabled=pagina <= 1,
+        on_click=_ir_pagina,
+        args=(1,),
+        use_container_width=True,
+        help="Primeira página",
+    )
+    c2.button(
+        "◀",
+        key=f"pag_ant_{sufixo}",
+        disabled=pagina <= 1,
+        on_click=_ir_pagina,
+        args=(pagina - 1,),
+        use_container_width=True,
+        help="Página anterior",
+    )
+    c3.markdown(
+        f"<div style='text-align:center;padding-top:0.4rem'>"
+        f"Página <b>{pagina}</b> de <b>{total_paginas}</b></div>",
+        unsafe_allow_html=True,
+    )
+    c4.button(
+        "▶",
+        key=f"pag_prox_{sufixo}",
+        disabled=pagina >= total_paginas,
+        on_click=_ir_pagina,
+        args=(pagina + 1,),
+        use_container_width=True,
+        help="Próxima página",
+    )
+    c5.button(
+        "⏭",
+        key=f"pag_ultima_{sufixo}",
+        disabled=pagina >= total_paginas,
+        on_click=_ir_pagina,
+        args=(total_paginas,),
+        use_container_width=True,
+        help="Última página",
+    )
 
 
 def _excluir_turma(tid: str) -> tuple[bool, str]:
@@ -153,96 +303,64 @@ def render_tab_listar():
         filtro_instrutor = st.selectbox("Instrutor", opcoes_instrutor)
 
     try:
-        query = supabase.table("turmas").select(
-            "id, titulo, modalidade, nivel, carga_horaria, data_treinamento, "
-            "documento_emitido, created_at, instrutor_id, client_id, ct_id, "
-            "cursos(name), instrutores(id, name), clients(id, name, cnpj, sigla), cts(id, name)"
-        )
+        filtros = {
+            "ct_id": _ct_user
+            or (mapa_ct.get(filtro_ct) if filtro_ct != "Todos" else None),
+            "status": filtro_status,
+            "instrutor_id": (
+                mapa_instrutor.get(filtro_instrutor)
+                if filtro_instrutor != "Todos"
+                else None
+            ),
+            "data_de": data_de,
+            "data_ate": data_ate,
+            "busca": busca_turma.strip(),
+        }
 
-        # Consulta com CT vinculado: só turmas daquele CT
-        if _ct_user:
-            query = query.eq("ct_id", _ct_user)
-        elif filtro_ct != "Todos" and filtro_ct in mapa_ct:
-            query = query.eq("ct_id", mapa_ct[filtro_ct])
+        # Mudou qualquer filtro -> volta para a página 1
+        assinatura = tuple(str(v) for v in filtros.values())
+        if st.session_state.get(SIG_KEY) != assinatura:
+            st.session_state[SIG_KEY] = assinatura
+            st.session_state[PAG_KEY] = 1
 
-        if filtro_status == "Pendentes":
-            query = query.eq("documento_emitido", False)
-        elif filtro_status == "Emitidos":
-            query = query.eq("documento_emitido", True)
+        expr_busca, busca_truncada = _expr_busca(filtros["busca"])
+        filtros["expr_busca"] = expr_busca
 
-        if filtro_instrutor != "Todos" and filtro_instrutor in mapa_instrutor:
-            query = query.eq("instrutor_id", mapa_instrutor[filtro_instrutor])
-
-        try:
-            res_turmas = query.order("created_at", desc=True).execute()
-        except Exception:
-            res_turmas = query.order("data_treinamento", desc=True).execute()
-
-        if not res_turmas or not res_turmas.data:
-            st.info("Nenhuma turma encontrada.")
+        total = _contar_turmas(filtros)
+        if total == 0:
+            st.info(
+                "Nenhuma turma encontrada com os filtros aplicados."
+                if any(
+                    filtros[k]
+                    for k in ("busca", "data_de", "data_ate", "instrutor_id")
+                )
+                or filtro_status != "Todos"
+                or filtro_ct != "Todos"
+                else "Nenhuma turma encontrada."
+            )
             return
 
-        turmas_exibir = list(res_turmas.data)
+        total_paginas = max(1, -(-total // TURMAS_POR_PAGINA))
+        pagina = min(max(int(st.session_state.get(PAG_KEY, 1)), 1), total_paginas)
+        st.session_state[PAG_KEY] = pagina
 
-        if busca_turma.strip():
-            busca_lower = busca_turma.strip().lower()
-            # Termo que parece CNPJ (só dígitos e pontuação): compara só os dígitos,
-            # assim "12.345.678" e "12345678" encontram o mesmo CNPJ.
-            busca_cnpj = (
-                so_digitos(busca_lower)
-                if re.fullmatch(r"[\d.\-/\s]+", busca_lower)
-                else ""
-            )
-
-            def _confere(t: dict) -> bool:
-                cli = t.get("clients") or {}
-                cnpj = str(cli.get("cnpj") or "")
-                if busca_cnpj and busca_cnpj in so_digitos(cnpj):
-                    return True
-                return (
-                    busca_lower in str(t.get("titulo", "")).lower()
-                    or busca_lower in str(cli.get("name", "")).lower()
-                    or busca_lower in str(cli.get("sigla") or "").lower()
-                    or busca_lower in cnpj.lower()
-                    or busca_lower in str(t.get("id", "")).lower()
-                )
-
-            turmas_exibir = [t for t in turmas_exibir if _confere(t)]
-
-        if data_de or data_ate:
-            filtradas = []
-            for t in turmas_exibir:
-                d = _parse_iso(t.get("data_treinamento"))
-                if d is None:
-                    continue
-                if data_de and d < data_de:
-                    continue
-                if data_ate and d > data_ate:
-                    continue
-                filtradas.append(t)
-            turmas_exibir = filtradas
-
-        # Pendentes no topo; dentro de cada grupo, mais recentes primeiro
-        pendentes = [t for t in turmas_exibir if not t.get("documento_emitido")]
-        emitidos = [t for t in turmas_exibir if t.get("documento_emitido")]
-
-        def _ord_recente(lista):
-            return sorted(
-                lista,
-                key=lambda t: (t.get("created_at") or t.get("data_treinamento") or ""),
-                reverse=True,
-            )
-
-        turmas_exibir = _ord_recente(pendentes) + _ord_recente(emitidos)
-
+        turmas_exibir = _buscar_pagina(filtros, pagina)
         if not turmas_exibir:
             st.info("Nenhuma turma encontrada com os filtros aplicados.")
             return
 
+        ini = (pagina - 1) * TURMAS_POR_PAGINA
         st.caption(
-            f"{len(turmas_exibir)} turma(s) · "
+            f"{total} turma(s) · mostrando {ini + 1}–{ini + len(turmas_exibir)} · "
             "pendentes de documento no topo; mais recentes primeiro."
         )
+        if busca_truncada:
+            st.warning(
+                f"A busca casa com muitas empresas; só as primeiras {MAX_EMPRESAS_BUSCA} "
+                "entram no filtro por empresa. Refine o termo para ver todas."
+            )
+
+        _render_paginacao(pagina, total_paginas, "topo")
 
         for t in turmas_exibir:
             tid = t.get("id")
@@ -336,6 +454,8 @@ def render_tab_listar():
                         except Exception:
                             qtd = 0
                         modal_excluir_turma(tid, titulo, qtd)
+
+        _render_paginacao(pagina, total_paginas, "base")
 
     except Exception as e:
         st.error(f"Erro ao listar turmas: {e}")
