@@ -28,7 +28,7 @@ def gerar_certificado_empresa(
     carga = (turma_data.get("carga_horaria") or "").strip() or "8 Horas"
 
     st.info(
-        f"ℹ️ Nível / modalidade / carga da **turma**: **{nivel}** | **{modalidade}** | **{carga}**"
+        f"Nível / modalidade / carga da **turma**: **{nivel}** | **{modalidade}** | **{carga}**"
     )
 
     mostrar_endereco_ct = st.checkbox(
@@ -86,10 +86,10 @@ def gerar_certificado_empresa(
 
             ok, msg = marcar_documento_emitido(tid)
             if ok:
-                st.success("✅ Certificado da Empresa gerado e **turma marcada como emitida**!")
+                st.success("Certificado da Empresa gerado e **turma marcada como emitida**!")
             else:
-                st.success("✅ Certificado da Empresa gerado com sucesso!")
-                st.warning(f"⚠️ Status do card: {msg}")
+                st.success("Certificado da Empresa gerado com sucesso!")
+                st.warning(f"Status do card: {msg}")
 
             st.download_button(
                 "Baixar Certificado Empresa (PDF)",
@@ -100,4 +100,4 @@ def gerar_certificado_empresa(
                 key=f"dl_cert_emp_{tid}",
             )
     except Exception as e:
-        st.error(f"❌ Erro ao gerar certificado corporativo: {e}")
+        st.error(f"Erro ao gerar certificado corporativo: {e}")

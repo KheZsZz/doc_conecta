@@ -59,13 +59,13 @@ except Exception as e:
 
 if not turmas_dict:
     st.warning(
-        "⚠️ Nenhuma turma pendente disponível no momento."
+        "Nenhuma turma pendente disponível no momento."
     )
     st.stop()
 
 if not empresas_dict:
     st.warning(
-        "⚠️ Nenhuma empresa cadastrada no sistema. Contate o administrador."
+        "Nenhuma empresa cadastrada no sistema. Contate o administrador."
     )
     st.stop()
 
@@ -145,6 +145,6 @@ with st.form("form_checkin_aluno", clear_on_submit=True):
                     }
                 ).execute()
 
-                st.success("✅ Presença registrada com sucesso!")
+                st.success("Presença registrada com sucesso!")
             except Exception as e:
                 st.error(f"Erro ao registrar: {e}")
