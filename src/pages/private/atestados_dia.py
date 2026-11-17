@@ -80,12 +80,12 @@ def render_pagina_atestados_dia():
             buffer_zip.seek(0)
 
             st.success(
-                f"✅ Sucesso! {len(registros)} atestado(s) gerado(s) com sucesso."
+                f"Sucesso! {len(registros)} atestado(s) gerado(s) com sucesso."
             )
 
             # 3. Botão de Download do arquivo final
             st.download_button(
-                label="📦 Baixar Todos os Atestados (.ZIP)",
+                label="Baixar Todos os Atestados (.ZIP)",
                 data=buffer_zip.getvalue(),
                 file_name=f"atestados_{data_filtro.strftime('%Y_%m_%d')}.zip",
                 mime="application/zip",

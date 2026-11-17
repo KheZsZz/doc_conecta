@@ -60,7 +60,7 @@ except Exception as e:
     st.error(f"Erro ao buscar turmas: {e}")
 
 if not turmas_dict:
-    st.info("Nenhuma turma pendente para hoje" + (" neste CT." if is_consulta() else "."))
+    st.info("Nenhuma turma pendente para hoje"+ (" neste CT." if is_consulta() else "."))
     st.stop()
 
 rotulo_sel = st.selectbox("Turma (hoje, pendente)*", options=list(turmas_dict.keys()))
@@ -78,7 +78,7 @@ with st.form("form_matricula_manual", clear_on_submit=True):
     rg = st.text_input("RG")
     email = st.text_input("E-mail")
     phone = st.text_input("Telefone")
-    ok = st.form_submit_button("✅ Matricular", type="primary", use_container_width=True)
+    ok = st.form_submit_button("Matricular", type="primary", use_container_width=True)
 
     if ok:
         if not nome.strip():
