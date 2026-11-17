@@ -46,7 +46,7 @@ def _bloco_upload_e_processar(processar_fn, key_prefix: str):
         )
 
         if st.button(
-            "🚀 Processar e matricular em lote",
+            "Processar e matricular em lote",
             type="primary",
             use_container_width=True,
             key=f"btn_{key_prefix}",
@@ -68,7 +68,7 @@ def _bloco_upload_e_processar(processar_fn, key_prefix: str):
 
             if resultado.get("erros"):
                 with st.expander(
-                    f"⚠️ Avisos / linhas ignoradas ({len(resultado['erros'])})",
+                    f"Avisos / linhas ignoradas ({len(resultado['erros'])})",
                     expanded=True,
                 ):
                     for err in resultado["erros"]:

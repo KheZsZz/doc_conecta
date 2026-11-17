@@ -152,15 +152,15 @@ def modal_editar_turma(tid: str):
                 step=1,
             )
 
-        salvar = st.form_submit_button("💾 Salvar Alterações", type="primary", use_container_width=True)
+        salvar = st.form_submit_button("Salvar Alterações", type="primary", use_container_width=True)
 
         if salvar:
             if not titulo.strip():
-                st.warning("⚠️ O título da turma é obrigatório.")
+                st.warning("O título da turma é obrigatório.")
             elif not cursos_dict or not instrutores_dict or not cts_dict:
-                st.warning("⚠️ Cursos, instrutores e CTs precisam estar cadastrados.")
+                st.warning("Cursos, instrutores e CTs precisam estar cadastrados.")
             elif curso_selecionado not in cursos_dict or instrutor_selecionado not in instrutores_dict or ct_selecionado not in cts_dict:
-                st.warning("⚠️ Selecione curso, instrutor e CT válidos.")
+                st.warning("Selecione curso, instrutor e CT válidos.")
             else:
                 try:
                     carga_final_str = (
@@ -178,7 +178,7 @@ def modal_editar_turma(tid: str):
                         "ct_id": cts_dict[ct_selecionado],
                     }
                     supabase.table("turmas").update(payload).eq("id", tid).execute()
-                    st.success("✅ Turma atualizada com sucesso!")
+                    st.success("Turma atualizada com sucesso!")
                     st.rerun()
                 except Exception as e:
-                    st.error(f"❌ Erro ao atualizar turma: {e}")
+                    st.error(f"Erro ao atualizar turma: {e}")

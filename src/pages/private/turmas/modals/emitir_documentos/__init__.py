@@ -12,7 +12,7 @@ from .documentacao_completa import gerar_documentacao_completa
 from .carteirinhas import gerar_carteirinhas
 
 
-@st.dialog("📄 Emitir Documentos", width="large")
+@st.dialog("Emitir Documentos", width="large")
 def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
     st.write(f"**Turma:** {titulo_turma}")
 
@@ -24,22 +24,22 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
     st.markdown("---")
 
     opcoes = [
-        "📦 Documentação Completa (tudo em ZIP)",
+        "Documentação Completa (tudo em ZIP)",
         "Certificado da Empresa",
         "Certificados Individuais (Alunos)",
-        "🪪 Carteirinhas (Alunos)",
+        "Carteirinhas (Alunos)",
         "Lista de Presença",
     ]
     if exige_atestado:
         opcoes.insert(1, "Atestado de Brigada (Empresa)")
     else:
-        st.info("ℹ️ Este curso está configurado para **NÃO emitir Atestado**.")
+        st.info("Este curso está configurado para **NÃO emitir Atestado**.")
 
     tipo = st.selectbox("Tipo de Documento", opcoes)
 
     dados_resp: dict[str, Any] = {}
     precisa_resp = tipo in (
-        "📦 Documentação Completa (tudo em ZIP)",
+        "Documentação Completa (tudo em ZIP)",
         "Certificado da Empresa",
         "Certificados Individuais (Alunos)",
     )
@@ -47,7 +47,7 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
         dados_resp = ui_selecionar_responsavel(tid, tipo)
         st.markdown("---")
 
-    if tipo == "📦 Documentação Completa (tudo em ZIP)":
+    if tipo == "Documentação Completa (tudo em ZIP)":
         gerar_documentacao_completa(
             tid,
             titulo_turma,
@@ -72,7 +72,7 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
             tid, titulo_turma, client_id, ct_id, turma_data, curso_data, dados_resp
         )
 
-    elif tipo == "🪪 Carteirinhas (Alunos)":
+    elif tipo == "Carteirinhas (Alunos)":
         gerar_carteirinhas(tid, titulo_turma, client_id, ct_id, turma_data, curso_data)
 
     elif tipo == "Lista de Presença":

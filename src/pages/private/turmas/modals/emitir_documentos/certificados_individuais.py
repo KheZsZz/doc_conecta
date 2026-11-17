@@ -28,7 +28,7 @@ def gerar_certificados_individuais(
     carga = (turma_data.get("carga_horaria") or "").strip() or "8 Horas"
 
     st.info(
-        f"ℹ️ Nível / modalidade / carga da **turma**: **{nivel}** | **{modalidade}** | **{carga}**"
+        f"Nível / modalidade / carga da **turma**: **{nivel}** | **{modalidade}** | **{carga}**"
     )
 
     mostrar_endereco_ct = st.checkbox(
@@ -75,7 +75,7 @@ def gerar_certificados_individuais(
             alunos = alunos_para_certificado(matriculas, carga, incluir_nasc=True)
 
             if not alunos:
-                st.warning("⚠️ Nenhum aluno matriculado nesta turma.")
+                st.warning("Nenhum aluno matriculado nesta turma.")
                 return
 
             turma_cert = {
@@ -118,10 +118,10 @@ def gerar_certificados_individuais(
 
             ok, msg = marcar_documento_emitido(tid)
             if ok:
-                st.success("✅ Certificados gerados e **turma marcada como emitida**!")
+                st.success("Certificados gerados e **turma marcada como emitida**!")
             else:
-                st.success("✅ Certificados gerados com sucesso!")
-                st.warning(f"⚠️ Status do card: {msg}")
+                st.success("Certificados gerados com sucesso!")
+                st.warning(f"Status do card: {msg}")
 
             st.download_button(
                 label_dl,
@@ -132,4 +132,4 @@ def gerar_certificados_individuais(
                 key=f"dl_cert_alunos_{tid}_{'zip' if usar_zip else 'pdf'}",
             )
     except Exception as e:
-        st.error(f"❌ Erro ao gerar os certificados: {e}")
+        st.error(f"Erro ao gerar os certificados: {e}")

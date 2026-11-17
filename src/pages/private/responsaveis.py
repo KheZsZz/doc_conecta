@@ -70,12 +70,12 @@ def modal_editar_responsavel(
         )
 
         salvar = st.form_submit_button(
-            "💾 Salvar Alterações", type="primary", use_container_width=True
+            "Salvar Alterações", type="primary", use_container_width=True
         )
 
         if salvar:
             if not (novo_nome or "").strip() or not (novo_cpf or "").strip():
-                st.warning("⚠️ Nome e CPF são obrigatórios.")
+                st.warning("Nome e CPF são obrigatórios.")
             else:
                 try:
                     cpf_limpo = "".join(ch for ch in novo_cpf if ch.isdigit())
@@ -104,10 +104,10 @@ def modal_editar_responsavel(
                     supabase.table("responsaveis_tecnicos").update(payload).eq(
                         "id", rid
                     ).execute()
-                    st.success("✅ Responsável Técnico atualizado!")
+                    st.success("Responsável Técnico atualizado!")
                     st.rerun()
                 except Exception as e:
-                    st.error(f"❌ Erro ao atualizar: {e}")
+                    st.error(f"Erro ao atualizar: {e}")
                     if "formacao" in str(e).lower():
                         st.info(
                             "Execute no Supabase:\n"
@@ -139,8 +139,8 @@ with tab_listar:
                 is_default = resp.get("is_default", False)
                 assinatura_url = resp.get("assinatura_url")
 
-                status_str = "🟢 Ativo" if is_active else "🔴 Inativo"
-                default_str = "⭐ (Padrão)" if is_default else ""
+                status_str = "Ativo" if is_active else "Inativo"
+                default_str = "(Padrão)" if is_default else ""
 
                 with st.container(border=True):
                     col1, col2, col3 = st.columns([3, 1, 1.5])
@@ -200,7 +200,7 @@ with tab_listar:
                             st.rerun()
 
                         if st.button(
-                            "🗑️ Excluir", key=f"del_{rid}", use_container_width=True
+                            "Excluir", key=f"del_{rid}", use_container_width=True
                         ):
                             supabase.table("responsaveis_tecnicos").delete().eq(
                                 "id", rid
@@ -208,7 +208,7 @@ with tab_listar:
                             st.success("Removido!")
                             st.rerun()
         else:
-            st.info("ℹ️ Nenhum responsável técnico cadastrado ainda.")
+            st.info("Nenhum responsável técnico cadastrado ainda.")
 
     except Exception as e:
         st.error(f"Erro ao buscar responsáveis técnicos: {e}")
@@ -233,12 +233,12 @@ with tab_cadastrar:
         )
 
         submit = st.form_submit_button(
-            "💾 Salvar Responsável", type="primary", use_container_width=True
+            "Salvar Responsável", type="primary", use_container_width=True
         )
 
         if submit:
             if not nome_resp or not cpf_resp:
-                st.warning("⚠️ Preencha o Nome e o CPF obrigatórios.")
+                st.warning("Preencha o Nome e o CPF obrigatórios.")
             else:
                 cpf_limpo = "".join(filter(str.isdigit, cpf_resp))
                 cpf_formatado = cpf_resp.strip()
@@ -256,7 +256,7 @@ with tab_cadastrar:
                     and len(busca_duplicidade.data) > 0
                 ):
                     st.error(
-                        f"❌ O CPF {cpf_formatado} já está cadastrado no sistema!"
+                        f"O CPF {cpf_formatado} já está cadastrado no sistema!"
                     )
                 else:
                     with st.spinner("Salvando cadastro..."):
@@ -285,10 +285,10 @@ with tab_cadastrar:
                             supabase.table("responsaveis_tecnicos").insert(
                                 payload
                             ).execute()
-                            st.success("✅ Responsável Técnico cadastrado com sucesso!")
+                            st.success("Responsável Técnico cadastrado com sucesso!")
                             st.rerun()
                         except Exception as e:
-                            st.error(f"❌ Erro ao salvar: {e}")
+                            st.error(f"Erro ao salvar: {e}")
                             if "formacao" in str(e).lower() or "re" in str(e).lower():
                                 st.info(
                                     "Execute no Supabase:\n"

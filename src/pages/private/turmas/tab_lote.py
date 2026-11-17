@@ -145,7 +145,7 @@ A data também aceita célula de data do Excel. No banco grava em ISO; na tela a
             )
 
         st.success(
-            f"✅ **{result['criadas']}** turma(s) criada(s). "
+            f"**{result['criadas']}** turma(s) criada(s). "
             f"**{result['empresas_novas']}** empresa(s) nova(s). "
             f"**{result.get('ignoradas', 0)}** já existente(s) ignorada(s)."
         )

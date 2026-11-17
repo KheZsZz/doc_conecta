@@ -27,7 +27,7 @@ def gerar_atestado(
     carga = turma_data.get("carga_horaria", "8 Horas")
 
     st.info(
-        f"ℹ️ O atestado usara os dados oficiais da turma: "
+        f"O atestado usara os dados oficiais da turma: "
         f"**{modalidade} | {nivel} | {carga}**"
     )
     st.caption(
@@ -65,7 +65,7 @@ def gerar_atestado(
             )
 
             if not alunos:
-                st.warning("⚠️ Nenhum aluno matriculado nesta turma.")
+                st.warning("Nenhum aluno matriculado nesta turma.")
                 return
 
             pdf_bytes = gerar_atestado_pdf_de_arquivo(
@@ -80,13 +80,13 @@ def gerar_atestado(
 
             ok, msg = marcar_documento_emitido(tid)
             if ok:
-                st.success("✅ Atestado gerado e **turma marcada como emitida**!")
+                st.success("Atestado gerado e **turma marcada como emitida**!")
             else:
-                st.success("✅ Atestado gerado com sucesso!")
-                st.warning(f"⚠️ Status do card: {msg}")
+                st.success("Atestado gerado com sucesso!")
+                st.warning(f"Status do card: {msg}")
 
             st.download_button(
-                "📥 Baixar Atestado (PDF)",
+                "Baixar Atestado (PDF)",
                 data=pdf_bytes,
                 file_name=f"atestado_{titulo_turma.replace(' ', '_')}.pdf",
                 mime="application/pdf",
@@ -94,4 +94,4 @@ def gerar_atestado(
                 key=f"dl_atest_{tid}",
             )
     except Exception as e:
-        st.error(f"❌ Erro ao gerar o atestado: {e}")
+        st.error(f"Erro ao gerar o atestado: {e}")

@@ -21,7 +21,7 @@ except Exception as e:
     st.error(f"Erro ao carregar turmas: {e}")
 
 if not turmas_dict:
-    st.warning("⚠️ Nenhuma turma cadastrada no sistema.")
+    st.warning("Nenhuma turma cadastrada no sistema.")
     st.stop()
 
 # Seleção da Turma
@@ -56,7 +56,7 @@ try:
                     "RG": aluno_dict.get("rg", "-"),
                     "Empresa": client_dict.get("name", "Não informada"),
                     "CNPJ": client_dict.get("cnpj", "-"),
-                    "Documento Emitido?": "✅ Sim" if m.get("doc_emitida") else "❌ Não",
+                    "Documento Emitido?": "Sim" if m.get("doc_emitida") else "Não",
                     "Data Check-in": data_formatada
                 })
             
@@ -81,7 +81,7 @@ try:
             )
         
     else:
-        st.info("ℹ️ Nenhum aluno realizou o check-in nesta turma até o momento.")
+        st.info("Nenhum aluno realizou o check-in nesta turma até o momento.")
 
 except Exception as e:
     st.error(f"Erro ao buscar matrículas da turma: {e}")
