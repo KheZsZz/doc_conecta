@@ -7,7 +7,7 @@ from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML, CSS
 
-from src.utils.pdf_assets import get_template, html_para_pdf, resolver_imagem
+from src.utils.pdf_assets import get_template, html_para_pdf, resolver_imagem, rotulo_registro_profissional
 
 # Logo Conecta (rodapé do atestado) — sem fundo
 _LOGO_CONECTA = (
@@ -213,6 +213,7 @@ def gerar_atestado_pdf_de_arquivo(
         ASSINATURA_IMG=assinatura_resolvida,
         NOME_INSTRUTOR=instrutor.get("name") or "",
         FORMACAO_INSTRUTOR=formacao_instrutor,
+        LABEL_RE_INSTRUTOR=rotulo_registro_profissional(formacao_instrutor),
         DOC_INSTRUTOR=cpf_instrutor,
         RE_INSTRUTOR=re_instrutor,
         mostrar_coluna_rg=mostrar_coluna_rg,

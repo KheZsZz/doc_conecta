@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import CSS, HTML
-from src.utils.pdf_assets import comprimir_pdf
+from src.utils.pdf_assets import comprimir_pdf, rotulo_registro_profissional
 
 _FUNDO_DEFAULT = (
     "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/"
@@ -129,6 +129,12 @@ def _fmt_cpf(cpf) -> str:
         return f"{d[:3]}.{d[3:6]}.{d[6:9]}-{d[9:]}"
     return str(cpf or "").strip()
 
+def _fmt_cnpj(cnpj) -> str:
+    d = re.sub(r"\D", "", str(cnpj or ""))
+    if len(d) == 14:
+        return f"{d[:2]}.{d[2:5]}.{d[5:8]}/{d[8:12]}-{d[12:]}"
+    return str(cnpj or "").strip()
+
 
 def _preparar_assets(
     turma: dict,
@@ -192,6 +198,8 @@ def _preparar_assets(
         "endereco_empresa": empresa.get("full_address") or "",
         "curso_nome": turma.get("curso_nome") or "",
         "normativa": normativa or "",
+        "label_re_resp": rotulo_registro_profissional((turma.get("formacao_resp_tecnico") or "").strip()),
+        "label_re_instrutor": rotulo_registro_profissional((instrutor.get("formacao") or "").strip()),
     }
 
 
@@ -235,7 +243,7 @@ def gerar_certificado_html(
             data_nasc_fmt = str(data_nasc_raw)
 
     template = _get_template(caminho_pasta_templates, "template_certificado.html")
-    return template.render(
+    return template.render( # type: ignore
         IMAGEM_FUNDO=assets["imagem_fundo"],
         NOME_ALUNO=aluno.get("name") or "",
         RG_CPF=rg_cpf_str,
@@ -260,13 +268,14 @@ def gerar_certificado_html(
         ASSINATURA_RESP_TECNICO=assets["assinatura_resp_tecnico"],
         CURSO_NOME=assets["curso_nome"],
         DIZERES_CERTIFICADO=assets["dizeres"],
+        LABEL_RE_INSTRUTOR=assets["label_re_instrutor"],
+        LABEL_RE_RESP=assets["label_re_resp"],
+        
     )
 
 
 def _html_para_pdf(html_str: str) -> bytes:
-    # páginas individuais: sem compactar (evita N subprocess no lote);
-    # a compactação pesada roda no PDF final / ZIP.
-    return HTML(string=html_str).write_pdf(stylesheets=[_CSS_LANDSCAPE])
+    return HTML(string=html_str).write_pdf(stylesheets=[_CSS_LANDSCAPE]) # type: ignore
 
 
 def gerar_certificados_pdf(

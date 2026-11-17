@@ -105,7 +105,7 @@
     top: 11mm;
     left: 4mm;
     right: 4mm;
-    bottom: 23mm; /* espaço para bloco de assinaturas */
+    bottom: 26mm; /* espaço para bloco de assinaturas */
   }
   .field-label {
     font-size: 6pt;
@@ -134,10 +134,10 @@
   table.row-2 td:first-child { padding-left: 0; }
   table.row-2 td:last-child { padding-right: 0; }
 
-  /* Assinaturas: mais padding inferior para não sobrepor a linha do fundo */
+  /* Assinaturas: mais acima da borda/linha do fundo */
   .assinaturas-row {
     position: absolute;
-    bottom: 3.5mm;
+    bottom: 5.5mm;
     left: 3mm;
     right: 3mm;
     display: flex;
@@ -159,7 +159,7 @@
 
   .assinatura-img-slot {
     position: relative;
-    height: 9mm;
+    height: 8.5mm;
     overflow: hidden;
   }
   .assinatura-img-wrap {
@@ -172,7 +172,7 @@
   }
   .assinatura-img-wrap img {
     display: inline-block;
-    max-height: 9mm;
+    max-height: 8.5mm;
     max-width: 95%;
   }
   .assinatura-linha {

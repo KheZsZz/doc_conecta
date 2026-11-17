@@ -4,6 +4,7 @@ import re
 import streamlit as st
 
 from src.config.database import supabase
+from src.pages.private.turmas.helpers import label_empresa
 
 
 def _parse_carga_num(carga: str | None) -> int:
@@ -39,16 +40,25 @@ def modal_editar_turma(tid: str):
     try:
         cursos_res = supabase.table("cursos").select("id, name").execute()
         instrutores_res = supabase.table("instrutores").select("id, name").execute()
-        empresas_res = supabase.table("clients").select("id, name, cnpj").execute()
+        empresas_res = supabase.table("clients").select("id, name, cnpj, sigla").execute()
         cts_res = supabase.table("cts").select("id, name").execute()
 
         cursos_dict = {c["name"]: c["id"] for c in (cursos_res.data or [])}
         instrutores_dict = {i["name"]: i["id"] for i in (instrutores_res.data or [])}
 
         empresas_dict: dict[str, str | None] = {"Nenhuma Empresa": None}
-        for e in empresas_res.data or []:
-            cnpj_fmt = e.get("cnpj", "Sem CNPJ")
-            empresas_dict[f"{e['name']} ({cnpj_fmt})"] = e["id"]
+        ordenadas = sorted(
+            empresas_res.data or [],
+            key=lambda e: (
+                (e.get("name") or "").strip().lower(),
+                (e.get("sigla") or "").strip().lower(),
+            ),
+        )
+        for e in ordenadas:
+            label = label_empresa(e)
+            if label in empresas_dict:
+                label = f"{label} [{str(e.get('id', ''))[:8]}]"
+            empresas_dict[label] = e["id"]
 
         cts_dict = {c["name"]: c["id"] for c in (cts_res.data or [])}
     except Exception as e:
@@ -64,7 +74,9 @@ def modal_editar_turma(tid: str):
                 return i
         return 0
 
-    modalidades = ["In Company", "Presencial (No CT)", "EAD", "Semipresencial"]
+    modalidades = ["In Company", "Presencial (Centro de Treinamento)", "EAD", "Semipresencial"]
+    # Turmas antigas gravadas com o rótulo anterior continuam selecionando a opção certa.
+    _legado_modalidade = {"Presencial (No CT)": "Presencial (Centro de Treinamento)"}
     niveis = ["Formação", "Básico", "Intermediário", "Avançado", "Reciclagem"]
 
     with st.form(f"form_editar_turma_{tid}"):
@@ -119,6 +131,7 @@ def modal_editar_turma(tid: str):
         col6, col7, col8 = st.columns(3)
         with col6:
             mod_atual = turma.get("modalidade") or modalidades[0]
+            mod_atual = _legado_modalidade.get(mod_atual, mod_atual)
             modalidade = st.selectbox(
                 "Modalidade",
                 modalidades,

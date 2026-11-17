@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import unicodedata
 from functools import lru_cache
 from urllib.request import Request, urlopen
 
@@ -15,16 +16,11 @@ from weasyprint import CSS, HTML
 
 _ENV_CACHE: dict[str, Environment] = {}
 _TEMPLATE_CACHE: dict[tuple[str, str], object] = {}
-
 CSS_LANDSCAPE = CSS(string="@page { size: A4 landscape; margin: 0; }")
 CSS_PORTRAIT = CSS(string="@page { size: A4 portrait; margin: 0; }")
-
 MAX_PDF_WORKERS = 3
-# Limite para fundos/logos embutidos (carteirinha usa fundo em cada card)
 _MAX_IMAGE_SIDE = 1400
 _JPEG_QUALITY = 70
-
-# Compactação pós-WeasyPrint: não comprimir arquivos já pequenos
 _MIN_BYTES_COMPRESS = 350_000
 _GS_TIMEOUT_SEC = 120
 
@@ -65,6 +61,27 @@ def _comprimir_bytes(data: bytes) -> tuple[bytes, str]:
     except Exception:
         return data, ""
 
+
+def rotulo_registro_profissional(formacao: str | None) -> str:
+    f = (formacao or "").strip()
+    if not f:
+        return "RE"
+    f = unicodedata.normalize("NFKD", f)
+    f = "".join(ch for ch in f if not unicodedata.combining(ch)).casefold()
+
+    if "engenheir" in f or "crea" in f:
+        return "CREA"
+    if (
+        "tst" in f
+        or ("tecnico" in f and "seguranca" in f)
+        or ("tec " in f and "seguranca" in f)
+        or "tecnico de seguranca" in f
+        or "tecnico em seguranca" in f
+    ):
+        return "RP"
+    if "policial" in f or "militar" in f:
+        return "RE"
+    return "RE"
 
 @lru_cache(maxsize=128)
 def url_para_data_uri(url: str) -> str:
