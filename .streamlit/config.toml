@@ -1,5 +1,4 @@
 [theme]
-# Só a marca; claro/escuro segue a preferência do usuário no menu do Streamlit
 primaryColor = "#1a5f9e"
 font = "sans serif"
 
@@ -10,4 +9,4 @@ headless = true
 gatherUsageStats = false
 
 [client]
-toolbarMode = "minimal"
+toolbarMode = "viewer"

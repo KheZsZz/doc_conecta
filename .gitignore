@@ -8,3 +8,5 @@ assets
 .streamlit/
 
 __pycache__
+
+.devcontainer

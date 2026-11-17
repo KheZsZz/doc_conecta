@@ -1,4 +1,3 @@
-"""Papeis e permissoes de acesso as paginas do sistema."""
 from __future__ import annotations
 
 from typing import Any
