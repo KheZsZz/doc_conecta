@@ -18,7 +18,7 @@ def gerar_lista_presenca(tid: str, titulo_turma: str) -> None:
             matriculas = fetch_matriculas(tid)
 
             if not matriculas:
-                st.warning("⚠️ Nenhum aluno matriculado para gerar a lista.")
+                st.warning("Nenhum aluno matriculado para gerar a lista.")
                 return
 
             alunos = alunos_para_lista_presenca(matriculas)
@@ -28,7 +28,7 @@ def gerar_lista_presenca(tid: str, titulo_turma: str) -> None:
             with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
                 df.to_excel(writer, index=False, sheet_name="Lista de Presença")
 
-            st.success("✅ Lista gerada com sucesso!")
+            st.success("Lista gerada com sucesso!")
             st.download_button(
                 label="Baixar Lista de Presença (.xlsx)",
                 data=buffer.getvalue(),
@@ -38,4 +38,4 @@ def gerar_lista_presenca(tid: str, titulo_turma: str) -> None:
                 key=f"dl_lista_{tid}",
             )
     except Exception as e:
-        st.error(f"❌ Erro ao gerar a lista de presença: {e}")
+        st.error(f"Erro ao gerar a lista de presença: {e}")

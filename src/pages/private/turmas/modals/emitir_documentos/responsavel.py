@@ -6,7 +6,7 @@ def ui_selecionar_responsavel(tid: str, tipo_documento: str) -> dict:
     responsaveis = fetch_responsaveis()
 
     if not responsaveis:
-        st.warning("⚠️ Nenhum responsável técnico ativo encontrado. Usando padrão.")
+        st.warning("Nenhum responsável técnico ativo encontrado. Usando padrão.")
         return {
             "nome": "Cristiano Reis",
             "cpf": "214.135.358-01",
