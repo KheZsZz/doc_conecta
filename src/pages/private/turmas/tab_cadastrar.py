@@ -99,14 +99,14 @@ def render_tab_cadastrar():
 
         if submit_turma:
             if not titulo.strip():
-                st.warning("⚠️ O título da turma é obrigatório.")
+                st.warning("O título da turma é obrigatório.")
             elif (
                 "(Nenhum" in curso_selecionado
                 or "(Nenhum" in instrutor_selecionado
                 or "(Nenhum" in ct_selecionado
             ):
                 st.warning(
-                    "⚠️ Você precisa ter cursos, instrutores e CTs cadastrados antes de abrir uma turma."
+                    "Você precisa ter cursos, instrutores e CTs cadastrados antes de abrir uma turma."
                 )
             else:
                 try:
@@ -131,8 +131,8 @@ def render_tab_cadastrar():
                         "ct_id": cts_dict[ct_selecionado],
                     }
                     supabase.table("turmas").insert(nova_turma).execute()
-                    st.success("✅ Turma aberta com sucesso!")
+                    st.success("Turma aberta com sucesso!")
                     st.balloons()
                     st.rerun()
                 except Exception as e:
-                    st.error(f"❌ Erro ao abrir turma: {e}")
+                    st.error(f"Erro ao abrir turma: {e}")

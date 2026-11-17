@@ -30,7 +30,7 @@ def modal_adicionar_aluno(turma_id, titulo_turma, client_id, data_treinamento, c
 
         if submit_aluno:
             if not nome_aluno.strip():
-                st.warning("⚠️ O nome do aluno é obrigatório.")
+                st.warning("O nome do aluno é obrigatório.")
                 return
 
             try:
@@ -93,7 +93,7 @@ def modal_adicionar_aluno(turma_id, titulo_turma, client_id, data_treinamento, c
                         .execute()
                     )
                     if matricula_res and matricula_res.data:
-                        st.warning("⚠️ Este aluno já está matriculado nesta turma!")
+                        st.warning("Este aluno já está matriculado nesta turma!")
                     else:
                         nova_matricula = {
                             "turma_id": turma_id,
@@ -110,9 +110,9 @@ def modal_adicionar_aluno(turma_id, titulo_turma, client_id, data_treinamento, c
                             nova_matricula.pop("client_id", None)
                             supabase.table("matriculas").insert(nova_matricula).execute()
                         st.success(
-                            f"✅ Aluno {nome_aluno} adicionado e matriculado com sucesso!"
+                            f"Aluno {nome_aluno} adicionado e matriculado com sucesso!"
                         )
                         st.rerun()
 
             except Exception as e:
-                st.error(f"❌ Erro ao adicionar/matricular aluno: {e}")
+                st.error(f"Erro ao adicionar/matricular aluno: {e}")
