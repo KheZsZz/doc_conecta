@@ -1,9 +1,6 @@
 [theme]
-base = "light"
+# Só a marca; claro/escuro segue a preferência do usuário no menu do Streamlit
 primaryColor = "#1a5f9e"
-backgroundColor = "#f5f7fa"
-secondaryBackgroundColor = "#ffffff"
-textColor = "#0b1f3a"
 font = "sans serif"
 
 [server]

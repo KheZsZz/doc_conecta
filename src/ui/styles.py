@@ -4,143 +4,180 @@ from __future__ import annotations
 import streamlit as st
 
 
+def _tema_escuro() -> bool:
+    try:
+        theme = getattr(st.context, "theme", None)
+        if theme is None:
+            return False
+        return getattr(theme, "type", "light") == "dark"
+    except Exception:
+        return False
+
+
 def aplicar_estilo_global() -> None:
-    """Injeta CSS global uma vez por sessão de página."""
+    """Injeta CSS global adaptado ao tema claro ou escuro."""
+    dark = _tema_escuro()
+
+    if dark:
+        text = "#e8eef5"
+        muted = "#9aabbc"
+        hint = "#8a9baa"
+        card_bg = "rgba(255,255,255,0.04)"
+        card_border = "rgba(255,255,255,0.10)"
+        section_border = "rgba(255,255,255,0.12)"
+        accent = "#5ba3e0"
+        ok = "#3dd68c"
+        warn = "#ff6b6b"
+        login_title = "#e8eef5"
+        login_sub = "#9aabbc"
+    else:
+        text = "#0b1f3a"
+        muted = "#5b6b7c"
+        hint = "#7a8a9a"
+        card_bg = "#ffffff"
+        card_border = "#e8eef5"
+        section_border = "#e8eef5"
+        accent = "#1a5f9e"
+        ok = "#1e7e34"
+        warn = "#c0392b"
+        login_title = "#0b1f3a"
+        login_sub = "#5b6b7c"
+
     st.markdown(
-        """
+        f"""
 <style>
   /* ---- Tipografia e hierarquia ---- */
-  h1 {
+  h1 {{
     font-size: 1.55rem !important;
     font-weight: 700 !important;
     letter-spacing: -0.02em;
-    color: #0b1f3a !important;
+    color: {text} !important;
     margin-bottom: 0.35rem !important;
-  }
-  h2, h3 {
-    color: #0b1f3a !important;
-  }
-  [data-testid="stSidebar"] {
+  }}
+  h2, h3 {{
+    color: {text} !important;
+  }}
+  [data-testid="stSidebar"] {{
     background: #0b1f3a;
-  }
-  [data-testid="stSidebar"] * {
+  }}
+  [data-testid="stSidebar"] * {{
     color: #e8eef5 !important;
-  }
-  [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
+  }}
+  [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {{
     color: #e8eef5 !important;
-  }
+  }}
   [data-testid="stSidebar"] .stCaption,
-  [data-testid="stSidebar"] [data-testid="stCaption"] {
+  [data-testid="stSidebar"] [data-testid="stCaption"] {{
     color: #9aabbc !important;
-  }
-  [data-testid="stSidebar"] button {
+  }}
+  [data-testid="stSidebar"] button {{
     background: rgba(255,255,255,0.08) !important;
     border: 1px solid rgba(255,255,255,0.15) !important;
     color: #fff !important;
-  }
-  [data-testid="stSidebar"] button:hover {
+  }}
+  [data-testid="stSidebar"] button:hover {{
     background: rgba(255,255,255,0.16) !important;
-  }
-  [data-testid="stSidebarNav"] a {
+  }}
+  [data-testid="stSidebarNav"] a {{
     border-radius: 8px;
-  }
-  [data-testid="stSidebarNav"] a span {
+  }}
+  [data-testid="stSidebarNav"] a span {{
     color: #e8eef5 !important;
-  }
+  }}
 
   /* ---- Cards / seções ---- */
-  .df-hero {
+  .df-hero {{
     background: linear-gradient(135deg, #0b1f3a 0%, #123a6b 55%, #1a5f9e 100%);
     border-radius: 16px;
     padding: 1.4rem 1.6rem 1.2rem 1.6rem;
     margin-bottom: 1.25rem;
     color: #fff;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
-  }
-  .df-hero h1 {
+  }}
+  .df-hero h1 {{
     margin: 0 0 0.25rem 0 !important;
     font-size: 1.55rem !important;
     font-weight: 700 !important;
     color: #fff !important;
-  }
-  .df-hero p {
+  }}
+  .df-hero p {{
     margin: 0;
     opacity: 0.88;
     font-size: 0.95rem;
     color: #fff !important;
-  }
-  .df-section-title {
+  }}
+  .df-section-title {{
     font-size: 1.05rem;
     font-weight: 700;
-    color: #0b1f3a;
+    color: {text};
     margin: 0.75rem 0 0.85rem 0;
     padding-bottom: 0.35rem;
-    border-bottom: 2px solid #e8eef5;
-  }
-  .df-page-subtitle {
-    color: #5b6b7c;
+    border-bottom: 2px solid {section_border};
+  }}
+  .df-page-subtitle {{
+    color: {muted};
     font-size: 0.95rem;
     margin: -0.25rem 0 1rem 0;
-  }
-  .kpi-card {
-    background: #ffffff;
-    border: 1px solid #e8eef5;
+  }}
+  .kpi-card {{
+    background: {card_bg};
+    border: 1px solid {card_border};
     border-radius: 14px;
     padding: 1rem 1.1rem 0.85rem 1.1rem;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
     height: 100%;
     min-height: 104px;
-  }
-  .kpi-label {
+  }}
+  .kpi-label {{
     font-size: 0.78rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: #5b6b7c;
+    color: {muted};
     margin-bottom: 0.35rem;
-  }
-  .kpi-value {
+  }}
+  .kpi-value {{
     font-size: 1.75rem;
     font-weight: 700;
-    color: #0b1f3a;
+    color: {text};
     line-height: 1.15;
-  }
-  .kpi-hint {
+  }}
+  .kpi-hint {{
     font-size: 0.78rem;
-    color: #7a8a9a;
+    color: {hint};
     margin-top: 0.3rem;
-  }
-  .kpi-card.warn .kpi-value { color: #c0392b; }
-  .kpi-card.ok .kpi-value { color: #1e7e34; }
-  .kpi-card.accent .kpi-value { color: #1a5f9e; }
+  }}
+  .kpi-card.warn .kpi-value {{ color: {warn}; }}
+  .kpi-card.ok .kpi-value {{ color: {ok}; }}
+  .kpi-card.accent .kpi-value {{ color: {accent}; }}
 
-  div[data-testid="stVerticalBlock"] > div[data-testid="stHorizontalBlock"] {
+  div[data-testid="stVerticalBlock"] > div[data-testid="stHorizontalBlock"] {{
     gap: 0.75rem;
-  }
-  div[data-testid="stMetric"] {
-    background: #ffffff;
-    border: 1px solid #e8eef5;
+  }}
+  div[data-testid="stMetric"] {{
+    background: {card_bg};
+    border: 1px solid {card_border};
     border-radius: 12px;
     padding: 0.75rem 0.9rem;
-  }
+  }}
 
   /* ---- Login ---- */
-  .df-login-wrap {
+  .df-login-wrap {{
     max-width: 420px;
     margin: 2.5rem auto 0 auto;
-  }
-  .df-login-brand {
+  }}
+  .df-login-brand {{
     text-align: center;
     margin-bottom: 1.5rem;
-  }
-  .df-login-brand h1 {
+  }}
+  .df-login-brand h1 {{
     margin: 0.5rem 0 0.25rem 0 !important;
-    color: #0b1f3a !important;
-  }
-  .df-login-brand p {
-    color: #5b6b7c;
+    color: {login_title} !important;
+  }}
+  .df-login-brand p {{
+    color: {login_sub};
     margin: 0;
-  }
+  }}
 </style>
 """,
         unsafe_allow_html=True,
