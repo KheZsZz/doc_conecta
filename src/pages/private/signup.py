@@ -47,7 +47,7 @@ def _label_ct_por_id(ct_id, labels, mapa) -> str:
     return "— Sem CT —"
 
 
-tab_listar, tab_cadastrar = st.tabs(["📋 Usuários Cadastrados", "➕ Cadastrar Usuário"])
+tab_listar, tab_cadastrar = st.tabs(["Usuários Cadastrados", "Cadastrar Usuário"])
 
 
 def _opcoes_role() -> list[str]:
@@ -173,8 +173,8 @@ with tab_listar:
                 ativo = u.get("is_active", True)
                 role_u = normalizar_role(u.get("role"))
                 tem_senha = bool(u.get("password_hash"))
-                status = "✅ Ativo" if ativo else "⛔ Inativo"
-                senha_flag = "" if tem_senha else ""
+                status = "Ativo" if ativo else "Inativo"
+                senha_flag = "com senha" if tem_senha else "sem senha"
                 ct_nome = id_para_nome.get(str(u.get("ct_id") or ""), "")
 
                 with st.container(border=True):

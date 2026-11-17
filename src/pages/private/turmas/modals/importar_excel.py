@@ -52,7 +52,7 @@ def modal_importar_excel(tid, titulo_turma, client_id, data_treinamento_str, car
             key=f"btn_proc_excel_{tid}",
         ):
             if col_nome == "(Nenhuma)":
-                st.error("⚠️ Você deve selecionar qual é a coluna que contém o NOME dos alunos.")
+                st.error("Você deve selecionar qual é a coluna que contém o NOME dos alunos.")
                 st.stop()
 
             mapa_colunas = {
