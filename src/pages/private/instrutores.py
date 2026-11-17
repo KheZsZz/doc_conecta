@@ -22,11 +22,11 @@ def fazer_upload_assinatura(arquivo_upload, cpf: str):
         )
         return supabase.storage.from_("assinaturas").get_public_url(nome_arquivo)
     except Exception as e:
-        st.error(f"❌ Erro ao fazer upload da assinatura: {e}")
+        st.error(f"Erro ao fazer upload da assinatura: {e}")
         return None
 
 
-tab_listar, tab_cadastrar = st.tabs(["📋 Instrutores Cadastrados", "➕ Novo Instrutor"])
+tab_listar, tab_cadastrar = st.tabs(["Instrutores Cadastrados", "Novo Instrutor"])
 
 
 @st.dialog("Editar", width="medium")
@@ -85,12 +85,12 @@ def modal_editar_instrutor(
         novo_status = st.checkbox("Instrutor Ativo", value=ativo_atual)
 
         salvar = st.form_submit_button(
-            "💾 Salvar Alterações", type="primary", use_container_width=True
+            "Salvar Alterações", type="primary", use_container_width=True
         )
 
         if salvar:
             if not novo_nome.strip() or not novo_cpf.strip():
-                st.warning("⚠️ Nome e CPF são campos obrigatórios.")
+                st.warning("Nome e CPF são campos obrigatórios.")
             else:
                 try:
                     caminho_assinatura_final = assinatura_atual
@@ -115,10 +115,10 @@ def modal_editar_instrutor(
                     supabase.table("instrutores").update(payload).eq(
                         "id", instrutor_id
                     ).execute()
-                    st.success("✅ Instrutor atualizado com sucesso!")
+                    st.success("Instrutor atualizado com sucesso!")
                     st.rerun()
                 except Exception as e:
-                    st.error(f"❌ Erro ao atualizar instrutor: {e}")
+                    st.error(f"Erro ao atualizar instrutor: {e}")
                     if "formacao" in str(e).lower() or "re" in str(e).lower():
                         st.info(
                             "Execute no Supabase:\n"
@@ -167,7 +167,7 @@ with tab_listar:
                     assinatura = i.get("assinatura", "")
                     is_active = i.get("is_active", True)
 
-                    status_display = "🟢 **Ativo**" if is_active else "🔴 **Inativo**"
+                    status_display = "**Ativo**" if is_active else "**Inativo**"
                     cpf_fmt = (
                         f"{cpf[:3]}.{cpf[3:6]}.{cpf[6:9]}-{cpf[9:]}"
                         if len(cpf) == 11
@@ -200,7 +200,7 @@ with tab_listar:
                             if assinatura:
                                 st.caption("**Assinatura:** cadastrada")
                             else:
-                                st.caption("⚠️ *Sem assinatura cadastrada*")
+                                st.caption("*Sem assinatura cadastrada*")
 
                         with col_acoes:
                             st.markdown(
@@ -226,7 +226,7 @@ with tab_listar:
                                     is_active,
                                 )
         else:
-            st.info("ℹ️ Nenhum instrutor cadastrado no momento.")
+            st.info("Nenhum instrutor cadastrado no momento.")
 
     except Exception as e:
         st.error(f"Erro ao carregar instrutores: {e}")
@@ -268,7 +268,7 @@ with tab_cadastrar:
 
         if submit_btn:
             if not nome_instrutor.strip() or not cpf_instrutor.strip():
-                st.warning("⚠️ Nome e CPF são campos obrigatórios.")
+                st.warning("Nome e CPF são campos obrigatórios.")
             else:
                 try:
                     url_assinatura_salva = None
@@ -289,11 +289,11 @@ with tab_cadastrar:
                         "is_active": status_instrutor,
                     }
                     supabase.table("instrutores").insert(novo_payload).execute()
-                    st.success(f"✅ Instrutor '{nome_instrutor}' criado com sucesso!")
+                    st.success(f"Instrutor '{nome_instrutor}' criado com sucesso!")
                     st.balloons()
                     st.rerun()
                 except Exception as e:
-                    st.error(f"❌ Erro ao criar instrutor: {e}")
+                    st.error(f"Erro ao criar instrutor: {e}")
                     if "formacao" in str(e).lower() or "re" in str(e).lower():
                         st.info(
                             "Execute no Supabase:\n"
