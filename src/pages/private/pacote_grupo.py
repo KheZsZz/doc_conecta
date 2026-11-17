@@ -19,6 +19,7 @@ from src.utils.pacote_grupo import (
     turmas_do_periodo,
 )
 from src.utils.imprimir_documentacao import _prefetch_maps
+from src.ui.styles import page_header
 
 exigir_permissao("pacote_grupo")
 
@@ -26,14 +27,19 @@ TURMAS_POR_LOTE = 3
 MAX_WORKERS = 3
 JOB = "pkg_job"
 
-st.title("Pacote por Período")
+page_header(
+    "Pacote por período",
+    "Gera documentação em lote por intervalo de datas e escopo de empresas.",
+)
 
 escopo = st.radio(
-    "",
+    "Escopo",
     options=["Todas as empresas", "Grupo empresarial"],
     horizontal=True,
     help="Todas as empresas = qualquer turma no período, independente de grupo.",
+    label_visibility="collapsed",
 )
+st.caption("Escopo: todas as empresas ou um grupo empresarial.")
 
 empresas: list[dict] = []
 grupo_nome = "Todas_Empresas"
@@ -61,11 +67,8 @@ if escopo == "Grupo empresarial":
             unidade = e.get("sigla") or ""
             extra = f" · {unidade}" if unidade else ""
             st.caption(f"- {e.get('name')}{extra} — CNPJ {e.get('cnpj') or '—'}")
-else:
-    st.caption("")
 
-# ---------- Período (atalhos + datas) ----------
-st.markdown("**Período**")
+st.markdown('<div class="df-section-title">Período</div>', unsafe_allow_html=True)
 hoje = date.today()
 
 inicio_semana = hoje - timedelta(days=hoje.weekday())
@@ -78,22 +81,22 @@ else:
 
 c1, c2, c3, c4 = st.columns(4)
 with c1:
-    if st.button("Hoje", use_container_width=True):
+    if st.button("Hoje", width="stretch"):
         st.session_state["pkg_di"] = hoje
         st.session_state["pkg_df"] = hoje
         st.rerun()
 with c2:
-    if st.button("Esta semana", use_container_width=True):
+    if st.button("Esta semana", width="stretch"):
         st.session_state["pkg_di"] = inicio_semana
         st.session_state["pkg_df"] = fim_semana
         st.rerun()
 with c3:
-    if st.button("Este mês", use_container_width=True):
+    if st.button("Este mês", width="stretch"):
         st.session_state["pkg_di"] = inicio_mes
         st.session_state["pkg_df"] = fim_mes
         st.rerun()
 with c4:
-    if st.button("Este ano", use_container_width=True):
+    if st.button("Este ano", width="stretch"):
         st.session_state["pkg_di"] = date(hoje.year, 1, 1)
         st.session_state["pkg_df"] = hoje
         st.rerun()
@@ -118,7 +121,6 @@ if data_inicio > data_fim:
     st.error("A data início não pode ser maior que a data fim.")
     st.stop()
 
-# ---------- Filtro de status ----------
 filtro_status = st.selectbox(
     "Status das turmas",
     options=["Todas", "Somente pendentes (não emitidas)", "Somente já emitidas"],
@@ -126,13 +128,12 @@ filtro_status = st.selectbox(
     help="Ao gerar o pacote, as turmas com documento gerado passam a **emitidas**.",
 )
 
-# ---------- Filtro por CT ----------
-_cts_map = listar_cts_completo()  # id -> row
+_cts_map = listar_cts_completo()
 _ct_usuario = ct_id_atual()
 if _ct_usuario:
     _ct_row = _cts_map.get(str(_ct_usuario)) or {}
     _ct_label = (_ct_row.get("name") or _ct_row.get("full_name") or "CT vinculado").strip()
-    st.info(f"📍 Pacote restrito ao CT **{_ct_label}** (vinculado ao seu usuário).")
+    st.info(f"Pacote restrito ao CT **{_ct_label}** (vinculado ao seu usuário).")
     ct_id_filtro: str | None = str(_ct_usuario)
 else:
     _opcoes_ct = [("Todos", None)]
@@ -147,12 +148,11 @@ else:
         "CT / Centro de Treinamento",
         options=_labels,
         index=0,
-        help="Filtra as turmas do período por um CT específico (ex.: Ecofire, Conecta).",
+        help="Filtra as turmas do período por um CT específico.",
     )
     ct_id_filtro = dict(_opcoes_ct).get(_escolha)
 
-# ---------- Documentos ----------
-st.markdown("**Documentos a incluir**")
+st.markdown('<div class="df-section-title">Documentos a incluir</div>', unsafe_allow_html=True)
 ocol1, ocol2, ocol3 = st.columns(3)
 with ocol1:
     opt_atestado = st.checkbox("Atestado (se o curso exigir)", value=True)
@@ -168,13 +168,10 @@ if opt_cert_alunos:
         index=0,
         horizontal=True,
         key="pkg_fmt_cert",
-        help="PDF único é mais rápido de gerar e de abrir; "
-        "o ZIP entrega um arquivo separado por aluno.",
     )
     formato_cert = "pdf_unico" if _fmt.startswith("PDF único") else "zip"
 with ocol3:
     opt_lista = st.checkbox("Lista de presença", value=True)
-
 
 job = st.session_state.get(JOB)
 
@@ -193,9 +190,6 @@ def _processar_lote(job: dict) -> None:
         try:
             tid = str(turma.get("id") or "")
             mats_t = mats.get(tid) or []
-            # O fallback de _prefetch_maps (sem join) traz matrículas sem os
-            # dados do aluno; nesse caso descarta e busca individualmente,
-            # para nunca gerar certificado com nome/CPF em branco.
             if not all(
                 isinstance(m.get("alunos"), dict) and m["alunos"].get("name")
                 for m in mats_t
@@ -278,20 +272,13 @@ def _limpar_job() -> None:
 
 @st.fragment(run_every=1)
 def _painel_progresso() -> None:
-    """Roda sozinho a cada 1s, processa UM lote e atualiza só este bloco.
-
-    Não recarrega a página inteira (filtros, consulta de turmas, tabela):
-    só quando o job termina ou é cancelado é feito um rerun completo.
-    Os `st.*` ficam antes/depois do lote, nunca dentro dele, então uma
-    interrupção do Streamlit não deixa o estado do job pela metade.
-    """
     j = st.session_state.get(JOB)
     if not j or j["done"]:
-        st.rerun()  # job acabou (ou foi limpo): redesenha a página completa
+        st.rerun()
         return
 
     total = len(j["turmas"])
-    st.subheader("⏳ Gerando pacote…")
+    st.subheader("Gerando pacote…")
     barra = st.progress(
         min(j["idx"] / total, 1.0),
         text=f"{j['idx']} de {total} turma(s) processada(s)",
@@ -300,13 +287,13 @@ def _painel_progresso() -> None:
         "Mantenha esta aba aberta. O processamento é feito em etapas curtas "
         "para não estourar o tempo limite."
     )
-    if st.button("⛔ Cancelar e baixar o que já foi gerado", key="pkg_cancel"):
+    if st.button("Cancelar e baixar o que já foi gerado", key="pkg_cancel"):
         j["done"] = True
         j["cancelado"] = True
         st.rerun()
         return
 
-    _processar_lote(j)  # sem chamadas st.* dentro
+    _processar_lote(j)
     barra.progress(
         min(j["idx"] / total, 1.0),
         text=f"{j['idx']} de {total} turma(s) processada(s)",
@@ -317,26 +304,25 @@ def _painel_progresso() -> None:
 
 if job and not job["done"]:
     _painel_progresso()
-    # Enquanto gera, não mostra o restante (evita iniciar outro job por cima)
     st.stop()
 
 if job and job["done"]:
-    st.subheader("✅ Pacote pronto" if not job.get("cancelado") else "⛔ Pacote parcial")
+    st.subheader("Pacote pronto" if not job.get("cancelado") else "Pacote parcial")
     st.success(
         f"**{len(job['gerados'])}** documento(s) em **{job['idx']}** de "
         f"**{len(job['turmas'])}** turma(s)."
     )
     if job.get("marcado_ok"):
         st.success(
-            f"✅ **{len(job['marcado_ok'])}** turma(s) marcada(s) como **documentação emitida**."
+            f"**{len(job['marcado_ok'])}** turma(s) marcada(s) como documentação emitida."
         )
     elif job["tids_ok"]:
         st.info(
             f"As **{len(job['tids_ok'])}** turma(s) com documentos serão marcadas como "
-            "emitidas **quando você clicar em baixar**."
+            "emitidas quando você clicar em baixar."
         )
     for f in job.get("falha_marca") or []:
-        st.warning(f"⚠️ Status não atualizado — {f}")
+        st.warning(f"Status não atualizado — {f}")
     if job["resumo"]:
         st.dataframe(job["resumo"], use_container_width=True, hide_index=True)
     if job["erros"]:
@@ -347,22 +333,21 @@ if job and job["done"]:
         with open(job["zip_path"], "rb") as fh:
             zip_bytes = fh.read()
         st.download_button(
-            "📥 Baixar pacote (ZIP)",
+            "Baixar pacote (ZIP)",
             data=zip_bytes,
             file_name=job["nome_zip"],
             mime="application/zip",
-            use_container_width=True,
+            width="stretch",
             key="dl_pacote_job",
             on_click=_ao_baixar,
         )
     else:
         st.error("Nenhum documento foi gerado.")
-    if st.button("🗑️ Limpar resultado", key="pkg_clear"):
+    if st.button("Limpar resultado", key="pkg_clear"):
         _limpar_job()
         st.rerun()
     st.markdown("---")
 
-# ---------- Busca turmas ----------
 turmas = turmas_do_periodo(client_ids, data_inicio, data_fim, ct_id=ct_id_filtro)
 
 if filtro_status == "Somente pendentes (não emitidas)":
@@ -419,11 +404,7 @@ def _novo_zip_path() -> str:
     return path
 
 
-if st.button(
-    "🚀 Gerar pacote de documentação",
-    type="primary",
-    use_container_width=True,
-):
+if st.button("Gerar pacote de documentação", type="primary", width="stretch"):
     rotulo = (
         grupo_nome.replace(" ", "_")
         if escopo == "Grupo empresarial"
