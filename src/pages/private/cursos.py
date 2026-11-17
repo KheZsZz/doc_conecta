@@ -1,11 +1,11 @@
 import streamlit as st
 from src.config.database import supabase
+from src.ui.styles import page_header
 
 
-st.title("Gestão de Cursos")
-st.markdown("Cadastre e gerencie os treinamentos oferecidos pela sua empresa.")
+page_header("Cursos", "Cadastro e gestão dos treinamentos oferecidos.")
 
-tab_listar, tab_cadastrar = st.tabs(["Cursos Cadastrados", "Novo Curso"])
+tab_listar, tab_cadastrar = st.tabs(["Cursos cadastrados", "Novo curso"])
 
 # ==========================================
 # 1. MODAL / POPUP DE EDIÇÃO DO CURSO
@@ -67,12 +67,12 @@ def modal_editar_curso(
         )
 
         salvar = st.form_submit_button(
-            "💾 Salvar Alterações", type="primary", use_container_width=True
+            "Salvar alterações", type="primary", width="stretch"
         )
 
         if salvar:
             if not novo_nome.strip():
-                st.warning("⚠️️ O nome do curso é obrigatório.")
+                st.warning("O nome do curso é obrigatório.")
             else:
                 try:
                     payload = {
@@ -91,17 +91,14 @@ def modal_editar_curso(
                         else 1,
                     }
                     supabase.table("cursos").update(payload).eq("id", curso_id).execute()
-                    st.success("✅ Curso atualizado com sucesso!")
+                    st.success("Curso atualizado com sucesso!")
                     st.rerun()
                 except Exception as e:
-                    st.error(f"❌ Erro ao atualizar curso: {e}")
+                    st.error(f"Erro ao atualizar curso: {e}")
 
 
-# ==========================================
-# ABA 1: LISTAGEM DE CURSOS (EM CARDS)
-# ==========================================
 with tab_listar:
-    st.subheader("Cursos e Treinamentos Disponíveis")
+    st.subheader("Cursos e treinamentos disponíveis")
 
     busca = st.text_input(
         "Buscar por nome ou sigla",
@@ -146,22 +143,19 @@ with tab_listar:
                             st.markdown(f"**{nome}**{sigla_display}")
                             tags = []
                             if normativa:
-                                tags.append(f"📜 Normativa: {normativa}")
+                                tags.append(f"Normativa: {normativa}")
                             if not exige_atestado:
-                                tags.append("🚫 Sem Atestado")
-                            tags.append(f"⏳ Validade: {prazo_validade_anos} ano(s)")
+                                tags.append("Sem atestado")
+                            tags.append(f"Validade: {prazo_validade_anos} ano(s)")
                             if tags:
-                                st.caption(" | ".join(tags))
+                                st.caption(" · ".join(tags))
 
                         with col_acoes:
-                            st.markdown(
-                                "<div style='height: 5px;'></div>", unsafe_allow_html=True
-                            )
                             if st.button(
                                 "Editar",
                                 key=f"edit_curso_{cid}",
                                 help="Editar curso",
-                                use_container_width=True,
+                                width="stretch",
                             ):
                                 modal_editar_curso(
                                     cid,
@@ -174,16 +168,13 @@ with tab_listar:
                                     prazo_validade_anos,
                                 )
         else:
-            st.info("ℹ️ Nenhum curso cadastrado no momento.")
+            st.info("Nenhum curso cadastrado no momento.")
 
     except Exception as e:
         st.error(f"Erro ao carregar cursos: {e}")
 
-# ==========================================
-# ABA 2: CADASTRO DE NOVO CURSO
-# ==========================================
 with tab_cadastrar:
-    st.subheader("Cadastrar Novo Curso")
+    st.subheader("Cadastrar novo curso")
 
     with st.form("form_novo_curso", clear_on_submit=True):
         nome_curso = st.text_input("Nome do Curso*")
@@ -217,11 +208,11 @@ with tab_cadastrar:
             help="Prazo usado na data de validade das carteirinhas.",
         )
 
-        submit_btn = st.form_submit_button("Criar Curso", type="primary")
+        submit_btn = st.form_submit_button("Criar curso", type="primary")
 
         if submit_btn:
             if not nome_curso.strip():
-                st.warning("⚠️ O nome do curso é obrigatório.")
+                st.warning("O nome do curso é obrigatório.")
             else:
                 try:
                     novo_curso_payload = {
@@ -240,8 +231,8 @@ with tab_cadastrar:
                         else 1,
                     }
                     supabase.table("cursos").insert(novo_curso_payload).execute()
-                    st.success(f"✅ Curso '{nome_curso}' criado com sucesso!")
+                    st.success(f"Curso '{nome_curso}' criado com sucesso!")
                     st.balloons()
                     st.rerun()
                 except Exception as e:
-                    st.error(f"❌ Erro ao criar curso: {e}")
+                    st.error(f"Erro ao criar curso: {e}")

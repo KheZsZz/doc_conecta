@@ -9,14 +9,20 @@ from src.auth.permissions import (
     sincronizar_perfil_sessao,
     tem_permissao,
 )
+from src.ui.styles import aplicar_estilo_global
 
 root_dir = Path(__file__).resolve().parent
 if str(root_dir) not in sys.path:
     sys.path.append(str(root_dir))
 
 st.set_page_config(
-    page_title="DocFacil Conecta", page_icon="🔥", layout="wide"
+    page_title="DocFacil Conecta",
+    page_icon=":material/local_fire_department:",
+    layout="wide",
+    initial_sidebar_state="expanded",
 )
+
+aplicar_estilo_global()
 
 if "user" not in st.session_state:
     st.session_state.user = None
@@ -28,42 +34,83 @@ if "role" not in st.session_state:
 query_params = st.query_params
 pagina_atual = query_params.get("page")
 
-login_page = st.Page("src/pages/public/login.py", title="Login", icon="")
+login_page = st.Page(
+    "src/pages/public/login.py", title="Login", icon=":material/login:"
+)
 checkin_page = st.Page(
-    "src/pages/public/cadastro_aluno.py", title="Check-in Aluno", icon=""
+    "src/pages/public/cadastro_aluno.py",
+    title="Check-in Aluno",
+    icon=":material/how_to_reg:",
 )
 
-home_page = st.Page("src/pages/private/home.py", title="Home", icon="", default=True)
-turmas_page = st.Page("src/pages/private/turmas_page.py", title="Turmas", icon="")
-clients_page = st.Page(
-    "src/pages/private/empresas.py", title="Empresas / Clientes", icon=""
+home_page = st.Page(
+    "src/pages/private/home.py",
+    title="Home",
+    icon=":material/home:",
+    default=True,
 )
-cursos_page = st.Page("src/pages/private/cursos.py", title="Cursos", icon="")
+turmas_page = st.Page(
+    "src/pages/private/turmas_page.py", title="Turmas", icon=":material/groups:"
+)
+clients_page = st.Page(
+    "src/pages/private/empresas.py",
+    title="Empresas / Clientes",
+    icon=":material/apartment:",
+)
+cursos_page = st.Page(
+    "src/pages/private/cursos.py", title="Cursos", icon=":material/menu_book:"
+)
 instrutores_page = st.Page(
-    "src/pages/private/instrutores.py", title="Instrutores", icon=""
+    "src/pages/private/instrutores.py",
+    title="Instrutores",
+    icon=":material/school:",
 )
 responsaveis_page = st.Page(
-    "src/pages/private/responsaveis.py", title="Responsáveis Técnicos", icon=""
+    "src/pages/private/responsaveis.py",
+    title="Responsáveis Técnicos",
+    icon=":material/badge:",
 )
-cts_page = st.Page("src/pages/private/cts.py", title="CTS", icon="")
+cts_page = st.Page(
+    "src/pages/private/cts.py", title="CTS", icon=":material/domain:"
+)
 signup_page = st.Page(
-    "src/pages/private/signup.py", title="Cadastrar Usuário", icon=""
+    "src/pages/private/signup.py",
+    title="Cadastrar Usuário",
+    icon=":material/person_add:",
 )
-alunos_page = st.Page("src/pages/private/alunos.py", title="Alunos", icon="")
+alunos_page = st.Page(
+    "src/pages/private/alunos.py", title="Alunos", icon=":material/group:"
+)
 subir_listas_page = st.Page(
-    "src/pages/private/subir_listas.py", title="Subir Listas", icon=""
+    "src/pages/private/subir_listas.py",
+    title="Subir Listas",
+    icon=":material/upload_file:",
 )
 emissao_ead_page = st.Page(
-    "src/pages/private/emissao_ead.py", title="Emissão EAD", icon=""
+    "src/pages/private/emissao_ead.py",
+    title="Emissão EAD",
+    icon=":material/computer:",
 )
 pacote_grupo_page = st.Page(
-    "src/pages/private/pacote_grupo.py", title="Pacote Período", icon=""
+    "src/pages/private/pacote_grupo.py",
+    title="Pacote Período",
+    icon=":material/inventory_2:",
 )
 imprimir_doc_page = st.Page(
-    "src/pages/private/imprimir_documentacao.py", title="Imprimir Documentação", icon=""
+    "src/pages/private/imprimir_documentacao.py",
+    title="Imprimir Documentação",
+    icon=":material/print:",
 )
-mc_page = st.Page("src/pages/private/mcDonalds.py", title="mcDonalds", icon="")
-configs_page = st.Page("src/pages/private/configs.py", title="Configs", icon="")
+mc_page = st.Page(
+    "src/pages/private/mcDonalds.py",
+    title="McDonalds",
+    icon=":material/restaurant:",
+)
+configs_page = st.Page(
+    "src/pages/private/configs.py",
+    title="Configs",
+    icon=":material/settings:",
+)
 
 PAGINAS = {
     "home": home_page,
@@ -126,9 +173,9 @@ else:
         email = getattr(st.session_state.user, "email", "")
         role = role_atual()
         label = ROLE_LABELS.get(role, role)
-        st.write(f"👤 {email}")
-        st.caption(f"Perfil: **{label}**")
-        if st.button("Sair"):
+        st.markdown(f"**{email}**")
+        st.caption(f"Perfil: {label}")
+        if st.button("Sair", width="stretch"):
             st.session_state.user = None
             st.session_state.perfil = None
             st.session_state.role = None
