@@ -7,110 +7,17 @@ import streamlit as st
 from src.config.database import supabase
 from src.auth.permissions import ct_id_atual
 
-# ---------------------------------------------------------------------------
-# Tema (claro / escuro)
-# ---------------------------------------------------------------------------
-def _tema_escuro() -> bool:
-    try:
-        return getattr(st.context, "theme", None) is not None and (
-            getattr(st.context.theme, "type", "light") == "dark"
-        )
-    except Exception:
-        return False
-
-
-_DARK = _tema_escuro()
-_TEXT = "#e8eef5" if _DARK else "#0b1f3a"
-_MUTED = "#9aabbc" if _DARK else "#5b6b7c"
-_HINT = "#8a9baa" if _DARK else "#7a8a9a"
-_CARD_BG = "rgba(255,255,255,0.04)" if _DARK else "#ffffff"
-_CARD_BORDER = "rgba(255,255,255,0.10)" if _DARK else "#e8eef5"
-_SECTION_BORDER = "rgba(255,255,255,0.12)" if _DARK else "#e8eef5"
-_ACCENT = "#5ba3e0" if _DARK else "#1a5f9e"
-_OK = "#3dd68c" if _DARK else "#1e7e34"
-_WARN = "#ff6b6b" if _DARK else "#c0392b"
-_PLOT_FONT = "#cfd8e3" if _DARK else "#334455"
-_PLOT_TITLE = "#e8eef5" if _DARK else "#0b1f3a"
-_BAR = "#5ba3e0" if _DARK else "#1a5f9e"
-_BAR2 = "#7eb6e8" if _DARK else "#3d7ab5"
-
-st.markdown(
-    f"""
-<style>
-  .dash-hero {{
-    background: linear-gradient(135deg, #0b1f3a 0%, #123a6b 55%, #1a5f9e 100%);
-    border-radius: 16px;
-    padding: 1.4rem 1.6rem 1.2rem 1.6rem;
-    margin-bottom: 1.25rem;
-    color: #fff;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-  }}
-  .dash-hero h1 {{
-    margin: 0 0 0.25rem 0;
-    font-size: 1.55rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: #fff !important;
-  }}
-  .dash-hero p {{
-    margin: 0;
-    opacity: 0.85;
-    font-size: 0.95rem;
-    color: #fff !important;
-  }}
-  .kpi-card {{
-    background: {_CARD_BG};
-    border: 1px solid {_CARD_BORDER};
-    border-radius: 14px;
-    padding: 1rem 1.1rem 0.85rem 1.1rem;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-    height: 100%;
-    min-height: 104px;
-  }}
-  .kpi-label {{
-    font-size: 0.78rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: {_MUTED};
-    margin-bottom: 0.35rem;
-  }}
-  .kpi-value {{
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: {_TEXT};
-    line-height: 1.15;
-  }}
-  .kpi-hint {{
-    font-size: 0.78rem;
-    color: {_HINT};
-    margin-top: 0.3rem;
-  }}
-  .kpi-card.warn .kpi-value {{ color: {_WARN}; }}
-  .kpi-card.ok .kpi-value {{ color: {_OK}; }}
-  .kpi-card.accent .kpi-value {{ color: {_ACCENT}; }}
-  .section-title {{
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: {_TEXT};
-    margin: 0.4rem 0 0.85rem 0;
-    padding-bottom: 0.35rem;
-    border-bottom: 2px solid {_SECTION_BORDER};
-  }}
-  div[data-testid="stMetric"] {{
-    background: {_CARD_BG};
-    border: 1px solid {_CARD_BORDER};
-    border-radius: 12px;
-    padding: 0.75rem 0.9rem;
-  }}
-</style>
-""",
-    unsafe_allow_html=True,
-)
+_ACCENT = "#1a5f9e"
+_OK = "#1e7e34"
+_WARN = "#c0392b"
+_BAR = "#1a5f9e"
+_BAR2 = "#3d7ab5"
+_PLOT_FONT = "#334455"
+_PLOT_TITLE = "#0b1f3a"
 
 st.markdown(
     """
-<div class="dash-hero">
+<div class="df-hero">
   <h1>Painel operacional</h1>
   <p>Visão consolidada de turmas, matrículas e pendências de documentação.</p>
 </div>
@@ -124,7 +31,6 @@ def _fmt_num(n: int | float) -> str:
 
 
 def _count_exact(table: str, filters: list | None = None) -> int:
-    """Contagem real via PostgREST (sem teto de 1000 linhas)."""
     try:
         q = supabase.table(table).select("id", count="exact").limit(1)
         if filters:
@@ -196,14 +102,17 @@ def _apply_layout(fig, title: str):
         title=dict(text=title, font=dict(size=14, color=_PLOT_TITLE)),
         legend=dict(font=dict(color=_PLOT_FONT)),
     )
-    fig.update_xaxes(gridcolor="rgba(128,128,128,0.2)", zerolinecolor="rgba(128,128,128,0.2)")
-    fig.update_yaxes(gridcolor="rgba(128,128,128,0.2)", zerolinecolor="rgba(128,128,128,0.2)")
+    fig.update_xaxes(
+        gridcolor="rgba(128,128,128,0.2)", zerolinecolor="rgba(128,128,128,0.2)"
+    )
+    fig.update_yaxes(
+        gridcolor="rgba(128,128,128,0.2)", zerolinecolor="rgba(128,128,128,0.2)"
+    )
     return fig
 
 
 @st.cache_data(ttl=60)
 def carregar_dados_dashboard(ct_id: str | None = None):
-    """KPIs e turmas. Com ct_id, restringe ao CT do usuário."""
     filtros_turma: list = []
     if ct_id:
         filtros_turma.append(("ct_id", "eq", ct_id))
@@ -265,9 +174,9 @@ with st.spinner("Atualizando indicadores..."):
 
 if dados.get("ct_id"):
     _nome_ct = dados.get("ct_nome") or "seu CT"
-    st.caption(f"📍 Dashboard filtrado pelo CT **{_nome_ct}** (vinculado ao seu usuário).")
+    st.caption(f"Dashboard filtrado pelo CT **{_nome_ct}** (vinculado ao seu usuário).")
 else:
-    st.caption("📍 Dashboard geral — todos os CTs.")
+    st.caption("Dashboard geral — todos os CTs.")
 
 df_turmas = pd.DataFrame(dados["turmas"])
 total_empresas = dados["total_empresas"]
@@ -346,7 +255,7 @@ pendentes_hoje = df_turmas[
     & (df_turmas["documento_emitido"] == False)
 ]
 
-st.markdown('<div class="section-title">Operação no período</div>', unsafe_allow_html=True)
+st.markdown('<div class="df-section-title">Operação no período</div>', unsafe_allow_html=True)
 p1, p2, p3, p4 = st.columns(4)
 with p1:
     st.metric("Turmas neste mês", len(df_mes))
@@ -358,7 +267,7 @@ with p4:
     st.metric("Taxa de emissão", f"{taxa_emissao}%")
 
 st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
-st.markdown('<div class="section-title">Análise de turmas</div>', unsafe_allow_html=True)
+st.markdown('<div class="df-section-title">Análise de turmas</div>', unsafe_allow_html=True)
 
 col_g1, col_g2 = st.columns(2)
 

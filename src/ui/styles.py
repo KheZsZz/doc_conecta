@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import streamlit as st
 
-_ consolidating: = None  # keep module simple
-
 
 def aplicar_estilo_global() -> None:
     """Injeta CSS global uma vez por sessão de página."""
@@ -43,7 +41,6 @@ def aplicar_estilo_global() -> None:
   [data-testid="stSidebar"] button:hover {
     background: rgba(255,255,255,0.16) !important;
   }
-  /* Nav ativa */
   [data-testid="stSidebarNav"] a {
     border-radius: 8px;
   }
@@ -117,7 +114,6 @@ def aplicar_estilo_global() -> None:
   .kpi-card.ok .kpi-value { color: #1e7e34; }
   .kpi-card.accent .kpi-value { color: #1a5f9e; }
 
-  /* ---- Espaçamento de formulários ---- */
   div[data-testid="stVerticalBlock"] > div[data-testid="stHorizontalBlock"] {
     gap: 0.75rem;
   }
