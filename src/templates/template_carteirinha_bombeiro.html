@@ -13,36 +13,46 @@
   }
   .page {
     width: 198mm;
-    min-height: 285mm;
-    display: flex;
-    flex-direction: column;
-    gap: 3.5mm;
+    display: block;
+  }
+  .page + .page {
+    break-before: page;
+    page-break-before: always;
   }
   .card {
     width: 100%;
     height: 68mm;
+    margin-bottom: 3.5mm;
     display: flex;
     flex-direction: row;
-    border-radius: 1.5mm;
+    border-radius: 2mm;
     overflow: hidden;
-    border: 0.25mm solid #9aa8b8;
+    border: 0.35mm solid #1a4a7a;
+    background-color: #e8f4fb;
+  }
+  .card:last-child {
+    margin-bottom: 0;
   }
   .side-left {
     width: 52%;
-    background: linear-gradient(180deg, #d6eef8 0%, #eef7fc 55%, #f7fbfd 100%);
-    padding: 2.5mm 3.5mm 2mm 3.5mm;
+    background-color: #e8f4fb;
+    padding: 0 3.5mm 2mm 3.5mm;
     display: flex;
     flex-direction: column;
   }
   .logos-row {
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     gap: 2.5mm;
-    margin-bottom: 1mm;
-    background: #0a2f5c;
+    width: 100%;
+    margin: 0 -3.5mm 1.5mm -3.5mm;
+    padding: 1.8mm 3.5mm;
+    background-color: #0a2f5c;
+    min-height: 11mm;
   }
   .logos-row img {
-    max-height: 9mm;
+    max-height: 8mm;
     max-width: 28mm;
     object-fit: contain;
   }
@@ -50,7 +60,7 @@
     font-size: 6pt;
     color: #2a4a62;
     line-height: 1.15;
-    margin-bottom: 1.5mm;
+    margin-bottom: 1.2mm;
   }
   .titulo-curso {
     font-size: 11pt;
@@ -82,33 +92,36 @@
   .campo { margin-bottom: 1.1mm; }
   .side-right {
     width: 48%;
-    background: linear-gradient(180deg, #d6eef8 0%, #eef7fc 55%, #f7fbfd 100%);
-    padding: 2.5mm 3mm;
+    background-color: #e8f4fb;
+    padding: 0 3mm 2mm 3mm;
     display: flex;
     flex-direction: column;
   }
   .right-title {
-    font-size: 8.5pt;
+    font-size: 8pt;
     font-weight: 800;
     text-align: center;
-    line-height: 1.2;
-    margin-bottom: 1.5mm;
+    line-height: 1.25;
+    margin: 0 -3mm 1.5mm -3mm;
+    padding: 2mm 3mm;
     text-transform: uppercase;
-    color: #fff;
-    background:#0a2f5c;
-    min-height: 9mm;
+    color: #ffffff;
+    background-color: #0a2f5c;
+    min-height: 11mm;
   }
   .right-text {
     font-size: 6.2pt;
     line-height: 1.25;
     text-align: justify;
     flex: 1;
+    color: #1a1a2e;
   }
   .right-escola {
     font-size: 6.5pt;
     font-weight: 700;
     margin-top: 1.5mm;
     text-align: center;
+    color: #0b3d6e;
   }
   .right-assinatura {
     margin-top: 1mm;
@@ -118,10 +131,9 @@
     max-height: 8mm;
     max-width: 38mm;
     object-fit: contain;
-    filter: brightness(0) invert(1);
   }
   .right-assinatura .linha {
-    border-top: 0.3mm solid rgba(0,0,0,0.5);
+    border-top: 0.3mm solid #333333;
     width: 70%;
     margin: 0.5mm auto 0 auto;
   }
@@ -130,7 +142,7 @@
     font-size: 5.8pt;
     line-height: 1.2;
     text-align: center;
-    /* color: #fff; */
+    color: #1a1a2e;
   }
   .rt-dados .rt-nome {
     font-weight: 700;
@@ -146,7 +158,7 @@
     <div class="side-left">
       <div class="logos-row">
         {% if LOGO_CONECTA %}
-        <img src="{{ LOGO_CONECTA }}" alt="Conecta" style="z-index: 1;"/>
+        <img src="{{ LOGO_CONECTA }}" alt="Conecta"/>
         {% endif %}
         {% if LOGO_CT %}
         <img src="{{ LOGO_CT }}" alt="CT / ETEPS"/>
@@ -210,7 +222,7 @@
           <div>CPF: {{ card.rt_cpf }}</div>
           {% endif %}
           {% if card.rt_re %}
-          <div>{{ LABEL_RE_INSTRUTOR }}: {{ card.rt_re }}</div>
+          <div>{{ LABEL_RE_INSTRUTOR or "RE" }}: {{ card.rt_re }}</div>
           {% endif %}
         </div>
       </div>
@@ -218,7 +230,6 @@
   </div>
   {% endfor %}
 </div>
-{% if not loop.last %}<div style="page-break-after: always;"></div>{% endif %}
 {% endfor %}
 </body>
 </html>
