@@ -3,9 +3,10 @@
 <head>
 <meta charset="utf-8"/>
 <style>
+  /* Gradiente via SVG: WeasyPrint aplica de forma igual em todos os cards */
   @page { size: A4 portrait; margin: 6mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
+  html, body {
     font-family: Arial, Helvetica, sans-serif;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -13,49 +14,79 @@
   }
   .page {
     width: 198mm;
-    display: block;
   }
   .page + .page {
     break-before: page;
     page-break-before: always;
   }
-  .card {
+
+  table.card {
     width: 100%;
     height: 68mm;
-    margin-bottom: 3.5mm;
-    display: flex;
-    flex-direction: row;
+    border-collapse: collapse;
+    table-layout: fixed;
+    margin: 0 0 3.5mm 0;
+    border: 0.35mm solid #1a4a7a;
     border-radius: 2mm;
     overflow: hidden;
-    border: 0.35mm solid #1a4a7a;
-    background: linear-gradient(180deg, #d6eef8 0%, #eef7fc 55%, #f7fbfd 100%);
   }
-  .card:last-child {
+  table.card:last-child {
     margin-bottom: 0;
   }
-  .side-left {
+
+  td.side {
+    vertical-align: top;
+    height: 68mm;
+    /* cor de fallback + SVG gradient (estável em todos os cards) */
+    background-color: #e8f4fb;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='100' preserveAspectRatio='none'><defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'><stop offset='0%25' stop-color='%23d6eef8'/><stop offset='55%25' stop-color='%23eef7fc'/><stop offset='100%25' stop-color='%23f7fbfd'/></linearGradient></defs><rect width='10' height='100' fill='url(%23g)'/></svg>");
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+  }
+  td.side-left {
     width: 52%;
-    background: linear-gradient(180deg, #d6eef8 0%, #eef7fc 55%, #f7fbfd 100%);
-    padding: 0 3.5mm 2mm 3.5mm;
-    display: flex;
-    flex-direction: column;
+    border-right: 0.45mm dotted #3a5a7a;
   }
-  .logos-row {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 2.5mm;
+  td.side-right {
+    width: 48%;
+  }
+
+  table.inner {
     width: 100%;
-    margin: 0 -3.5mm 1.5mm -3.5mm;
-    padding: 1.8mm 3.5mm;
-    background-color: #0a2f5c;
-    min-height: 11mm;
+    border-collapse: collapse;
+    table-layout: fixed;
   }
-  .logos-row img {
+
+  /* Faixa azul superior — mesma altura nos dois lados, sem margem negativa */
+  td.bar {
+    background-color: #0a2f5c;
+    height: 11mm;
+    vertical-align: middle;
+    padding: 1.5mm 3mm;
+  }
+  td.bar-left {
+    text-align: left;
+  }
+  td.bar-right {
+    text-align: center;
+    color: #ffffff;
+    font-size: 8pt;
+    font-weight: 800;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+  td.bar img {
     max-height: 8mm;
     max-width: 28mm;
-    object-fit: contain;
+    vertical-align: middle;
+    margin-right: 2mm;
   }
+
+  td.body {
+    padding: 2mm 3.2mm 2mm 3.2mm;
+    vertical-align: top;
+  }
+
   .escola-linha {
     font-size: 6pt;
     color: #2a4a62;
@@ -70,13 +101,19 @@
     margin-bottom: 1.5mm;
     text-transform: uppercase;
   }
-  .linha-meta {
-    display: flex;
-    gap: 3mm;
-    margin-bottom: 1.2mm;
-    font-size: 7.5pt;
+  table.meta {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    margin-bottom: 1mm;
   }
-  .linha-meta .item { flex: 1; }
+  table.meta td {
+    vertical-align: top;
+    padding-right: 2mm;
+  }
+  table.meta td:last-child {
+    padding-right: 0;
+  }
   .label {
     font-size: 6.5pt;
     color: #3a4a5a;
@@ -89,48 +126,30 @@
     font-weight: 600;
     padding: 0.3mm 0;
   }
-  .campo { margin-bottom: 1.1mm; }
-  .side-right {
-    width: 48%;
-    background: linear-gradient(180deg, #d6eef8 0%, #eef7fc 55%, #f7fbfd 100%);
-    padding: 0 3mm 2mm 3mm;
-    display: flex;
-    flex-direction: column;
+  .campo {
+    margin-bottom: 1.1mm;
   }
-  .right-title {
-    font-size: 8pt;
-    font-weight: 800;
-    text-align: center;
-    line-height: 1.25;
-    margin: 0 -3mm 1.5mm -3mm;
-    padding: 2mm 3mm;
-    text-transform: uppercase;
-    color: #ffffff;
-    background-color: #0a2f5c;
-    min-height: 11mm;
-  }
+
   .right-text {
     font-size: 6.2pt;
     line-height: 1.25;
     text-align: justify;
-    flex: 1;
     color: #1a1a2e;
+    margin-bottom: 1.5mm;
   }
   .right-escola {
     font-size: 6.5pt;
     font-weight: 700;
-    margin-top: 1.5mm;
     text-align: center;
     color: #0b3d6e;
+    margin-bottom: 1mm;
   }
   .right-assinatura {
-    margin-top: 1mm;
     text-align: center;
   }
   .right-assinatura img {
     max-height: 8mm;
     max-width: 38mm;
-    object-fit: contain;
   }
   .right-assinatura .linha {
     border-top: 0.3mm solid #333333;
@@ -154,80 +173,101 @@
 {% for pagina in paginas %}
 <div class="page">
   {% for card in pagina %}
-  <div class="card">
-    <div class="side-left">
-      <div class="logos-row">
-        {% if LOGO_CONECTA %}
-        <img src="{{ LOGO_CONECTA }}" alt="Conecta"/>
-        {% endif %}
-        {% if LOGO_CT %}
-        <img src="{{ LOGO_CT }}" alt="CT / ETEPS"/>
-        {% endif %}
-      </div>
-      <div class="escola-linha">
-        {{ ESCOLA_LINHA or "Escola Técnica de Especialização e Profissionalização em Segurança" }}
-      </div>
-      <div class="titulo-curso">{{ card.titulo_curso or "BOMBEIRO PROFISSIONAL CIVIL" }}</div>
+  <table class="card">
+    <tr>
+      <!-- FRENTE -->
+      <td class="side side-left">
+        <table class="inner">
+          <tr>
+            <td class="bar bar-left">
+              {% if LOGO_CONECTA %}
+              <img src="{{ LOGO_CONECTA }}" alt="Conecta"/>
+              {% endif %}
+              {% if LOGO_CT %}
+              <img src="{{ LOGO_CT }}" alt="CT"/>
+              {% endif %}
+            </td>
+          </tr>
+          <tr>
+            <td class="body">
+              <div class="escola-linha">
+                {{ ESCOLA_LINHA or "Escola Técnica de Especialização e Profissionalização em Segurança" }}
+              </div>
+              <div class="titulo-curso">{{ card.titulo_curso or "BOMBEIRO PROFISSIONAL CIVIL" }}</div>
 
-      <div class="linha-meta">
-        <div class="item">
-          <span class="label">Cartão nº / RE:</span>
-          <div class="valor">{{ card.numero_cartao }}</div>
-        </div>
-        <div class="item">
-          <span class="label">Data de validade</span>
-          <div class="valor">{{ card.validade }}</div>
-        </div>
-      </div>
+              <table class="meta"><tr>
+                <td>
+                  <div class="label">Cartão nº / RE:</div>
+                  <div class="valor">{{ card.numero_cartao }}</div>
+                </td>
+                <td>
+                  <div class="label">Data de validade</div>
+                  <div class="valor">{{ card.validade }}</div>
+                </td>
+              </tr></table>
 
-      <div class="campo">
-        <span class="label">Nome:</span>
-        <div class="valor">{{ card.nome }}</div>
-      </div>
-      <div class="linha-meta">
-        <div class="item">
-          <span class="label">RG:</span>
-          <div class="valor">{{ card.rg }}</div>
-        </div>
-        <div class="item">
-          <span class="label">CPF:</span>
-          <div class="valor">{{ card.cpf }}</div>
-        </div>
-      </div>
-    </div>
+              <div class="campo">
+                <div class="label">Nome:</div>
+                <div class="valor">{{ card.nome }}</div>
+              </div>
 
-    <div class="side-right">
-      <div class="right-title">
-        {{ card.titulo_verso or "CENTRO DE FORMAÇÃO DE BOMBEIRO CIVIL" }}<br/>
-        {{ card.subtitulo_verso or "ETEPS Conecta" }}
-      </div>
-      <div class="right-text">
-        {{ card.texto_verso or TEXTO_VERSO }}
-      </div>
-      <div class="right-escola">
-        {{ card.escola_credenciada or ESCOLA_CREDENCIADA }}
-      </div>
-      <div class="right-assinatura">
-        {% if card.assinatura %}
-        <img src="{{ card.assinatura }}" alt="assinatura"/>
-        {% else %}
-        <div style="height: 7mm;"></div>
-        {% endif %}
-        <div class="linha"></div>
-        <div class="rt-dados">
-          {% if card.rt_nome %}
-          <div class="rt-nome">{{ card.rt_nome }}</div>
-          {% endif %}
-          {% if card.rt_cpf %}
-          <div>CPF: {{ card.rt_cpf }}</div>
-          {% endif %}
-          {% if card.rt_re %}
-          <div>{{ card.label_re or LABEL_RE_INSTRUTOR or "RE" }}: {{ card.rt_re }}</div>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-  </div>
+              <table class="meta"><tr>
+                <td>
+                  <div class="label">RG:</div>
+                  <div class="valor">{{ card.rg }}</div>
+                </td>
+                <td>
+                  <div class="label">CPF:</div>
+                  <div class="valor">{{ card.cpf }}</div>
+                </td>
+              </tr></table>
+            </td>
+          </tr>
+        </table>
+      </td>
+
+      <!-- VERSO -->
+      <td class="side side-right">
+        <table class="inner">
+          <tr>
+            <td class="bar bar-right">
+              {{ card.titulo_verso or "CENTRO DE FORMAÇÃO DE BOMBEIRO CIVIL" }}<br/>
+              {{ card.subtitulo_verso or "ETEPS Conecta" }}
+            </td>
+          </tr>
+          <tr>
+            <td class="body">
+              <div class="right-text">
+                {{ card.texto_verso or TEXTO_VERSO }}
+              </div>
+              <div class="right-escola">
+                {{ card.escola_credenciada or ESCOLA_CREDENCIADA }}
+              </div>
+              <div class="right-assinatura">
+                {% if card.assinatura %}
+                <img src="{{ card.assinatura }}" alt="assinatura"/>
+                {% else %}
+                <div style="height: 7mm;"></div>
+                {% endif %}
+                <div class="linha"></div>
+                <div class="rt-dados">
+                  {% if card.rt_nome %}
+                  <div class="rt-nome">{{ card.rt_nome }}</div>
+                  {% endif %}
+                  {% if card.rt_cpf %}
+                  <div>CPF: {{ card.rt_cpf }}</div>
+                  {% endif %}
+                  {% if card.rt_re %}
+                  <div>{{ card.label_re or LABEL_RE_INSTRUTOR or "RE" }}: {{ card.rt_re }}</div>
+                  {% endif %}
+                </div>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
   {% endfor %}
 </div>
 {% endfor %}
