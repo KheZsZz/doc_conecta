@@ -28,14 +28,14 @@
     border-radius: 2mm;
     overflow: hidden;
     border: 0.35mm solid #1a4a7a;
-    background-color: #e8f4fb;
+    background: linear-gradient(180deg, #d6eef8 0%, #eef7fc 55%, #f7fbfd 100%);
   }
   .card:last-child {
     margin-bottom: 0;
   }
   .side-left {
     width: 52%;
-    background-color: #e8f4fb;
+    background: linear-gradient(180deg, #d6eef8 0%, #eef7fc 55%, #f7fbfd 100%);
     padding: 0 3.5mm 2mm 3.5mm;
     display: flex;
     flex-direction: column;
@@ -92,7 +92,7 @@
   .campo { margin-bottom: 1.1mm; }
   .side-right {
     width: 48%;
-    background-color: #e8f4fb;
+    background: linear-gradient(180deg, #d6eef8 0%, #eef7fc 55%, #f7fbfd 100%);
     padding: 0 3mm 2mm 3mm;
     display: flex;
     flex-direction: column;
@@ -222,7 +222,7 @@
           <div>CPF: {{ card.rt_cpf }}</div>
           {% endif %}
           {% if card.rt_re %}
-          <div>{{ LABEL_RE_INSTRUTOR or "RE" }}: {{ card.rt_re }}</div>
+          <div>{{ card.label_re or LABEL_RE_INSTRUTOR or "RE" }}: {{ card.rt_re }}</div>
           {% endif %}
         </div>
       </div>
