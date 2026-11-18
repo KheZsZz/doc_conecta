@@ -151,8 +151,16 @@ def gerar_carteirinhas_pdf(
     nivel = turma.get("nivel") or ""
     bombeiro = _eh_curso_bombeiro(curso_nome, curso_sigla)
 
-    fundo = caminho_fundo or ct.get("fundo_carteirinha_url") or ""
-    imagem_fundo = resolver_imagem(fundo)
+    # Bombeiro: layout próprio (template_carteirinha_bombeiro) — NÃO usa fundo do CT.
+    # Demais cursos: mantém fundo cadastrado no CT (comportamento atual).
+    if bombeiro:
+        fundo = (caminho_fundo or "").strip()
+        if nome_template == "template_carteirinha.html":
+            nome_template = "template_carteirinha_bombeiro.html"
+    else:
+        fundo = caminho_fundo or ct.get("fundo_carteirinha_url") or ""
+
+    imagem_fundo = resolver_imagem(fundo) if fundo else ""
     logo_ct = resolver_imagem(ct.get("logo_url"))
     logo_conecta = resolver_imagem(URL_LOGO_CONECTA)
 
@@ -239,7 +247,7 @@ def gerar_carteirinhas_pdf(
         paginas.append(cards[i : i + 4])
 
     template = get_template(caminho_pasta_templates, nome_template)
-    html = template.render( # type: ignore
+    html = template.render(  # type: ignore
         paginas=paginas,
         IMAGEM_FUNDO=imagem_fundo,
         LOGO_CT=logo_ct,
@@ -247,6 +255,7 @@ def gerar_carteirinhas_pdf(
         ESCOLA_LINHA="Escola Técnica de Especialização e Profissionalização em Segurança",
         TEXTO_VERSO=TEXTO_VERSO_BOMBEIRO,
         ESCOLA_CREDENCIADA=escola_credenciada,
+        LABEL_RE_INSTRUTOR="RE",
     )
 
     # Template é A4 portrait — landscape forçava reflow e deixava mais lento
