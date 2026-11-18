@@ -10,7 +10,7 @@ from typing import Any
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML, CSS
 
-from src.utils.pdf_assets import get_template, html_para_pdf, resolver_imagem
+from src.utils.pdf_assets import get_template, html_para_pdf, resolver_imagem, rotulo_registro_profissional
 
 URL_LOGO_CONECTA = (
     "https://vesgrrejcehseygchigh.supabase.co/storage/v1/object/public/logos/logo_conecta_dourado_sem_fundo.png"
@@ -184,7 +184,19 @@ def gerar_carteirinhas_pdf(
     rt_cpf = _fmt_cpf(responsavel.get("cpf") or instrutor.get("cpf") or "")
     rt_re = (responsavel.get("re") or instrutor.get("re") or "").strip()
 
-    escola_credenciada = (ct.get("name") or ct.get("full_name") or "ETEPS Conecta").strip()
+    # Formação do RT (prioridade) ou do instrutor — mesma regra dos certificados
+    formacao_rt = (
+        (responsavel.get("formacao") or "").strip()
+        or (instrutor.get("formacao") or "").strip()
+    )
+    label_re_rt = rotulo_registro_profissional(formacao_rt)
+
+    # Razão social do CT (não nome fantasia)
+    escola_credenciada = (
+        (ct.get("full_name") or "").strip()
+        or (ct.get("name") or "").strip()
+        or "ETEPS Conecta"
+    )
 
     cards: list[dict] = []
     alunos_com_re: list[dict] = []
@@ -214,6 +226,7 @@ def gerar_carteirinhas_pdf(
                     "rt_nome": rt_nome,
                     "rt_cpf": rt_cpf,
                     "rt_re": rt_re,
+                    "label_re": label_re_rt,
                 }
             )
             alunos_com_re.append(
@@ -255,7 +268,7 @@ def gerar_carteirinhas_pdf(
         ESCOLA_LINHA="Escola Técnica de Especialização e Profissionalização em Segurança",
         TEXTO_VERSO=TEXTO_VERSO_BOMBEIRO,
         ESCOLA_CREDENCIADA=escola_credenciada,
-        LABEL_RE_INSTRUTOR="RE",
+        LABEL_RE_INSTRUTOR=label_re_rt,
     )
 
     # Template é A4 portrait — landscape forçava reflow e deixava mais lento
