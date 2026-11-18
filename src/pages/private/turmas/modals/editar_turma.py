@@ -74,10 +74,24 @@ def modal_editar_turma(tid: str):
                 return i
         return 0
 
-    modalidades = ["In Company", "Presencial (Centro de Treinamento)", "EAD", "Semipresencial"]
+    modalidades = [
+        "In Company",
+        "Presencial (Centro de Treinamento)",
+        "EAD",
+        "Semipresencial",
+        "Online",
+        "In Company - Centro de Treinamento",
+    ]
     # Turmas antigas gravadas com o rótulo anterior continuam selecionando a opção certa.
-    _legado_modalidade = {"Presencial (No CT)": "Presencial (Centro de Treinamento)"}
-    niveis = ["Formação", "Básico", "Intermediário", "Avançado", "Reciclagem"]
+    _legado_modalidade = {
+        "Presencial (No CT)": "Presencial (Centro de Treinamento)",
+        "Presencial": "Presencial (Centro de Treinamento)",
+        "CT": "Presencial (Centro de Treinamento)",
+        "In Company - Centro de treinamento": "In Company - Centro de Treinamento",
+        "incompany": "In Company",
+        "InCompany": "In Company",
+    }
+    niveis = ["Formação", "Básico", "Intermediário", "Avançado", "Reciclagem", "Palestra"]
 
     with st.form(f"form_editar_turma_{tid}"):
         titulo = st.text_input(
