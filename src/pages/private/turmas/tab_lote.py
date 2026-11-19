@@ -38,6 +38,8 @@ def render_tab_lote():
 A data também aceita célula de data do Excel. No banco grava em ISO; na tela aparece em `DD/MM/AAAA`.
 
 **Duplicidade:** não cria turma se já existir a mesma combinação **empresa + data + curso + CT**.
+
+Formatos aceitos: **.xlsx**, **.xls**, **.xlsm**.
             """
         )
         st.download_button(
@@ -95,8 +97,8 @@ A data também aceita célula de data do Excel. No banco grava em ISO; na tela a
         ct_id = next(c["id"] for c in cts if c["name"] == ct_label)
 
     uploaded = st.file_uploader(
-        "Planilha de turmas (.xlsx)",
-        type=["xlsx", "xls"],
+        "Planilha de turmas (.xlsx, .xls ou .xlsm)",
+        type=["xlsx", "xls", "xlsm"],
         key="up_turmas_lote",
     )
     if not uploaded:
