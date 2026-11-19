@@ -2,6 +2,10 @@ from datetime import datetime
 import streamlit as st
 from src.config.database import supabase
 from src.pages.private.turmas.helpers import label_empresa
+from src.pages.private.turmas.modals.emitir_documentos.data import (
+    fetch_responsaveis,
+    label_responsavel,
+)
 
 
 def render_tab_cadastrar():
@@ -35,9 +39,12 @@ def render_tab_cadastrar():
 
         cts_dict = {c["name"]: c["id"] for c in cts_res.data} if cts_res.data else {}
 
+        resps = [r for r in fetch_responsaveis() if r.get("is_active", True)]
+        resps_dict = {label_responsavel(r): r.get("id") for r in resps}
+
     except Exception as e:
         st.error(f"Erro ao carregar dados auxiliares: {e}")
-        cursos_dict, instrutores_dict, empresas_dict, cts_dict = {}, {}, {}, {}
+        cursos_dict, instrutores_dict, empresas_dict, cts_dict, resps_dict = {}, {}, {}, {}, {}
 
     with st.form("form_nova_turma", clear_on_submit=True):
         titulo = st.text_input(
@@ -73,6 +80,13 @@ def render_tab_cadastrar():
                 "CT Responsável / Local*",
                 ["(Nenhum CT cadastrado)"] if not cts_dict else list(cts_dict.keys()),
             )
+
+        resp_keys = ["(Automático pelo curso)"] + list(resps_dict.keys())
+        resp_selecionado = st.selectbox(
+            "Responsável Técnico",
+            resp_keys,
+            help="Se deixar automático, usa o RT vinculado ao curso (ou o fallback global).",
+        )
 
         st.markdown("#### Especificações do Treinamento")
         st.caption(
@@ -125,6 +139,11 @@ def render_tab_cadastrar():
                     carga_final_str = (
                         f"{carga_horaria_num} Horas" if carga_horaria_num > 1 else "8 Hora"
                     )
+                    resp_id = (
+                        resps_dict.get(resp_selecionado)
+                        if resp_selecionado and not resp_selecionado.startswith("(Automático")
+                        else None
+                    )
 
                     nova_turma = {
                         "titulo": titulo.strip(),
@@ -137,7 +156,23 @@ def render_tab_cadastrar():
                         "client_id": client_id_val,
                         "ct_id": cts_dict[ct_selecionado],
                     }
-                    supabase.table("turmas").insert(nova_turma).execute()
+                    if resp_id:
+                        nova_turma["responsavel_id"] = resp_id
+
+                    try:
+                        supabase.table("turmas").insert(nova_turma).execute()
+                    except Exception as e_ins:
+                        # coluna responsavel_id ainda não existe no banco
+                        if "responsavel_id" in nova_turma and "responsavel" in str(e_ins).lower():
+                            nova_turma.pop("responsavel_id", None)
+                            supabase.table("turmas").insert(nova_turma).execute()
+                            st.warning(
+                                "Turma salva sem gravar o RT (rode o SQL: "
+                                "ALTER TABLE turmas ADD COLUMN IF NOT EXISTS responsavel_id uuid)."
+                            )
+                        else:
+                            raise
+
                     st.success("Turma aberta com sucesso!")
                     st.balloons()
                     st.rerun()
