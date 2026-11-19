@@ -1,10 +1,15 @@
 import streamlit as st
 import uuid
 from src.config.database import supabase
+from src.pages.private.turmas.modals.emitir_documentos.data import (
+    fetch_cursos_ids_do_responsavel,
+    salvar_cursos_do_responsavel,
+)
 
 st.title("Responsáveis Técnicos")
 st.markdown(
-    "Cadastre os responsáveis técnicos e gerencie suas assinaturas para emissão nos certificados."
+    "Cadastre os responsáveis técnicos, vincule os **cursos** de que são responsáveis "
+    "e gerencie assinaturas para emissão nos certificados."
 )
 
 
@@ -27,7 +32,15 @@ def fazer_upload_assinatura_resp(arquivo_upload, cpf: str):
         return None
 
 
-@st.dialog("Editar Responsável Técnico", width="medium")
+def _carregar_cursos_dict() -> dict[str, str]:
+    try:
+        res = supabase.table("cursos").select("id, name").order("name").execute()
+        return {c["name"]: c["id"] for c in (res.data or []) if c.get("id") and c.get("name")}
+    except Exception:
+        return {}
+
+
+@st.dialog("Editar Responsável Técnico", width="large")
 def modal_editar_responsavel(
     rid: str,
     nome_atual: str,
@@ -37,6 +50,8 @@ def modal_editar_responsavel(
     assinatura_atual: str | None,
     ativo_atual: bool,
     default_atual: bool,
+    cursos_dict: dict[str, str],
+    cursos_vinculados_ids: list[str],
 ):
     with st.form(f"form_edit_resp_{rid}"):
         novo_nome = st.text_input("Nome Completo*", value=nome_atual or "")
@@ -52,6 +67,16 @@ def modal_editar_responsavel(
             help="Ex.: Engenheiro de Segurança do Trabalho, Técnico em Segurança do Trabalho.",
         )
 
+        nomes_cursos = list(cursos_dict.keys())
+        ids_set = set(str(x) for x in (cursos_vinculados_ids or []))
+        default_nomes = [n for n, cid in cursos_dict.items() if str(cid) in ids_set]
+        cursos_sel = st.multiselect(
+            "Cursos sob responsabilidade técnica",
+            options=nomes_cursos,
+            default=default_nomes,
+            help="Este RT será sugerido automaticamente nas turmas desses cursos.",
+        )
+
         st.markdown("---")
         st.write("**Assinatura**")
         if assinatura_atual:
@@ -65,8 +90,9 @@ def modal_editar_responsavel(
 
         novo_ativo = st.checkbox("Responsável ativo", value=bool(ativo_atual))
         novo_default = st.checkbox(
-            "Definir como Responsável Técnico Padrão",
+            "Fallback global (só se o curso não tiver RT vinculado)",
             value=bool(default_atual),
+            help="Não é mais o padrão absoluto: só entra quando o curso da turma não tem RT vinculado.",
         )
 
         salvar = st.form_submit_button(
@@ -104,6 +130,16 @@ def modal_editar_responsavel(
                     supabase.table("responsaveis_tecnicos").update(payload).eq(
                         "id", rid
                     ).execute()
+
+                    try:
+                        ids_sel = [cursos_dict[n] for n in cursos_sel if n in cursos_dict]
+                        salvar_cursos_do_responsavel(rid, ids_sel)
+                    except Exception as e_vinc:
+                        st.warning(
+                            f"Dados salvos, mas vínculos de curso falharam: {e_vinc}. "
+                            "Confira se a tabela responsavel_cursos existe no Supabase."
+                        )
+
                     st.success("Responsável Técnico atualizado!")
                     st.rerun()
                 except Exception as e:
@@ -118,6 +154,8 @@ def modal_editar_responsavel(
 tab_listar, tab_cadastrar = st.tabs(
     ["Responsáveis Cadastrados", "Novo Responsável Técnico"]
 )
+
+cursos_dict_global = _carregar_cursos_dict()
 
 with tab_listar:
     try:
@@ -138,9 +176,13 @@ with tab_listar:
                 is_active = resp.get("is_active", True)
                 is_default = resp.get("is_default", False)
                 assinatura_url = resp.get("assinatura_url")
+                cursos_ids = fetch_cursos_ids_do_responsavel(rid)
+                nomes_vinc = [
+                    n for n, cid in cursos_dict_global.items() if str(cid) in set(cursos_ids)
+                ]
 
                 status_str = "Ativo" if is_active else "Inativo"
-                default_str = "(Padrão)" if is_default else ""
+                default_str = "(Fallback global)" if is_default else ""
 
                 with st.container(border=True):
                     col1, col2, col3 = st.columns([3, 1, 1.5])
@@ -153,6 +195,10 @@ with tab_listar:
                             linha += f" | **Formação:** {formacao_val}"
                         linha += f" | Status: {status_str}"
                         st.markdown(linha)
+                        if nomes_vinc:
+                            st.caption("Cursos: " + ", ".join(nomes_vinc[:8]) + ("…" if len(nomes_vinc) > 8 else ""))
+                        else:
+                            st.caption("Nenhum curso vinculado.")
                     with col2:
                         if assinatura_url:
                             st.image(assinatura_url, width=120)
@@ -173,11 +219,13 @@ with tab_listar:
                                 assinatura_url,
                                 is_active,
                                 is_default,
+                                cursos_dict_global,
+                                cursos_ids,
                             )
 
                         if not is_default:
                             if st.button(
-                                "Definir como Padrão",
+                                "Definir fallback",
                                 key=f"def_{rid}",
                                 use_container_width=True,
                             ):
@@ -202,6 +250,12 @@ with tab_listar:
                         if st.button(
                             "Excluir", key=f"del_{rid}", use_container_width=True
                         ):
+                            try:
+                                supabase.table("responsavel_cursos").delete().eq(
+                                    "responsavel_id", rid
+                                ).execute()
+                            except Exception:
+                                pass
                             supabase.table("responsaveis_tecnicos").delete().eq(
                                 "id", rid
                             ).execute()
@@ -225,7 +279,15 @@ with tab_cadastrar:
             "Formação / Especialização",
             help="Ex.: Engenheiro de Segurança do Trabalho, Técnico em Segurança do Trabalho.",
         )
-        is_default_new = st.checkbox("Definir como Responsável Técnico Padrão")
+        cursos_sel_new = st.multiselect(
+            "Cursos sob responsabilidade técnica",
+            options=list(cursos_dict_global.keys()),
+            help="Este RT será sugerido automaticamente nas turmas desses cursos.",
+        )
+        is_default_new = st.checkbox(
+            "Fallback global (só se o curso não tiver RT vinculado)",
+            help="Não é mais o padrão absoluto: só entra quando o curso da turma não tem RT vinculado.",
+        )
 
         st.markdown("**Assinatura Digitalizada (PNG sem fundo recomendada):**")
         arquivo_assinatura = st.file_uploader(
@@ -282,9 +344,27 @@ with tab_cadastrar:
                         }
 
                         try:
-                            supabase.table("responsaveis_tecnicos").insert(
-                                payload
-                            ).execute()
+                            ins = (
+                                supabase.table("responsaveis_tecnicos")
+                                .insert(payload)
+                                .execute()
+                            )
+                            novo_id = None
+                            if ins and ins.data:
+                                novo_id = ins.data[0].get("id")
+                            if novo_id and cursos_sel_new:
+                                try:
+                                    ids_sel = [
+                                        cursos_dict_global[n]
+                                        for n in cursos_sel_new
+                                        if n in cursos_dict_global
+                                    ]
+                                    salvar_cursos_do_responsavel(novo_id, ids_sel)
+                                except Exception as e_vinc:
+                                    st.warning(
+                                        f"RT salvo, mas vínculos de curso falharam: {e_vinc}. "
+                                        "Rode o SQL da tabela responsavel_cursos no Supabase."
+                                    )
                             st.success("Responsável Técnico cadastrado com sucesso!")
                             st.rerun()
                         except Exception as e:
