@@ -4,13 +4,13 @@ from __future__ import annotations
 import io
 import zipfile
 
-import pandas as pd
 import streamlit as st
 
 from src.utils.atestado import gerar_atestado_pdf_de_arquivo
 from src.utils.certificado_empresa import gerar_certificado_empresa_pdf
 from src.utils.certificado import gerar_certificados_pdf, gerar_certificados_pdf_zip
 from src.utils.carteirinha import gerar_carteirinhas_pdf
+from src.utils.lista_presenca_excel import gerar_lista_presenca_xlsx
 from src.pages.private.turmas.helpers import formatar_data_extenso
 
 from .data import (
@@ -82,7 +82,7 @@ def gerar_documentacao_completa(
             else "Certificados dos alunos (PDF único)"
         ),
         "Carteirinhas (PDF)",
-        "Lista de Presença (.xlsx)",
+        "Lista de Presença (.xlsx — layout Conecta)",
     ]
     if exige_atestado:
         incluidos.insert(0, "Atestado de Brigada")
@@ -279,15 +279,12 @@ def gerar_documentacao_completa(
                     erros.append(f"Carteirinhas: {e}")
 
                 try:
-                    df = pd.DataFrame(alunos_lista)
-                    xlsx_buf = io.BytesIO()
-                    with pd.ExcelWriter(xlsx_buf, engine="openpyxl") as writer:
-                        df.to_excel(
-                            writer, index=False, sheet_name="Lista de Presença"
-                        )
-                    zf.writestr(
-                        f"{base}/05_lista_presenca.xlsx", xlsx_buf.getvalue()
+                    xlsx_lista = gerar_lista_presenca_xlsx(
+                        alunos=alunos_lista,
+                        empresa=empresa_data,
+                        data_treinamento=data_trein,
                     )
+                    zf.writestr(f"{base}/05_lista_presenca.xlsx", xlsx_lista)
                     gerados.append("Lista de Presença")
                 except Exception as e:
                     erros.append(f"Lista de Presença: {e}")
