@@ -18,6 +18,7 @@ from src.pages.private.turmas.modals.emitir_documentos.alunos import (
 from src.pages.private.turmas.modals.emitir_documentos.data import (
     fetch_responsaveis,
     resolver_cidade,
+    resolver_responsavel,
 )
 from src.utils.atestado import gerar_atestado_pdf_de_arquivo
 from src.utils.carteirinha import gerar_carteirinhas_pdf
@@ -71,24 +72,8 @@ def turmas_do_ct_na_data(ct_id: str, data_ref: date | str) -> list[dict]:
 
 
 def responsavel_padrao() -> dict:
-    resps = fetch_responsaveis()
-    ativos = [r for r in resps if r.get("is_active", True)]
-    if not ativos:
-        return {
-            "nome": "Cristiano Reis",
-            "cpf": "214.135.358-01",
-            "re": "0075191",
-            "formacao": "",
-            "assinatura_url": None,
-        }
-    escolhido = next((r for r in ativos if r.get("is_default")), ativos[0])
-    return {
-        "nome": escolhido.get("nome") or "",
-        "cpf": escolhido.get("cpf") or "",
-        "re": (escolhido.get("re") or "").strip(),
-        "formacao": (escolhido.get("formacao") or "").strip(),
-        "assinatura_url": escolhido.get("assinatura_url"),
-    }
+    """Fallback global (is_default). Preferir resolver_responsavel por curso/turma."""
+    return resolver_responsavel()
 
 
 def _montar_turma_cert(turma: dict, curso: dict, dados_resp: dict) -> dict:
@@ -261,6 +246,7 @@ def _gerar_uma_turma(
                 carga_horaria=carga,
                 data_conclusao=data_t,
                 instrutor=instrutor,
+                responsavel=dados_resp,
                 ct=ct or None,
             )
             return pdf, None, None
@@ -282,12 +268,9 @@ def gerar_pdf_tipo(
     tipo: cert_alunos | cert_empresa | atestado | carteirinhas
     Retorna (pdf_bytes|None, avisos, erros)
 
-    Otimizações:
-    - prefetch de cursos/instrutores/empresas/matrículas em lote
-      (pode ser passado em `prefetch` para reaproveitar entre vários tipos)
-    - geração de PDF das turmas em paralelo (ThreadPool)
+    RT por turma: turma.responsavel_id → vínculo do curso → is_default.
+    Se `dados_resp` for passado explicitamente, força o mesmo RT em todas.
     """
-    dados_resp = dados_resp or responsavel_padrao()
     avisos: list[str] = []
     erros: list[str] = []
 
@@ -309,12 +292,17 @@ def gerar_pdf_tipo(
             avisos.append(f"{titulo}: sem alunos — ignorada.")
             continue
 
+        resp_turma = dados_resp or resolver_responsavel(
+            curso_id=turma.get("curso_id"),
+            responsavel_id=turma.get("responsavel_id"),
+        )
+
         jobs.append(
             {
                 "tipo": tipo,
                 "turma": turma,
                 "ct": ct,
-                "dados_resp": dados_resp,
+                "dados_resp": resp_turma,
                 "curso": curso,
                 "instrutor": instrutor,
                 "empresa": empresa,
@@ -390,7 +378,6 @@ def gerar_zip_documentacao_completa(
     if not turmas:
         return None, avisos, erros
 
-    dados_resp = dados_resp or responsavel_padrao()
     prefetch = _prefetch_maps(turmas)  # uma única carga para os 4 tipos
     di = data_ref.strftime("%Y%m%d") if hasattr(data_ref, "strftime") else str(data_ref)[:10].replace("-", "")
 
