@@ -143,6 +143,123 @@ def fetch_responsaveis() -> list[dict]:
     return lista
 
 
+def fetch_cursos_ids_do_responsavel(responsavel_id: str | None) -> list[str]:
+    """IDs de cursos vinculados ao RT (tabela responsavel_cursos)."""
+    if not responsavel_id:
+        return []
+    try:
+        res = (
+            supabase.table("responsavel_cursos")
+            .select("curso_id")
+            .eq("responsavel_id", responsavel_id)
+            .execute()
+        )
+        return [str(r["curso_id"]) for r in (res.data or []) if r.get("curso_id")]
+    except Exception:
+        return []
+
+
+def salvar_cursos_do_responsavel(responsavel_id: str, curso_ids: list[str]) -> None:
+    """Substitui os vínculos do RT com a lista de cursos informada."""
+    if not responsavel_id:
+        return
+    ids = [str(c) for c in (curso_ids or []) if c]
+    # remove vínculos atuais
+    try:
+        supabase.table("responsavel_cursos").delete().eq(
+            "responsavel_id", responsavel_id
+        ).execute()
+    except Exception:
+        pass
+    if not ids:
+        return
+    rows = [{"responsavel_id": responsavel_id, "curso_id": cid} for cid in ids]
+    supabase.table("responsavel_cursos").insert(rows).execute()
+
+
+def fetch_responsaveis_do_curso(curso_id: str | None) -> list[dict]:
+    """RTs ativos vinculados ao curso (via responsavel_cursos)."""
+    if not curso_id:
+        return []
+    try:
+        res = (
+            supabase.table("responsavel_cursos")
+            .select("responsavel_id")
+            .eq("curso_id", curso_id)
+            .execute()
+        )
+        ids = [str(r["responsavel_id"]) for r in (res.data or []) if r.get("responsavel_id")]
+    except Exception:
+        return []
+    if not ids:
+        return []
+    todos = fetch_responsaveis()
+    ativos = [r for r in todos if r.get("is_active", True) and str(r.get("id")) in ids]
+    return ativos
+
+
+def dados_resp_de_registro(r: dict | None) -> dict:
+    r = r or {}
+    return {
+        "id": r.get("id"),
+        "nome": r.get("nome") or "",
+        "cpf": r.get("cpf") or "",
+        "re": (r.get("re") or "").strip(),
+        "formacao": (r.get("formacao") or "").strip(),
+        "assinatura_url": r.get("assinatura_url"),
+    }
+
+
+def resolver_responsavel(
+    *,
+    curso_id: str | None = None,
+    responsavel_id: str | None = None,
+) -> dict:
+    """Resolve o RT na ordem: id explícito → vínculo do curso → is_default → primeiro ativo."""
+    todos = fetch_responsaveis()
+    ativos = [r for r in todos if r.get("is_active", True)]
+
+    if not ativos:
+        return {
+            "id": None,
+            "nome": "Cristiano Reis",
+            "cpf": "214.135.358-01",
+            "re": "0075191",
+            "formacao": "",
+            "assinatura_url": None,
+        }
+
+    if responsavel_id:
+        for r in ativos:
+            if str(r.get("id")) == str(responsavel_id):
+                return dados_resp_de_registro(r)
+
+    if curso_id:
+        do_curso = fetch_responsaveis_do_curso(curso_id)
+        if do_curso:
+            return dados_resp_de_registro(do_curso[0])
+
+    padrao = next((r for r in ativos if r.get("is_default")), None)
+    if padrao:
+        return dados_resp_de_registro(padrao)
+
+    return dados_resp_de_registro(ativos[0])
+
+
+def label_responsavel(r: dict) -> str:
+    nome = r.get("nome") or "Sem Nome"
+    cpf = r.get("cpf") or "N/D"
+    re_val = (r.get("re") or "").strip()
+    formacao = (r.get("formacao") or "").strip()
+    label = f"{nome} (CPF: {cpf}"
+    if re_val:
+        label += f" | RE: {re_val}"
+    if formacao:
+        label += f" | {formacao}"
+    label += ")"
+    return label
+
+
 def resolver_cidade(ct_id: str | None, turma_data: dict) -> str:
     ct_id_resolvido = ct_id or turma_data.get("ct_id")
     ct_data = fetch_ct(ct_id_resolvido)
