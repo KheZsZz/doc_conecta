@@ -1,47 +1,74 @@
 import streamlit as st
-from .data import fetch_responsaveis
+from .data import (
+    fetch_responsaveis,
+    fetch_responsaveis_do_curso,
+    label_responsavel,
+    dados_resp_de_registro,
+    resolver_responsavel,
+)
 
 
-def ui_selecionar_responsavel(tid: str, tipo_documento: str) -> dict:
-    responsaveis = fetch_responsaveis()
+def ui_selecionar_responsavel(
+    tid: str,
+    tipo_documento: str,
+    curso_id: str | None = None,
+    responsavel_id_turma: str | None = None,
+) -> dict:
+    """Select de RT com pré-seleção: turma → vínculo do curso → is_default."""
+    responsaveis = [r for r in fetch_responsaveis() if r.get("is_active", True)]
 
     if not responsaveis:
         st.warning("Nenhum responsável técnico ativo encontrado. Usando padrão.")
-        return {
-            "nome": "Cristiano Reis",
-            "cpf": "214.135.358-01",
-            "re": "0075191",
-            "formacao": "",
-            "assinatura_url": None,
-        }
+        return resolver_responsavel()
 
-    opcoes = {}
-    for r in responsaveis:
-        re_val = (r.get("re") or "").strip()
-        formacao = (r.get("formacao") or "").strip()
-        label = f"{r.get('nome', 'Sem Nome')} (CPF: {r.get('cpf', 'N/D')}"
-        if re_val:
-            label += f" | RE: {re_val}"
-        if formacao:
-            label += f" | {formacao}"
-        label += ")"
-        opcoes[label] = r
+    # Preferidos do curso no topo da lista
+    preferidos_ids: set[str] = set()
+    if curso_id:
+        for r in fetch_responsaveis_do_curso(curso_id):
+            if r.get("id"):
+                preferidos_ids.add(str(r["id"]))
 
-    default_idx = next(
-        (i for i, r in enumerate(responsaveis) if r.get("is_default")), 0
+    ordenados = sorted(
+        responsaveis,
+        key=lambda r: (
+            0 if str(r.get("id")) in preferidos_ids else 1,
+            (r.get("nome") or "").lower(),
+        ),
     )
+
+    opcoes: dict[str, dict] = {}
+    for r in ordenados:
+        lbl = label_responsavel(r)
+        if str(r.get("id")) in preferidos_ids:
+            lbl = f"★ {lbl}"
+        opcoes[lbl] = r
+
+    # índice padrão
+    default_idx = 0
+    if responsavel_id_turma:
+        for i, r in enumerate(ordenados):
+            if str(r.get("id")) == str(responsavel_id_turma):
+                default_idx = i
+                break
+    elif preferidos_ids:
+        for i, r in enumerate(ordenados):
+            if str(r.get("id")) in preferidos_ids:
+                default_idx = i
+                break
+    else:
+        for i, r in enumerate(ordenados):
+            if r.get("is_default"):
+                default_idx = i
+                break
 
     selecionado = st.selectbox(
         "Responsável Técnico Assinante",
         options=list(opcoes.keys()),
         index=default_idx,
         key=f"sel_resp_{tipo_documento}_{tid}",
+        help=(
+            "★ = vinculado ao curso desta turma. "
+            "O padrão global só é usado se o curso não tiver RT vinculado."
+        ),
     )
-    r = opcoes.get(selecionado, {})
-    return {
-        "nome": r.get("nome") or "",
-        "cpf": r.get("cpf") or "",
-        "re": (r.get("re") or "").strip(),
-        "formacao": (r.get("formacao") or "").strip(),
-        "assinatura_url": r.get("assinatura_url"),
-    }
+    return dados_resp_de_registro(opcoes.get(selecionado, {}))
