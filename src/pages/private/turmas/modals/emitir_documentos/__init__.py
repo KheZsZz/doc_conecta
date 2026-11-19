@@ -44,7 +44,12 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
         "Certificados Individuais (Alunos)",
     )
     if precisa_resp:
-        dados_resp = ui_selecionar_responsavel(tid, tipo)
+        dados_resp = ui_selecionar_responsavel(
+            tid,
+            tipo,
+            curso_id=turma_data.get("curso_id"),
+            responsavel_id_turma=turma_data.get("responsavel_id"),
+        )
         st.markdown("---")
 
     if tipo == "Documentação Completa (tudo em ZIP)":
