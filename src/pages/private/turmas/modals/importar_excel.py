@@ -9,8 +9,8 @@ def modal_importar_excel(tid, titulo_turma, client_id, data_treinamento_str, car
     st.write(f"**Turma:** {titulo_turma}")
 
     arquivo_upload = st.file_uploader(
-        "Selecione o arquivo Excel (.xlsx ou .xls)",
-        type=["xlsx", "xls"],
+        "Selecione o arquivo Excel (.xlsx, .xls ou .xlsm)",
+        type=["xlsx", "xls", "xlsm"],
         key=f"up_excel_{tid}",
     )
 
@@ -18,7 +18,8 @@ def modal_importar_excel(tid, titulo_turma, client_id, data_treinamento_str, car
         return
 
     try:
-        df_temp = pd.read_excel(arquivo_upload)
+        # .xlsm (macro) usa o mesmo engine openpyxl
+        df_temp = pd.read_excel(arquivo_upload, engine="openpyxl")
         st.write("Pré-visualização das Colunas Encontradas:")
         st.dataframe(df_temp.head(3), use_container_width=True)
 
