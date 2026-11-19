@@ -5,6 +5,10 @@ import streamlit as st
 
 from src.config.database import supabase
 from src.pages.private.turmas.helpers import label_empresa
+from src.pages.private.turmas.modals.emitir_documentos.data import (
+    fetch_responsaveis,
+    label_responsavel,
+)
 
 
 def _parse_carga_num(carga: str | None) -> int:
@@ -61,6 +65,11 @@ def modal_editar_turma(tid: str):
             empresas_dict[label] = e["id"]
 
         cts_dict = {c["name"]: c["id"] for c in (cts_res.data or [])}
+
+        resps = [r for r in fetch_responsaveis() if r.get("is_active", True)]
+        resps_dict: dict[str, str | None] = {"(Automático pelo curso)": None}
+        for r in resps:
+            resps_dict[label_responsavel(r)] = r.get("id")
     except Exception as e:
         st.error(f"Erro ao carregar dados auxiliares: {e}")
         return
@@ -82,7 +91,6 @@ def modal_editar_turma(tid: str):
         "Online",
         "In Company - Centro de Treinamento",
     ]
-    # Turmas antigas gravadas com o rótulo anterior continuam selecionando a opção certa.
     _legado_modalidade = {
         "Presencial (No CT)": "Presencial (Centro de Treinamento)",
         "Presencial": "Presencial (Centro de Treinamento)",
@@ -138,6 +146,14 @@ def modal_editar_turma(tid: str):
                 index=_idx_por_id(cts_dict, turma.get("ct_id")) if cts_dict else 0,
             )
 
+        resp_keys = list(resps_dict.keys())
+        resp_selecionado = st.selectbox(
+            "Responsável Técnico",
+            resp_keys,
+            index=_idx_por_id(resps_dict, turma.get("responsavel_id")),
+            help="Se deixar automático, usa o RT vinculado ao curso (ou o fallback global).",
+        )
+
         st.markdown("#### Especificações do Treinamento")
         st.caption(
             "O **Nível** é da **turma** e é o valor impresso nos certificados."
@@ -190,8 +206,19 @@ def modal_editar_turma(tid: str):
                         "instrutor_id": instrutores_dict[instrutor_selecionado],
                         "client_id": empresas_dict.get(empresa_selecionada),
                         "ct_id": cts_dict[ct_selecionado],
+                        "responsavel_id": resps_dict.get(resp_selecionado),
                     }
-                    supabase.table("turmas").update(payload).eq("id", tid).execute()
+                    try:
+                        supabase.table("turmas").update(payload).eq("id", tid).execute()
+                    except Exception as e_upd:
+                        if "responsavel" in str(e_upd).lower():
+                            payload.pop("responsavel_id", None)
+                            supabase.table("turmas").update(payload).eq("id", tid).execute()
+                            st.warning(
+                                "Turma atualizada sem gravar o RT (rode o SQL da coluna responsavel_id)."
+                            )
+                        else:
+                            raise
                     st.success("Turma atualizada com sucesso!")
                     st.rerun()
                 except Exception as e:
