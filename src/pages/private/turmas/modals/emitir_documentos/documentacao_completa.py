@@ -9,7 +9,7 @@ import streamlit as st
 
 from src.utils.atestado import gerar_atestado_pdf_de_arquivo
 from src.utils.certificado_empresa import gerar_certificado_empresa_pdf
-from src.utils.certificado import gerar_certificados_pdf_zip
+from src.utils.certificado import gerar_certificados_pdf, gerar_certificados_pdf_zip
 from src.utils.carteirinha import gerar_carteirinhas_pdf
 from src.pages.private.turmas.helpers import formatar_data_extenso
 
@@ -58,9 +58,29 @@ def gerar_documentacao_completa(
     curso_nome = curso_data.get("name") or "Treinamento"
     data_trein = str(turma_data.get("data_treinamento") or "")
 
+    formato_cert = st.radio(
+        "Certificados dos alunos",
+        options=[
+            "PDF único (todos juntos)",
+            "ZIP (um PDF por aluno)",
+        ],
+        index=0,
+        horizontal=True,
+        key=f"doc_completa_fmt_cert_{tid}",
+        help=(
+            "PDF único: um arquivo com todos os certificados. "
+            "ZIP: um PDF separado por aluno."
+        ),
+    )
+    cert_como_zip = formato_cert.startswith("ZIP")
+
     incluidos = [
         "Certificado da Empresa",
-        "Certificados Individuais (ZIP interno)",
+        (
+            "Certificados dos alunos (ZIP interno)"
+            if cert_como_zip
+            else "Certificados dos alunos (PDF único)"
+        ),
         "Carteirinhas (PDF)",
         "Lista de Presença (.xlsx)",
     ]
@@ -218,7 +238,7 @@ def gerar_documentacao_completa(
                     erros.append(f"Certificado Empresa: {e}")
 
                 try:
-                    zip_alunos = gerar_certificados_pdf_zip(
+                    kwargs_cert = dict(
                         alunos_matriculas=alunos_cert,
                         turma=turma_cert,
                         instrutor=instrutor_data,
@@ -227,12 +247,20 @@ def gerar_documentacao_completa(
                         normativa=normativa,
                         cidade_data=cidade_data,
                     )
-                    zf.writestr(
-                        f"{base}/03_certificados_individuais.zip", zip_alunos
-                    )
-                    gerados.append("Certificados Individuais")
+                    if cert_como_zip:
+                        zip_alunos = gerar_certificados_pdf_zip(**kwargs_cert)
+                        zf.writestr(
+                            f"{base}/03_certificados_individuais.zip", zip_alunos
+                        )
+                        gerados.append("Certificados (ZIP)")
+                    else:
+                        pdf_alunos = gerar_certificados_pdf(**kwargs_cert)
+                        zf.writestr(
+                            f"{base}/03_certificados_alunos.pdf", pdf_alunos
+                        )
+                        gerados.append("Certificados (PDF único)")
                 except Exception as e:
-                    erros.append(f"Certificados Individuais: {e}")
+                    erros.append(f"Certificados dos alunos: {e}")
 
                 try:
                     pdf_cart, _alunos_re = gerar_carteirinhas_pdf(
@@ -242,6 +270,7 @@ def gerar_documentacao_completa(
                         carga_horaria=carga,
                         data_conclusao=data_trein,
                         instrutor=instrutor_data,
+                        responsavel=dados_resp,
                         ct=ct_data or None,
                     )
                     zf.writestr(f"{base}/04_carteirinhas.pdf", pdf_cart)
