@@ -175,7 +175,7 @@ else:
         label = ROLE_LABELS.get(role, role)
         st.markdown(f"**{email}**")
         st.caption(f"Perfil: {label}")
-        if st.button("Sair", width="stretch"):
+        if st.button("Sair", use_container_width=True):
             st.session_state.user = None
             st.session_state.perfil = None
             st.session_state.role = None
