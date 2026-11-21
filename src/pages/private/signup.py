@@ -62,7 +62,7 @@ def _label_para_role(label: str) -> str:
     return ROLE_OPERACIONAL
 
 
-@st.dialog("Editar Usuário", width="medium")
+@st.dialog("Editar Usuário", width="large")
 def modal_editar_usuario(
     usuario_id,
     nome_atual,
