@@ -29,7 +29,7 @@ with st.form("form_alterar_senha", clear_on_submit=True):
     nova_senha = st.text_input("Nova senha*", type="password")
     confirmar = st.text_input("Confirmar nova senha*", type="password")
 
-    enviar = st.form_submit_button("Salvar nova senha", type="primary", width="stretch")
+    enviar = st.form_submit_button("Salvar nova senha", type="primary", use_container_width=True)
 
     if enviar:
         if not senha_atual or not nova_senha or not confirmar:
@@ -54,7 +54,7 @@ with st.form("form_alterar_senha", clear_on_submit=True):
 st.markdown("---")
 st.subheader("Sair")
 
-if st.button("Logout", type="primary", width="stretch"):
+if st.button("Logout", type="primary", use_container_width=True):
     st.session_state.user = None
     st.session_state.perfil = None
     st.session_state.role = None
