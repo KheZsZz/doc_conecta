@@ -42,7 +42,7 @@ st.markdown(
     """
 <div class="df-login-wrap">
   <div class="df-login-brand">
-    <h1>DocFacil Conecta</h1>
+    <h1>DocFacil</h1>
     <p>Acesse com seu e-mail institucional</p>
   </div>
 </div>
@@ -66,7 +66,11 @@ with col:
     with st.form("form_login", border=True):
         email = st.text_input("E-mail", placeholder="seu@email.com")
         senha = st.text_input("Senha", type="password", placeholder="••••••••")
-        submit = st.form_submit_button("Entrar", type="primary", width="stretch")
+        submit = st.form_submit_button(
+            "Entrar",
+            type="primary",
+            use_container_width=True
+        )
 
         if submit:
             if not email or not senha:
