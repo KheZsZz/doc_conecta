@@ -10,7 +10,7 @@ tab_listar, tab_cadastrar = st.tabs(["Cursos cadastrados", "Novo curso"])
 # ==========================================
 # 1. MODAL / POPUP DE EDIÇÃO DO CURSO
 # ==========================================
-@st.dialog("Editar Curso", width="medium")
+@st.dialog("Editar Curso", width="large")
 def modal_editar_curso(
     curso_id,
     nome_atual,
@@ -67,7 +67,7 @@ def modal_editar_curso(
         )
 
         salvar = st.form_submit_button(
-            "Salvar alterações", type="primary", width="stretch"
+            "Salvar alterações", type="primary", use_container_width=True
         )
 
         if salvar:
@@ -155,7 +155,7 @@ with tab_listar:
                                 "Editar",
                                 key=f"edit_curso_{cid}",
                                 help="Editar curso",
-                                width="stretch",
+                                use_container_width=True,
                             ):
                                 modal_editar_curso(
                                     cid,
