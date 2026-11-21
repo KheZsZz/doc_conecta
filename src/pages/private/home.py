@@ -137,7 +137,6 @@ def carregar_base_dashboard(ct_fixado: str | None = None):
         filters=filtros or None,
     )
 
-    # fallback se joins pesados falharem
     if not turmas:
         turmas = _fetch_all(
             "turmas",
@@ -171,18 +170,33 @@ def _contagem_matriculas(turma_ids: list[str]) -> int:
     return total
 
 
-def _parse_carga_num(val) -> float:
-    if val is None:
-        return 0.0
-    if isinstance(val, (int, float)):
-        return float(val)
-    s = str(val)
-    digs = "".join(ch for ch in s if ch.isdigit() or ch in ",.")
-    digs = digs.replace(",", ".")
-    try:
-        return float(digs) if digs else 0.0
-    except Exception:
-        return 0.0
+def _mapa_matriculas_por_turma(turma_ids: list[str]) -> dict[str, int]:
+    """Conta matrículas por turma_id (lote)."""
+    contagem: dict[str, int] = {tid: 0 for tid in turma_ids}
+    if not turma_ids:
+        return contagem
+    for i in range(0, len(turma_ids), 80):
+        lote = turma_ids[i : i + 80]
+        try:
+            res = (
+                supabase.table("matriculas")
+                .select("turma_id")
+                .in_("turma_id", lote)
+                .execute()
+            )
+            for row in res.data or []:
+                tid = str(row.get("turma_id") or "")
+                if tid in contagem:
+                    contagem[tid] += 1
+        except Exception:
+            pass
+    return contagem
+
+
+def _set_periodo(di: date, dfim: date):
+    """Atualiza session_state dos date_inputs (keys dos widgets)."""
+    st.session_state["dash_input_di"] = di
+    st.session_state["dash_input_df"] = dfim
 
 
 # ---------------------------------------------------------------------------
@@ -200,15 +214,11 @@ if df.empty:
     st.info("Nenhuma turma cadastrada ainda para gerar o painel.")
     st.stop()
 
-# colunas derivadas
 df["data_treinamento"] = pd.to_datetime(df["data_treinamento"], errors="coerce")
 df["data_date"] = df["data_treinamento"].dt.date
 df["mes_ano"] = df["data_treinamento"].dt.strftime("%m/%Y")
-df["nome_curso"] = df["cursos"].apply(lambda x: _nome_join(x, "name")) if "cursos" in df.columns else "N/D"
-df["sigla_curso"] = (
-    df["cursos"].apply(lambda x: _nome_join(x, "sigla") if isinstance(x, dict) else "")
-    if "cursos" in df.columns
-    else ""
+df["nome_curso"] = (
+    df["cursos"].apply(lambda x: _nome_join(x, "name")) if "cursos" in df.columns else "N/D"
 )
 df["nome_empresa"] = (
     df["clients"].apply(lambda x: _nome_join(x, "name")) if "clients" in df.columns else "N/D"
@@ -218,7 +228,9 @@ df["grupo_id"] = (
     if "clients" in df.columns
     else None
 )
-df["nome_grupo"] = df["grupo_id"].map(lambda g: mapa_grupo.get(g) if g else "— Sem grupo —")
+df["nome_grupo"] = df["grupo_id"].map(
+    lambda g: mapa_grupo.get(g) if g else "— Sem grupo —"
+)
 df["nome_instrutor"] = (
     df["instrutores"].apply(lambda x: _nome_join(x, "name"))
     if "instrutores" in df.columns
@@ -228,101 +240,107 @@ df["nome_ct"] = (
     df["cts"].apply(lambda x: _nome_join(x, "name")) if "cts" in df.columns else "N/D"
 )
 df["Status"] = df["documento_emitido"].map({True: "Emitido", False: "Pendente"})
-df["carga_num"] = df.get("carga_horaria", pd.Series(dtype=object)).apply(_parse_carga_num)
 
 # ---------------------------------------------------------------------------
-# Filtros
+# Filtros (recolhíveis)
 # ---------------------------------------------------------------------------
-st.markdown('<div class="df-section-title">Filtros</div>', unsafe_allow_html=True)
-
 hoje = date.today()
-if "dash_di" not in st.session_state:
-    st.session_state["dash_di"] = hoje.replace(day=1)
-if "dash_df" not in st.session_state:
-    st.session_state["dash_df"] = hoje
 
-c_bt1, c_bt2, c_bt3, c_bt4, c_bt5 = st.columns(5)
-with c_bt1:
-    if st.button("Hoje", use_container_width=True, key="btn_dash_hoje"):
-        st.session_state["dash_di"] = hoje
-        st.session_state["dash_df"] = hoje
-        st.rerun()
-with c_bt2:
-    if st.button("7 dias", use_container_width=True, key="btn_dash_7d"):
-        st.session_state["dash_di"] = hoje - timedelta(days=6)
-        st.session_state["dash_df"] = hoje
-        st.rerun()
-with c_bt3:
-    if st.button("Mês", use_container_width=True, key="btn_dash_mes"):
-        st.session_state["dash_di"] = hoje.replace(day=1)
-        st.session_state["dash_df"] = hoje
-        st.rerun()
-with c_bt4:
-    if st.button("Ano", use_container_width=True, key="btn_dash_ano"):
-        st.session_state["dash_di"] = date(hoje.year, 1, 1)
-        st.session_state["dash_df"] = hoje
-        st.rerun()
-with c_bt5:
-    if st.button("Tudo", use_container_width=True, key="btn_dash_tudo"):
-        dmin = df["data_date"].dropna()
-        st.session_state["dash_di"] = dmin.min() if len(dmin) else hoje
-        st.session_state["dash_df"] = dmin.max() if len(dmin) else hoje
-        st.rerun()
+# defaults dos widgets de data (só na 1ª carga)
+if "dash_input_di" not in st.session_state:
+    st.session_state["dash_input_di"] = hoje.replace(day=1)
+if "dash_input_df" not in st.session_state:
+    st.session_state["dash_input_df"] = hoje
 
-c_d1, c_d2 = st.columns(2)
-with c_d1:
-    data_ini = st.date_input(
-        "Data início*",
-        value=st.session_state["dash_di"],
-        format="DD/MM/YYYY",
-        key="dash_input_di",
+with st.expander("Filtros", expanded=True):
+    c_bt1, c_bt2, c_bt3, c_bt4, c_bt5 = st.columns(5)
+    with c_bt1:
+        if st.button("Hoje", use_container_width=True, key="btn_dash_hoje"):
+            _set_periodo(hoje, hoje)
+            st.rerun()
+    with c_bt2:
+        if st.button("7 dias", use_container_width=True, key="btn_dash_7d"):
+            _set_periodo(hoje - timedelta(days=6), hoje)
+            st.rerun()
+    with c_bt3:
+        if st.button("Mês", use_container_width=True, key="btn_dash_mes"):
+            _set_periodo(hoje.replace(day=1), hoje)
+            st.rerun()
+    with c_bt4:
+        if st.button("Ano", use_container_width=True, key="btn_dash_ano"):
+            _set_periodo(date(hoje.year, 1, 1), hoje)
+            st.rerun()
+    with c_bt5:
+        if st.button("Tudo", use_container_width=True, key="btn_dash_tudo"):
+            dmin = df["data_date"].dropna()
+            _set_periodo(
+                dmin.min() if len(dmin) else hoje,
+                dmin.max() if len(dmin) else hoje,
+            )
+            st.rerun()
+
+    c_d1, c_d2 = st.columns(2)
+    with c_d1:
+        data_ini = st.date_input(
+            "Data início*",
+            format="DD/MM/YYYY",
+            key="dash_input_di",
+        )
+    with c_d2:
+        data_fim = st.date_input(
+            "Data fim*",
+            format="DD/MM/YYYY",
+            key="dash_input_df",
+        )
+
+    if data_ini > data_fim:
+        data_ini, data_fim = data_fim, data_ini
+
+    op_ct = sorted({n for n in df["nome_ct"].dropna().unique() if n and n != "N/D"})
+    op_inst = sorted(
+        {n for n in df["nome_instrutor"].dropna().unique() if n and n != "N/D"}
     )
-with c_d2:
-    data_fim = st.date_input(
-        "Data fim*",
-        value=st.session_state["dash_df"],
-        format="DD/MM/YYYY",
-        key="dash_input_df",
+    op_emp = sorted(
+        {n for n in df["nome_empresa"].dropna().unique() if n and n != "N/D"}
     )
-st.session_state["dash_di"] = data_ini
-st.session_state["dash_df"] = data_fim
-if data_ini > data_fim:
-    data_ini, data_fim = data_fim, data_ini
-
-# opções de dimensão a partir da base (respeitando CT do usuário se houver)
-op_ct = sorted({n for n in df["nome_ct"].dropna().unique() if n and n != "N/D"})
-op_inst = sorted({n for n in df["nome_instrutor"].dropna().unique() if n and n != "N/D"})
-op_emp = sorted({n for n in df["nome_empresa"].dropna().unique() if n and n != "N/D"})
-op_curso = sorted({n for n in df["nome_curso"].dropna().unique() if n and n != "N/D"})
-op_grupo = sorted({n for n in df["nome_grupo"].dropna().unique() if n})
-
-c1, c2, c3 = st.columns(3)
-with c1:
-    if _ct_user:
-        # usuário consulta: CT fixo
-        nome_ct_fix = op_ct[0] if len(op_ct) == 1 else (op_ct[0] if op_ct else "CT vinculado")
-        st.selectbox("CT*", [nome_ct_fix], disabled=True, key="dash_ct_fixed")
-        filt_ct = [nome_ct_fix] if op_ct else []
-        st.caption("CT vinculado ao seu usuário.")
-    else:
-        filt_ct = st.multiselect("CT*", options=op_ct, default=[], key="dash_ct")
-with c2:
-    filt_inst = st.multiselect("Instrutor*", options=op_inst, default=[], key="dash_inst")
-with c3:
-    filt_curso = st.multiselect("Curso*", options=op_curso, default=[], key="dash_curso")
-
-c4, c5 = st.columns(2)
-with c4:
-    filt_emp = st.multiselect("Empresa*", options=op_emp, default=[], key="dash_emp")
-with c5:
-    filt_grupo = st.multiselect(
-        "Grupo empresarial*", options=op_grupo, default=[], key="dash_grupo"
+    op_curso = sorted(
+        {n for n in df["nome_curso"].dropna().unique() if n and n != "N/D"}
     )
+    op_grupo = sorted({n for n in df["nome_grupo"].dropna().unique() if n})
 
-st.caption(
-    "Campos com * filtram o painel. Multiselect vazio = **todos** da dimensão. "
-    "Período é sempre aplicado."
-)
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        if _ct_user:
+            nome_ct_fix = (
+                op_ct[0] if len(op_ct) == 1 else (op_ct[0] if op_ct else "CT vinculado")
+            )
+            st.selectbox("CT*", [nome_ct_fix], disabled=True, key="dash_ct_fixed")
+            filt_ct = [nome_ct_fix] if op_ct else []
+            st.caption("CT vinculado ao seu usuário.")
+        else:
+            filt_ct = st.multiselect("CT*", options=op_ct, default=[], key="dash_ct")
+    with c2:
+        filt_inst = st.multiselect(
+            "Instrutor*", options=op_inst, default=[], key="dash_inst"
+        )
+    with c3:
+        filt_curso = st.multiselect(
+            "Curso*", options=op_curso, default=[], key="dash_curso"
+        )
+
+    c4, c5 = st.columns(2)
+    with c4:
+        filt_emp = st.multiselect(
+            "Empresa*", options=op_emp, default=[], key="dash_emp"
+        )
+    with c5:
+        filt_grupo = st.multiselect(
+            "Grupo empresarial*", options=op_grupo, default=[], key="dash_grupo"
+        )
+
+    st.caption(
+        "Multiselect vazio = **todos** da dimensão. O período é sempre aplicado."
+    )
 
 # ---------------------------------------------------------------------------
 # Aplicar filtros
@@ -344,17 +362,19 @@ dff = df.loc[mask].copy()
 turma_ids = [str(i) for i in dff["id"].tolist() if i]
 with st.spinner("Calculando matrículas do filtro..."):
     total_matriculas = _contagem_matriculas(turma_ids)
+    mapa_mat = _mapa_matriculas_por_turma(turma_ids)
 
 total_turmas = len(dff)
 emitidas = int((dff["documento_emitido"] == True).sum()) if total_turmas else 0
 pendentes = int((dff["documento_emitido"] == False).sum()) if total_turmas else 0
 taxa_emissao = round(100.0 * emitidas / total_turmas, 1) if total_turmas else 0.0
 media_alunos = round(total_matriculas / total_turmas, 1) if total_turmas else 0.0
-pend_atrasadas = int(
-    ((dff["data_date"] < hoje) & (dff["documento_emitido"] == False)).sum()
-) if total_turmas else 0
+pend_atrasadas = (
+    int(((dff["data_date"] < hoje) & (dff["documento_emitido"] == False)).sum())
+    if total_turmas
+    else 0
+)
 empresas_distintas = dff["client_id"].nunique() if total_turmas else 0
-carga_total = float(dff["carga_num"].sum()) if total_turmas else 0.0
 
 st.markdown(
     f"**Período:** {data_ini.strftime('%d/%m/%Y')} → {data_fim.strftime('%d/%m/%Y')} "
@@ -372,7 +392,9 @@ with k1:
     )
 with k2:
     st.markdown(
-        _kpi_html("Matrículas", _fmt_num(total_matriculas), f"Média {media_alunos}/turma"),
+        _kpi_html(
+            "Matrículas", _fmt_num(total_matriculas), f"Média {media_alunos}/turma"
+        ),
         unsafe_allow_html=True,
     )
 with k3:
@@ -396,15 +418,6 @@ with k5:
         unsafe_allow_html=True,
     )
 
-st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
-m1, m2, m3 = st.columns(3)
-with m1:
-    st.metric("Carga horária (soma)", f"{_fmt_num(carga_total)} h")
-with m2:
-    st.metric("Pendentes (filtro)", _fmt_num(pendentes))
-with m3:
-    st.metric("Emitidas (filtro)", _fmt_num(emitidas))
-
 if dff.empty:
     st.warning("Nenhuma turma no período/filtros selecionados.")
     st.stop()
@@ -414,7 +427,6 @@ if dff.empty:
 # ---------------------------------------------------------------------------
 st.markdown('<div class="df-section-title">Análise de turmas</div>', unsafe_allow_html=True)
 
-# --- Turmas por mês (barras empilhadas por CT) — linha inteira ---
 turmas_mes_ct = (
     dff.groupby(["mes_ano", "nome_ct"]).size().reset_index(name="Quantidade")
 )
@@ -464,7 +476,9 @@ with col_g2:
 
 with col_g3:
     top_cursos = (
-        dff.groupby("nome_curso").size().reset_index(name="Quantidade")
+        dff.groupby("nome_curso")
+        .size()
+        .reset_index(name="Quantidade")
         .sort_values("Quantidade", ascending=False)
         .head(10)
     )
@@ -481,12 +495,9 @@ with col_g3:
     )
     st.plotly_chart(fig_curso, use_container_width=True)
 
-# Funil de modalidade — linha inteira ou metade com ranking ao lado
 col_funil, col_side = st.columns([1.2, 1])
 with col_funil:
-    modalidade_counts = (
-        dff["modalidade"].fillna("N/D").value_counts().reset_index()
-    )
+    modalidade_counts = dff["modalidade"].fillna("N/D").value_counts().reset_index()
     modalidade_counts.columns = ["Modalidade", "Quantidade"]
     modalidade_counts = modalidade_counts.sort_values("Quantidade", ascending=False)
     fig_mod = px.funnel(
@@ -501,7 +512,9 @@ with col_funil:
 
 with col_side:
     top_inst = (
-        dff.groupby("nome_instrutor").size().reset_index(name="Quantidade")
+        dff.groupby("nome_instrutor")
+        .size()
+        .reset_index(name="Quantidade")
         .sort_values("Quantidade", ascending=True)
         .tail(10)
     )
@@ -518,7 +531,9 @@ with col_side:
     st.plotly_chart(fig_inst, use_container_width=True)
 
 top_emp = (
-    dff.groupby("nome_empresa").size().reset_index(name="Quantidade")
+    dff.groupby("nome_empresa")
+    .size()
+    .reset_index(name="Quantidade")
     .sort_values("Quantidade", ascending=True)
     .tail(10)
 )
@@ -534,53 +549,83 @@ _apply_layout(fig_emp, "Top empresas (turmas)")
 fig_emp.update_layout(xaxis_title="Quantidade", yaxis_title=None, showlegend=False)
 st.plotly_chart(fig_emp, use_container_width=True)
 
-# ---------------------------------------------------------------------------
-# Pendências = turmas sem documentação emitida (não é cadastro de empresa)
-# ---------------------------------------------------------------------------
-st.markdown(
-    '<div class="df-section-title">Turmas pendentes de documentação</div>',
-    unsafe_allow_html=True,
+# --- Turmas x pessoas (matrículas) — barras laterais ---
+dff = dff.copy()
+dff["n_pessoas"] = dff["id"].astype(str).map(lambda tid: mapa_mat.get(str(tid), 0))
+# agrega por título curto / curso+data para legenda legível
+dff["label_turma"] = dff.apply(
+    lambda r: f"{(r.get('nome_curso') or 'Curso')[:28]} · {r['data_treinamento'].strftime('%d/%m') if pd.notnull(r.get('data_treinamento')) else ''}",
+    axis=1,
 )
-st.caption(
-    "Lista das **turmas** do filtro em que a documentação ainda **não foi emitida** "
-    "(`documento_emitido = false`). Não é lista de empresas faltando cadastro — "
-    "é operação de emissão por turma."
+# top 15 turmas por número de pessoas
+top_pessoas = (
+    dff[["label_turma", "n_pessoas", "titulo"]]
+    .sort_values("n_pessoas", ascending=True)
+    .tail(15)
 )
-df_pend = dff[dff["documento_emitido"] == False].copy()
-if not df_pend.empty:
-    df_pend["Data"] = df_pend["data_treinamento"].dt.strftime("%d/%m/%Y")
-    df_exibicao = (
-        df_pend[
-            [
-                "Data",
-                "titulo",
-                "nome_curso",
-                "nome_empresa",
-                "nome_instrutor",
-                "nome_ct",
-                "modalidade",
-            ]
-        ]
-        .rename(
-            columns={
-                "titulo": "Turma",
-                "nome_curso": "Curso",
-                "nome_empresa": "Empresa",
-                "nome_instrutor": "Instrutor",
-                "nome_ct": "CT",
-                "modalidade": "Modalidade",
-            }
-        )
-        .sort_values("Data", ascending=False)
-    )
-    st.dataframe(df_exibicao, hide_index=True, use_container_width=True, height=360)
+# se muitos zeros, ainda mostra por ordem de pessoas
+fig_pessoas = px.bar(
+    top_pessoas,
+    y="label_turma",
+    x="n_pessoas",
+    orientation="h",
+    text_auto=True,
+    color_discrete_sequence=[_BAR2],
+    hover_data={"titulo": True, "label_turma": False},
+)
+_apply_layout(fig_pessoas, "Turmas × número de pessoas (matrículas)")
+fig_pessoas.update_layout(
+    xaxis_title="Pessoas",
+    yaxis_title=None,
+    showlegend=False,
+    height=420,
+)
+st.plotly_chart(fig_pessoas, use_container_width=True)
 
-    # resumo por empresa (quantas turmas pendentes cada uma tem)
-    resumo_emp = (
-        df_pend.groupby("nome_empresa").size().reset_index(name="Turmas pendentes")
-        .sort_values("Turmas pendentes", ascending=False)
+# ---------------------------------------------------------------------------
+# Pendências (recolhível)
+# ---------------------------------------------------------------------------
+with st.expander("Turmas pendentes de documentação", expanded=True):
+    st.caption(
+        "Turmas do filtro com documentação **ainda não emitida**. "
+        "Colunas: Data, CT, Empresa, Curso, Modalidade, Instrutor."
     )
-    with st.expander("Resumo: empresas com turmas pendentes", expanded=False):
-        st.dataframe(resumo_emp, hide_index=True, use_container_width=True)
-else:
-    st.success("Nenhuma turma pendente de documentação no filtro atual.")
+    df_pend = dff[dff["documento_emitido"] == False].copy()
+    if not df_pend.empty:
+        df_pend["Data"] = df_pend["data_treinamento"].dt.strftime("%d/%m/%Y")
+        df_exibicao = (
+            df_pend[
+                [
+                    "Data",
+                    "nome_ct",
+                    "nome_empresa",
+                    "nome_curso",
+                    "modalidade",
+                    "nome_instrutor",
+                ]
+            ]
+            .rename(
+                columns={
+                    "nome_ct": "CT",
+                    "nome_empresa": "Empresa",
+                    "nome_curso": "Curso",
+                    "modalidade": "Modalidade",
+                    "nome_instrutor": "Instrutor",
+                }
+            )
+            .sort_values("Data", ascending=False)
+        )
+        st.dataframe(
+            df_exibicao, hide_index=True, use_container_width=True, height=360
+        )
+
+        resumo_emp = (
+            df_pend.groupby("nome_empresa")
+            .size()
+            .reset_index(name="Turmas pendentes")
+            .sort_values("Turmas pendentes", ascending=False)
+        )
+        with st.expander("Resumo: empresas com turmas pendentes", expanded=False):
+            st.dataframe(resumo_emp, hide_index=True, use_container_width=True)
+    else:
+        st.success("Nenhuma turma pendente de documentação no filtro atual.")
