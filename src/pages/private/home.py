@@ -1,5 +1,4 @@
 from datetime import date, timedelta
-from calendar import monthrange
 
 import pandas as pd
 import plotly.express as px
@@ -415,25 +414,35 @@ if dff.empty:
 # ---------------------------------------------------------------------------
 st.markdown('<div class="df-section-title">Análise de turmas</div>', unsafe_allow_html=True)
 
-col_g1, col_g2 = st.columns(2)
+# --- Turmas por mês (barras empilhadas por CT) — linha inteira ---
+turmas_mes_ct = (
+    dff.groupby(["mes_ano", "nome_ct"]).size().reset_index(name="Quantidade")
+)
+turmas_mes_ct["data_sort"] = pd.to_datetime(
+    turmas_mes_ct["mes_ano"], format="%m/%Y", errors="coerce"
+)
+turmas_mes_ct = turmas_mes_ct.sort_values("data_sort")
+fig_mes = px.bar(
+    turmas_mes_ct,
+    x="mes_ano",
+    y="Quantidade",
+    color="nome_ct",
+    barmode="group",
+    text_auto=True,
+    labels={"nome_ct": "CT", "mes_ano": "Mês"},
+)
+_apply_layout(fig_mes, "Turmas por mês (por CT)")
+fig_mes.update_layout(
+    xaxis_title=None,
+    yaxis_title="Quantidade",
+    legend_title_text="CT",
+    height=420,
+    margin=dict(l=40, r=20, t=48, b=60),
+)
+fig_mes.update_traces(marker_line_width=0, textposition="outside")
+st.plotly_chart(fig_mes, use_container_width=True)
 
-with col_g1:
-    turmas_por_mes = dff.groupby("mes_ano").size().reset_index(name="Quantidade")
-    turmas_por_mes["data_sort"] = pd.to_datetime(
-        turmas_por_mes["mes_ano"], format="%m/%Y", errors="coerce"
-    )
-    turmas_por_mes = turmas_por_mes.sort_values("data_sort")
-    fig_mes = px.bar(
-        turmas_por_mes,
-        x="mes_ano",
-        y="Quantidade",
-        text_auto=True,
-        color_discrete_sequence=[_BAR],
-    )
-    _apply_layout(fig_mes, "Turmas por mês")
-    fig_mes.update_layout(xaxis_title=None, yaxis_title="Quantidade", showlegend=False)
-    fig_mes.update_traces(marker_line_width=0, textposition="outside")
-    st.plotly_chart(fig_mes, use_container_width=True)
+col_g2, col_g3 = st.columns(2)
 
 with col_g2:
     status_counts = dff["Status"].value_counts().reset_index()
@@ -453,46 +462,44 @@ with col_g2:
     fig_donut.update_traces(textposition="inside", textinfo="percent+label")
     st.plotly_chart(fig_donut, use_container_width=True)
 
-col_g3, col_g4 = st.columns(2)
-
 with col_g3:
     top_cursos = (
         dff.groupby("nome_curso").size().reset_index(name="Quantidade")
-        .sort_values("Quantidade", ascending=True)
-        .tail(10)
+        .sort_values("Quantidade", ascending=False)
+        .head(10)
     )
-    fig_curso = px.bar(
+    fig_curso = px.pie(
         top_cursos,
-        y="nome_curso",
-        x="Quantidade",
-        orientation="h",
-        text_auto=True,
-        color_discrete_sequence=[_BAR2],
+        values="Quantidade",
+        names="nome_curso",
+        hole=0.35,
     )
     _apply_layout(fig_curso, "Top cursos (turmas)")
-    fig_curso.update_layout(xaxis_title="Quantidade", yaxis_title=None, showlegend=False)
+    fig_curso.update_traces(textposition="inside", textinfo="percent+label")
+    fig_curso.update_layout(
+        legend=dict(orientation="h", yanchor="bottom", y=-0.35, x=0.0)
+    )
     st.plotly_chart(fig_curso, use_container_width=True)
 
-with col_g4:
+# Funil de modalidade — linha inteira ou metade com ranking ao lado
+col_funil, col_side = st.columns([1.2, 1])
+with col_funil:
     modalidade_counts = (
         dff["modalidade"].fillna("N/D").value_counts().reset_index()
     )
     modalidade_counts.columns = ["Modalidade", "Quantidade"]
-    modalidade_counts = modalidade_counts.sort_values("Quantidade", ascending=True)
-    fig_mod = px.bar(
+    modalidade_counts = modalidade_counts.sort_values("Quantidade", ascending=False)
+    fig_mod = px.funnel(
         modalidade_counts,
-        y="Modalidade",
         x="Quantidade",
-        orientation="h",
-        text_auto=True,
-        color_discrete_sequence=[_BAR],
+        y="Modalidade",
+        color_discrete_sequence=[_BAR, _BAR2, "#5b9bd5", "#8fbfef", "#c5dff5"],
     )
     _apply_layout(fig_mod, "Distribuição por modalidade")
-    fig_mod.update_layout(xaxis_title="Quantidade", yaxis_title=None, showlegend=False)
+    fig_mod.update_layout(showlegend=False, height=380)
     st.plotly_chart(fig_mod, use_container_width=True)
 
-col_g5, col_g6 = st.columns(2)
-with col_g5:
+with col_side:
     top_inst = (
         dff.groupby("nome_instrutor").size().reset_index(name="Quantidade")
         .sort_values("Quantidade", ascending=True)
@@ -510,34 +517,49 @@ with col_g5:
     fig_inst.update_layout(xaxis_title="Quantidade", yaxis_title=None, showlegend=False)
     st.plotly_chart(fig_inst, use_container_width=True)
 
-with col_g6:
-    top_emp = (
-        dff.groupby("nome_empresa").size().reset_index(name="Quantidade")
-        .sort_values("Quantidade", ascending=True)
-        .tail(10)
-    )
-    fig_emp = px.bar(
-        top_emp,
-        y="nome_empresa",
-        x="Quantidade",
-        orientation="h",
-        text_auto=True,
-        color_discrete_sequence=[_BAR],
-    )
-    _apply_layout(fig_emp, "Top empresas (turmas)")
-    fig_emp.update_layout(xaxis_title="Quantidade", yaxis_title=None, showlegend=False)
-    st.plotly_chart(fig_emp, use_container_width=True)
+top_emp = (
+    dff.groupby("nome_empresa").size().reset_index(name="Quantidade")
+    .sort_values("Quantidade", ascending=True)
+    .tail(10)
+)
+fig_emp = px.bar(
+    top_emp,
+    y="nome_empresa",
+    x="Quantidade",
+    orientation="h",
+    text_auto=True,
+    color_discrete_sequence=[_BAR],
+)
+_apply_layout(fig_emp, "Top empresas (turmas)")
+fig_emp.update_layout(xaxis_title="Quantidade", yaxis_title=None, showlegend=False)
+st.plotly_chart(fig_emp, use_container_width=True)
 
 # ---------------------------------------------------------------------------
-# Tabela de pendências
+# Pendências = turmas sem documentação emitida (não é cadastro de empresa)
 # ---------------------------------------------------------------------------
-st.markdown('<div class="df-section-title">Pendências no filtro</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="df-section-title">Turmas pendentes de documentação</div>',
+    unsafe_allow_html=True,
+)
+st.caption(
+    "Lista das **turmas** do filtro em que a documentação ainda **não foi emitida** "
+    "(`documento_emitido = false`). Não é lista de empresas faltando cadastro — "
+    "é operação de emissão por turma."
+)
 df_pend = dff[dff["documento_emitido"] == False].copy()
 if not df_pend.empty:
     df_pend["Data"] = df_pend["data_treinamento"].dt.strftime("%d/%m/%Y")
     df_exibicao = (
         df_pend[
-            ["Data", "titulo", "nome_curso", "nome_empresa", "nome_instrutor", "nome_ct", "modalidade"]
+            [
+                "Data",
+                "titulo",
+                "nome_curso",
+                "nome_empresa",
+                "nome_instrutor",
+                "nome_ct",
+                "modalidade",
+            ]
         ]
         .rename(
             columns={
@@ -552,5 +574,13 @@ if not df_pend.empty:
         .sort_values("Data", ascending=False)
     )
     st.dataframe(df_exibicao, hide_index=True, use_container_width=True, height=360)
+
+    # resumo por empresa (quantas turmas pendentes cada uma tem)
+    resumo_emp = (
+        df_pend.groupby("nome_empresa").size().reset_index(name="Turmas pendentes")
+        .sort_values("Turmas pendentes", ascending=False)
+    )
+    with st.expander("Resumo: empresas com turmas pendentes", expanded=False):
+        st.dataframe(resumo_emp, hide_index=True, use_container_width=True)
 else:
-    st.success("Nenhuma pendência no filtro atual.")
+    st.success("Nenhuma turma pendente de documentação no filtro atual.")
