@@ -71,11 +71,12 @@ PERMISSOES: dict[str, set[str]] = {
 }
 
 
-def normalizar_role(role: str | None) -> str:
+def normalizar_role(role: str | None) -> str | None:
+    """Retorna role válida ou None (sem privilégios). Nunca eleva a admin."""
     r = (role or "").strip().lower()
     if r in ROLES:
         return r
-    return ROLE_ADMIN
+    return None
 
 
 def carregar_perfil(user_id: str | None) -> dict[str, Any]:
@@ -102,7 +103,7 @@ def sincronizar_perfil_sessao(user) -> dict[str, Any]:
     return perfil
 
 
-def role_atual() -> str:
+def role_atual() -> str | None:
     r = st.session_state.get("role")
     if r in ROLES:
         return r
@@ -112,6 +113,8 @@ def role_atual() -> str:
 
 def tem_permissao(pagina: str) -> bool:
     role = role_atual()
+    if not role:
+        return False
     return pagina in PERMISSOES.get(role, set())
 
 
@@ -125,6 +128,8 @@ def is_consulta() -> bool:
 
 def ct_id_atual() -> str | None:
     """CT vinculado ao usuário (perfil consulta). Admin/operacional retorna None."""
+    if not is_consulta():
+        return None
     perfil = st.session_state.get("perfil") or {}
     cid = perfil.get("ct_id")
     if cid:
@@ -135,5 +140,7 @@ def ct_id_atual() -> str | None:
 def exigir_permissao(pagina: str) -> None:
     if not tem_permissao(pagina):
         st.error("Você não tem permissão para acessar esta página.")
-        st.caption(f"Seu perfil: **{ROLE_LABELS.get(role_atual(), role_atual())}**")
+        role = role_atual()
+        label = ROLE_LABELS.get(role, "sem perfil válido") if role else "sem perfil válido"
+        st.caption(f"Seu perfil: **{label}**")
         st.stop()
