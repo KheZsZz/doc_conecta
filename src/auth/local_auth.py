@@ -11,7 +11,20 @@ from typing import Any
 
 from src.config.database import supabase
 
-_APP_PEPPER = "doc_conecta_v1"
+MIN_PASSWORD_LEN = 12
+
+
+def _app_pepper() -> str:
+    try:
+        import streamlit as st
+
+        p = st.secrets.get("AUTH_PEPPER")
+        if p:
+            return str(p)
+    except Exception:
+        pass
+    # Dev only — em produção AUTH_PEPPER é obrigatório nos secrets
+    return "doc_conecta_v1_dev_only"
 
 
 def hash_senha(senha: str, salt: str | None = None) -> str:
@@ -19,7 +32,7 @@ def hash_senha(senha: str, salt: str | None = None) -> str:
         salt = secrets.token_hex(16)
     dk = hashlib.pbkdf2_hmac(
         "sha256",
-        (senha + _APP_PEPPER).encode("utf-8"),
+        (senha + _app_pepper()).encode("utf-8"),
         salt.encode("utf-8"),
         120_000,
     )
@@ -46,7 +59,11 @@ def _normalize_email(email: str) -> str:
 
 def listar_usuarios() -> tuple[list[dict[str, Any]], str | None]:
     try:
-        res = supabase.table("usuarios").select("*").execute()
+        res = (
+            supabase.table("usuarios")
+            .select("id, nome, email, phone, role, ct_id, is_active, updated_at")
+            .execute()
+        )
         rows = res.data if res and isinstance(res.data, list) else []
         return rows, None
     except Exception as e:
@@ -54,6 +71,7 @@ def listar_usuarios() -> tuple[list[dict[str, Any]], str | None]:
 
 
 def buscar_por_email(email: str) -> tuple[dict[str, Any] | None, str | None]:
+    """Busca usuário por e-mail. Não faz fallback listando a tabela inteira."""
     email_n = _normalize_email(email)
     if not email_n:
         return None, "E-mail vazio."
@@ -68,9 +86,10 @@ def buscar_por_email(email: str) -> tuple[dict[str, Any] | None, str | None]:
         )
         if res and res.data:
             return res.data[0], None
-    except Exception:
-        pass
+    except Exception as e:
+        return None, "Não foi possível acessar os usuários. Verifique a conexão."
 
+    # tentativa com e-mail original (caso legado com maiúsculas)
     try:
         res = (
             supabase.table("usuarios")
@@ -84,17 +103,6 @@ def buscar_por_email(email: str) -> tuple[dict[str, Any] | None, str | None]:
     except Exception:
         pass
 
-    rows, err = listar_usuarios()
-    if err:
-        return None, "Não foi possível acessar os usuários. Verifique a conexão com o banco."
-
-    if not rows:
-        return None, "Nenhum usuário encontrado no sistema."
-
-    for row in rows:
-        if _normalize_email(str(row.get("email") or "")) == email_n:
-            return row, None
-
     return None, None
 
 
@@ -105,8 +113,12 @@ def _criar_no_auth_supabase(email: str, senha: str) -> str | None:
             return None
         admin = getattr(auth, "admin", None)
         if admin and hasattr(admin, "create_user"):
-            r = admin.create_user({"email": email, "password": senha, "email_confirm": True})
-            user = getattr(r, "user", None) or (r.get("user") if isinstance(r, dict) else None)
+            r = admin.create_user(
+                {"email": email, "password": senha, "email_confirm": True}
+            )
+            user = getattr(r, "user", None) or (
+                r.get("user") if isinstance(r, dict) else None
+            )
             if user:
                 return getattr(user, "id", None) or user.get("id")
     except Exception:
@@ -123,22 +135,27 @@ def criar_usuario(
     ct_id: str | None = None,
 ) -> tuple[dict | None, str | None]:
     email_n = _normalize_email(email)
+    if not senha or len(senha) < MIN_PASSWORD_LEN:
+        return None, f"Senha inválida (mín. {MIN_PASSWORD_LEN} caracteres)."
+
     existente, _ = buscar_por_email(email_n)
 
     if existente and existente.get("id"):
         if not existente.get("password_hash"):
             try:
                 upd = {
-                        "password_hash": hash_senha(senha),
-                        "role": role,
-                        "nome": nome.strip(),
-                        "phone": phone.strip() if phone else existente.get("phone"),
-                        "is_active": True,
-                        "updated_at": datetime.now().isoformat(),
-                    }
+                    "password_hash": hash_senha(senha),
+                    "role": role,
+                    "nome": nome.strip(),
+                    "phone": phone.strip() if phone else existente.get("phone"),
+                    "is_active": True,
+                    "updated_at": datetime.now().isoformat(),
+                }
                 if ct_id:
                     upd["ct_id"] = ct_id
-                supabase.table("usuarios").update(upd).eq("id", existente["id"]).execute()
+                supabase.table("usuarios").update(upd).eq(
+                    "id", existente["id"]
+                ).execute()
                 return existente, None
             except Exception as e:
                 return None, f"Não foi possível atualizar o usuário: {e}"
@@ -169,8 +186,8 @@ def criar_usuario(
 
 
 def atualizar_senha(usuario_id: str, nova_senha: str) -> tuple[bool, str]:
-    if not usuario_id or not nova_senha or len(nova_senha) < 6:
-        return False, "Senha inválida (mín. 6 caracteres)."
+    if not usuario_id or not nova_senha or len(nova_senha) < MIN_PASSWORD_LEN:
+        return False, f"Senha inválida (mín. {MIN_PASSWORD_LEN} caracteres)."
     try:
         supabase.table("usuarios").update(
             {
