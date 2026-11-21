@@ -454,9 +454,32 @@ fig_mes.update_layout(
 fig_mes.update_traces(marker_line_width=0, textposition="outside")
 st.plotly_chart(fig_mes, use_container_width=True)
 
-col_g2, col_g3 = st.columns(2)
+# Top cursos — linha inteira
+top_cursos = (
+    dff.groupby("nome_curso")
+    .size()
+    .reset_index(name="Quantidade")
+    .sort_values("Quantidade", ascending=False)
+    .head(10)
+)
+fig_curso = px.pie(
+    top_cursos,
+    values="Quantidade",
+    names="nome_curso",
+    hole=0.35,
+)
+_apply_layout(fig_curso, "Top cursos (turmas)")
+fig_curso.update_traces(textposition="inside", textinfo="percent+label")
+fig_curso.update_layout(
+    legend=dict(orientation="h", yanchor="bottom", y=-0.25, x=0.0),
+    height=420,
+)
+st.plotly_chart(fig_curso, use_container_width=True)
 
-with col_g2:
+# Status | Modalidade | Instrutores — 3 na mesma linha
+col_st, col_mod, col_inst = st.columns(3)
+
+with col_st:
     status_counts = dff["Status"].value_counts().reset_index()
     status_counts.columns = ["Status", "Quantidade"]
     fig_donut = px.pie(
@@ -469,34 +492,13 @@ with col_g2:
     )
     _apply_layout(fig_donut, "Status de documentação")
     fig_donut.update_layout(
-        legend=dict(orientation="h", yanchor="bottom", y=-0.15, x=0.2)
+        legend=dict(orientation="h", yanchor="bottom", y=-0.2, x=0.1),
+        height=380,
     )
     fig_donut.update_traces(textposition="inside", textinfo="percent+label")
     st.plotly_chart(fig_donut, use_container_width=True)
 
-with col_g3:
-    top_cursos = (
-        dff.groupby("nome_curso")
-        .size()
-        .reset_index(name="Quantidade")
-        .sort_values("Quantidade", ascending=False)
-        .head(10)
-    )
-    fig_curso = px.pie(
-        top_cursos,
-        values="Quantidade",
-        names="nome_curso",
-        hole=0.35,
-    )
-    _apply_layout(fig_curso, "Top cursos (turmas)")
-    fig_curso.update_traces(textposition="inside", textinfo="percent+label")
-    fig_curso.update_layout(
-        legend=dict(orientation="h", yanchor="bottom", y=-0.35, x=0.0)
-    )
-    st.plotly_chart(fig_curso, use_container_width=True)
-
-col_funil, col_side = st.columns([1.2, 1])
-with col_funil:
+with col_mod:
     modalidade_counts = dff["modalidade"].fillna("N/D").value_counts().reset_index()
     modalidade_counts.columns = ["Modalidade", "Quantidade"]
     modalidade_counts = modalidade_counts.sort_values("Quantidade", ascending=False)
@@ -510,7 +512,7 @@ with col_funil:
     fig_mod.update_layout(showlegend=False, height=380)
     st.plotly_chart(fig_mod, use_container_width=True)
 
-with col_side:
+with col_inst:
     top_inst = (
         dff.groupby("nome_instrutor")
         .size()
@@ -527,7 +529,9 @@ with col_side:
         color_discrete_sequence=[_BAR2],
     )
     _apply_layout(fig_inst, "Top instrutores (turmas)")
-    fig_inst.update_layout(xaxis_title="Quantidade", yaxis_title=None, showlegend=False)
+    fig_inst.update_layout(
+        xaxis_title="Quantidade", yaxis_title=None, showlegend=False, height=380
+    )
     st.plotly_chart(fig_inst, use_container_width=True)
 
 top_emp = (
@@ -552,18 +556,15 @@ st.plotly_chart(fig_emp, use_container_width=True)
 # --- Turmas x pessoas (matrículas) — barras laterais ---
 dff = dff.copy()
 dff["n_pessoas"] = dff["id"].astype(str).map(lambda tid: mapa_mat.get(str(tid), 0))
-# agrega por título curto / curso+data para legenda legível
 dff["label_turma"] = dff.apply(
     lambda r: f"{(r.get('nome_curso') or 'Curso')[:28]} · {r['data_treinamento'].strftime('%d/%m') if pd.notnull(r.get('data_treinamento')) else ''}",
     axis=1,
 )
-# top 15 turmas por número de pessoas
 top_pessoas = (
     dff[["label_turma", "n_pessoas", "titulo"]]
     .sort_values("n_pessoas", ascending=True)
     .tail(15)
 )
-# se muitos zeros, ainda mostra por ordem de pessoas
 fig_pessoas = px.bar(
     top_pessoas,
     y="label_turma",
