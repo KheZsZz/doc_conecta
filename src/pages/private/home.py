@@ -553,35 +553,69 @@ _apply_layout(fig_emp, "Top empresas (turmas)")
 fig_emp.update_layout(xaxis_title="Quantidade", yaxis_title=None, showlegend=False)
 st.plotly_chart(fig_emp, use_container_width=True)
 
-# --- Turmas x pessoas (matrículas) — barras laterais ---
+# --- Pessoas (matrículas) por empresa / curso ---
 dff = dff.copy()
 dff["n_pessoas"] = dff["id"].astype(str).map(lambda tid: mapa_mat.get(str(tid), 0))
-dff["label_turma"] = dff.apply(
-    lambda r: f"{(r.get('nome_curso') or 'Curso')[:28]} · {r['data_treinamento'].strftime('%d/%m') if pd.notnull(r.get('data_treinamento')) else ''}",
-    axis=1,
+
+st.markdown(
+    '<div class="df-section-title">Pessoas (matrículas)</div>',
+    unsafe_allow_html=True,
 )
-top_pessoas = (
-    dff[["label_turma", "n_pessoas", "titulo"]]
-    .sort_values("n_pessoas", ascending=True)
-    .tail(15)
-)
-fig_pessoas = px.bar(
-    top_pessoas,
-    y="label_turma",
-    x="n_pessoas",
-    orientation="h",
-    text_auto=True,
-    color_discrete_sequence=[_BAR2],
-    hover_data={"titulo": True, "label_turma": False},
-)
-_apply_layout(fig_pessoas, "Turmas × número de pessoas (matrículas)")
-fig_pessoas.update_layout(
-    xaxis_title="Pessoas",
-    yaxis_title=None,
-    showlegend=False,
-    height=420,
-)
-st.plotly_chart(fig_pessoas, use_container_width=True)
+tab_emp, tab_curso = st.tabs(["Por empresa", "Por curso"])
+
+with tab_emp:
+    por_emp = (
+        dff.groupby("nome_empresa", dropna=False)
+        .agg(Pessoas=("n_pessoas", "sum"), Turmas=("id", "count"))
+        .reset_index()
+        .sort_values("Pessoas", ascending=True)
+        .tail(15)
+    )
+    fig_pe = px.bar(
+        por_emp,
+        y="nome_empresa",
+        x="Pessoas",
+        orientation="h",
+        text_auto=True,
+        color_discrete_sequence=[_BAR],
+        hover_data={"Turmas": True},
+        labels={"nome_empresa": "Empresa"},
+    )
+    _apply_layout(fig_pe, "Pessoas por empresa")
+    fig_pe.update_layout(
+        xaxis_title="Pessoas",
+        yaxis_title=None,
+        showlegend=False,
+        height=420,
+    )
+    st.plotly_chart(fig_pe, use_container_width=True)
+
+with tab_curso:
+    por_curso = (
+        dff.groupby("nome_curso", dropna=False)
+        .agg(Pessoas=("n_pessoas", "sum"), Turmas=("id", "count"))
+        .reset_index()
+        .sort_values("Pessoas", ascending=True)
+        .tail(15)
+    )
+    fig_pc = px.bar(
+        por_curso,
+        y="nome_curso",
+        x="Pessoas",
+        orientation="h",
+        text_auto=True,
+        color_discrete_sequence=[_BAR2],
+        hover_data={"Turmas": True},
+        labels={"nome_curso": "Curso"},
+    )
+    _apply_layout(fig_pc, "Pessoas por curso")
+    fig_pc.update_layout(
+        xaxis_title="Pessoas",
+        yaxis_title=None,
+        showlegend=False,
+        height=420,
+    )
+    st.plotly_chart(fig_pc, use_container_width=True)
 
 # ---------------------------------------------------------------------------
 # Pendências (recolhível)
