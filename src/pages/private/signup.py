@@ -3,7 +3,7 @@ from datetime import datetime
 import streamlit as st
 
 from src.config.database import supabase
-from src.auth.local_auth import atualizar_senha, criar_usuario
+from src.auth.local_auth import MIN_PASSWORD_LEN, atualizar_senha, criar_usuario
 from src.auth.permissions import (
     ROLE_CONSULTA,
     ROLE_HELP,
@@ -18,6 +18,7 @@ from src.auth.permissions import (
 exigir_permissao("usuarios")
 
 st.title("Gestão de Usuários")
+
 
 def _listar_cts() -> list[dict]:
     try:
@@ -92,7 +93,7 @@ def modal_editar_usuario(
         )
 
         st.markdown("---")
-        st.caption("Preencha apenas se quiser trocar a senha.")
+        st.caption(f"Preencha apenas se quiser trocar a senha (mín. {MIN_PASSWORD_LEN}).")
         nova_senha = st.text_input("Nova senha", type="password")
         conf_senha = st.text_input("Confirmar nova senha", type="password")
 
@@ -105,8 +106,8 @@ def modal_editar_usuario(
                 st.warning("Nome obrigatório.")
             elif role_novo == ROLE_CONSULTA and not ct_novo:
                 st.warning("Perfil Adm. de CT exige um CT vinculado.")
-            elif nova_senha and len(nova_senha) < 6:
-                st.warning("Senha mínima: 6 caracteres.")
+            elif nova_senha and len(nova_senha) < MIN_PASSWORD_LEN:
+                st.warning(f"Senha mínima: {MIN_PASSWORD_LEN} caracteres.")
             elif nova_senha and nova_senha != conf_senha:
                 st.warning("Confirmação de senha não confere.")
             else:
@@ -157,7 +158,12 @@ def modal_remover_usuario(usuario_id, nome, email):
 
 with tab_listar:
     try:
-        res = supabase.table("usuarios").select("*").order("nome").execute()
+        res = (
+            supabase.table("usuarios")
+            .select("id, nome, email, phone, role, ct_id, is_active, password_hash")
+            .order("nome")
+            .execute()
+        )
         usuarios = res.data if res and res.data else []
         if not usuarios:
             st.info("Nenhum usuário cadastrado.")
@@ -176,12 +182,13 @@ with tab_listar:
                 status = "Ativo" if ativo else "Inativo"
                 senha_flag = "com senha" if tem_senha else "sem senha"
                 ct_nome = id_para_nome.get(str(u.get("ct_id") or ""), "")
+                role_label = ROLE_LABELS.get(role_u, "sem perfil") if role_u else "sem perfil"
 
                 with st.container(border=True):
                     c1, c2, c3 = st.columns([4, 1.2, 1.2])
                     with c1:
                         st.markdown(
-                            f"**{nome}** · {status} · **{ROLE_LABELS.get(role_u, role_u)}** · {senha_flag}"
+                            f"**{nome}** · {status} · **{role_label}** · {senha_flag}"
                         )
                         parts = [f"e-mail:{email}"]
                         if phone:
@@ -226,7 +233,7 @@ with tab_cadastrar:
             options=ct_labels,
             index=0,
         )
-        senha = st.text_input("Senha*", type="password")
+        senha = st.text_input(f"Senha* (mín. {MIN_PASSWORD_LEN})", type="password")
         conf = st.text_input("Confirmar Senha*", type="password")
         ok = st.form_submit_button("Cadastrar", type="primary", use_container_width=True)
 
@@ -237,8 +244,8 @@ with tab_cadastrar:
                 st.warning("Preencha os campos obrigatórios.")
             elif senha != conf:
                 st.warning("Senhas não coincidem.")
-            elif len(senha) < 6:
-                st.warning("Senha mínima: 6 caracteres.")
+            elif len(senha) < MIN_PASSWORD_LEN:
+                st.warning(f"Senha mínima: {MIN_PASSWORD_LEN} caracteres.")
             elif role == ROLE_CONSULTA and not ct_id:
                 st.warning("Perfil Adm. de CT exige selecionar um CT.")
             else:
