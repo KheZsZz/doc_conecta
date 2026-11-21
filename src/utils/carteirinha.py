@@ -165,9 +165,7 @@ def gerar_carteirinhas_pdf(
     logo_conecta = resolver_imagem(URL_LOGO_CONECTA)
 
     assinatura_src = (
-        responsavel.get("assinatura_url")
-        or responsavel.get("assinatura")
-        or instrutor.get("assinatura")
+        instrutor.get("assinatura")
         or instrutor.get("assinatura_url")
         or ""
     )
