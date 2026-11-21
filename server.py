@@ -1,15 +1,6 @@
 import streamlit as st
-from src.config.database import supabase
 import sys
 from pathlib import Path
-
-from src.auth.permissions import (
-    ROLE_LABELS,
-    role_atual,
-    sincronizar_perfil_sessao,
-    tem_permissao,
-)
-from src.ui.styles import aplicar_estilo_global
 
 root_dir = Path(__file__).resolve().parent
 if str(root_dir) not in sys.path:
@@ -21,6 +12,15 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+from src.config.database import supabase
+from src.auth.permissions import (
+    ROLE_LABELS,
+    role_atual,
+    sincronizar_perfil_sessao,
+    tem_permissao,
+)
+from src.ui.styles import aplicar_estilo_global
 
 aplicar_estilo_global()
 
