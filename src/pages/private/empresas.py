@@ -56,7 +56,7 @@ def label_grupo_atual(grupo_id, grupos: list[dict]) -> str:
 # ==========================================
 # MODAL DE EDIÇÃO
 # ==========================================
-@st.dialog("Editar Empresa", width="medium")
+@st.dialog("Editar Empresa", width="large")
 def modal_editar_empresa(
     empresa_id,
     nome_atual,
