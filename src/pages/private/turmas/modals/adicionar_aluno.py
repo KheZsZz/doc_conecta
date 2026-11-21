@@ -4,7 +4,7 @@ import streamlit as st
 from src.config.database import supabase
 
 
-@st.dialog("Adicionar Aluno Manualmente", width="medium")
+@st.dialog("Adicionar Aluno Manualmente", width="small")
 def modal_adicionar_aluno(turma_id, titulo_turma, client_id, data_treinamento, carga_horaria):
     st.write(f"**Turma:** {titulo_turma}")
     st.caption("Os alunos adicionados aqui serão vinculados à empresa desta turma.")
