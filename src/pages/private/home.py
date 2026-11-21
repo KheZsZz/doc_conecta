@@ -12,6 +12,7 @@ _OK = "#1e7e34"
 _WARN = "#c0392b"
 _BAR = "#1a5f9e"
 _BAR2 = "#3d7ab5"
+_PALETTE = px.colors.qualitative.Set2 + px.colors.qualitative.Pastel + px.colors.qualitative.Dark2
 _PLOT_FONT = "#334455"
 _PLOT_TITLE = "#0b1f3a"
 
@@ -375,6 +376,17 @@ pend_atrasadas = (
     else 0
 )
 empresas_distintas = dff["client_id"].nunique() if total_turmas else 0
+dias_periodo = max((data_fim - data_ini).days + 1, 1)
+media_turmas_dia = round(total_turmas / dias_periodo, 2) if total_turmas else 0.0
+
+# média de empresas distintas ativas por mês no período (pelo mês das turmas)
+if total_turmas and "client_id" in dff.columns:
+    tmp = dff.dropna(subset=["data_treinamento"]).copy()
+    tmp["ym"] = tmp["data_treinamento"].dt.to_period("M")
+    emp_por_mes = tmp.groupby("ym")["client_id"].nunique()
+    media_emp_mes = round(float(emp_por_mes.mean()), 1) if len(emp_por_mes) else 0.0
+else:
+    media_emp_mes = 0.0
 
 st.markdown(
     f"**Período:** {data_ini.strftime('%d/%m/%Y')} → {data_fim.strftime('%d/%m/%Y')} "
@@ -387,7 +399,7 @@ st.markdown(
 k1, k2, k3, k4, k5 = st.columns(5)
 with k1:
     st.markdown(
-        _kpi_html("Turmas", _fmt_num(total_turmas), "No filtro", "accent"),
+        _kpi_html("Turmas", _fmt_num(total_turmas), f"Média {media_turmas_dia}/dia", "accent"),
         unsafe_allow_html=True,
     )
 with k2:
@@ -399,7 +411,7 @@ with k2:
     )
 with k3:
     st.markdown(
-        _kpi_html("Empresas", _fmt_num(empresas_distintas), "Distintas no filtro"),
+        _kpi_html("Empresas", _fmt_num(empresas_distintas), f"Média {media_emp_mes}/mês"),
         unsafe_allow_html=True,
     )
 with k4:
@@ -441,6 +453,7 @@ fig_mes = px.bar(
     color="nome_ct",
     barmode="group",
     text_auto=True,
+    color_discrete_sequence=_PALETTE,
     labels={"nome_ct": "CT", "mes_ano": "Mês"},
 )
 _apply_layout(fig_mes, "Turmas por mês (por CT)")
@@ -448,13 +461,21 @@ fig_mes.update_layout(
     xaxis_title=None,
     yaxis_title="Quantidade",
     legend_title_text="CT",
-    height=420,
-    margin=dict(l=40, r=20, t=48, b=60),
+    legend=dict(
+        orientation="h",
+        yanchor="top",
+        y=-0.18,
+        xanchor="center",
+        x=0.5,
+        title_text="CT",
+    ),
+    height=460,
+    margin=dict(l=40, r=20, t=48, b=100),
 )
 fig_mes.update_traces(marker_line_width=0, textposition="outside")
 st.plotly_chart(fig_mes, use_container_width=True)
 
-# Top cursos — linha inteira
+# Top cursos — linha inteira, legenda à direita
 top_cursos = (
     dff.groupby("nome_curso")
     .size()
@@ -467,36 +488,46 @@ fig_curso = px.pie(
     values="Quantidade",
     names="nome_curso",
     hole=0.35,
+    color_discrete_sequence=_PALETTE,
 )
 _apply_layout(fig_curso, "Top cursos (turmas)")
 fig_curso.update_traces(textposition="inside", textinfo="percent+label")
 fig_curso.update_layout(
-    legend=dict(orientation="h", yanchor="bottom", y=-0.25, x=0.0),
-    height=420,
+    showlegend=True,
+    legend=dict(
+        orientation="v",
+        yanchor="middle",
+        y=0.5,
+        xanchor="left",
+        x=1.02,
+        title_text="Cursos",
+    ),
+    height=440,
+    margin=dict(l=20, r=180, t=48, b=20),
 )
 st.plotly_chart(fig_curso, use_container_width=True)
 
-# Status | Modalidade | Instrutores — 3 na mesma linha
-col_st, col_mod, col_inst = st.columns(3)
+# Status de documentação — linha inteira
+status_counts = dff["Status"].value_counts().reset_index()
+status_counts.columns = ["Status", "Quantidade"]
+fig_donut = px.pie(
+    status_counts,
+    values="Quantidade",
+    names="Status",
+    hole=0.55,
+    color="Status",
+    color_discrete_map={"Emitido": _OK, "Pendente": _WARN},
+)
+_apply_layout(fig_donut, "Status de documentação")
+fig_donut.update_layout(
+    legend=dict(orientation="h", yanchor="bottom", y=-0.15, x=0.35),
+    height=380,
+)
+fig_donut.update_traces(textposition="inside", textinfo="percent+label")
+st.plotly_chart(fig_donut, use_container_width=True)
 
-with col_st:
-    status_counts = dff["Status"].value_counts().reset_index()
-    status_counts.columns = ["Status", "Quantidade"]
-    fig_donut = px.pie(
-        status_counts,
-        values="Quantidade",
-        names="Status",
-        hole=0.55,
-        color="Status",
-        color_discrete_map={"Emitido": _OK, "Pendente": _WARN},
-    )
-    _apply_layout(fig_donut, "Status de documentação")
-    fig_donut.update_layout(
-        legend=dict(orientation="h", yanchor="bottom", y=-0.2, x=0.1),
-        height=380,
-    )
-    fig_donut.update_traces(textposition="inside", textinfo="percent+label")
-    st.plotly_chart(fig_donut, use_container_width=True)
+# Modalidade | Instrutores
+col_mod, col_inst = st.columns(2)
 
 with col_mod:
     modalidade_counts = dff["modalidade"].fillna("N/D").value_counts().reset_index()
@@ -506,7 +537,8 @@ with col_mod:
         modalidade_counts,
         x="Quantidade",
         y="Modalidade",
-        color_discrete_sequence=[_BAR, _BAR2, "#5b9bd5", "#8fbfef", "#c5dff5"],
+        color="Modalidade",
+        color_discrete_sequence=_PALETTE,
     )
     _apply_layout(fig_mod, "Distribuição por modalidade")
     fig_mod.update_layout(showlegend=False, height=380)
@@ -526,32 +558,82 @@ with col_inst:
         x="Quantidade",
         orientation="h",
         text_auto=True,
-        color_discrete_sequence=[_BAR2],
+        color="nome_instrutor",
+        color_discrete_sequence=_PALETTE,
     )
     _apply_layout(fig_inst, "Top instrutores (turmas)")
     fig_inst.update_layout(
-        xaxis_title="Quantidade", yaxis_title=None, showlegend=False, height=380
+        xaxis_title="Quantidade",
+        yaxis_title=None,
+        showlegend=False,
+        height=380,
     )
     st.plotly_chart(fig_inst, use_container_width=True)
 
-top_emp = (
-    dff.groupby("nome_empresa")
-    .size()
-    .reset_index(name="Quantidade")
-    .sort_values("Quantidade", ascending=True)
-    .tail(10)
+# Top empresas — abas: total | por curso
+st.markdown(
+    '<div class="df-section-title">Top empresas</div>',
+    unsafe_allow_html=True,
 )
-fig_emp = px.bar(
-    top_emp,
-    y="nome_empresa",
-    x="Quantidade",
-    orientation="h",
-    text_auto=True,
-    color_discrete_sequence=[_BAR],
-)
-_apply_layout(fig_emp, "Top empresas (turmas)")
-fig_emp.update_layout(xaxis_title="Quantidade", yaxis_title=None, showlegend=False)
-st.plotly_chart(fig_emp, use_container_width=True)
+tab_te_total, tab_te_curso = st.tabs(["Quantidade total", "Por curso"])
+
+with tab_te_total:
+    top_emp = (
+        dff.groupby("nome_empresa")
+        .size()
+        .reset_index(name="Quantidade")
+        .sort_values("Quantidade", ascending=True)
+        .tail(10)
+    )
+    fig_emp = px.bar(
+        top_emp,
+        y="nome_empresa",
+        x="Quantidade",
+        orientation="h",
+        text_auto=True,
+        color="nome_empresa",
+        color_discrete_sequence=_PALETTE,
+    )
+    _apply_layout(fig_emp, "Top empresas (turmas)")
+    fig_emp.update_layout(
+        xaxis_title="Quantidade",
+        yaxis_title=None,
+        showlegend=False,
+        height=420,
+    )
+    st.plotly_chart(fig_emp, use_container_width=True)
+
+with tab_te_curso:
+    emp_curso = (
+        dff.groupby(["nome_empresa", "nome_curso"])
+        .size()
+        .reset_index(name="Quantidade")
+    )
+    # limita às 10 empresas com mais turmas no total
+    top10_emp = (
+        dff.groupby("nome_empresa").size().sort_values(ascending=False).head(10).index
+    )
+    emp_curso = emp_curso[emp_curso["nome_empresa"].isin(top10_emp)]
+    fig_ec = px.bar(
+        emp_curso,
+        y="nome_empresa",
+        x="Quantidade",
+        color="nome_curso",
+        orientation="h",
+        barmode="stack",
+        color_discrete_sequence=_PALETTE,
+        labels={"nome_curso": "Curso", "nome_empresa": "Empresa"},
+    )
+    _apply_layout(fig_ec, "Top empresas por curso")
+    fig_ec.update_layout(
+        xaxis_title="Turmas",
+        yaxis_title=None,
+        legend_title_text="Curso",
+        height=460,
+        legend=dict(orientation="h", yanchor="top", y=-0.2, x=0),
+        margin=dict(l=40, r=20, t=48, b=120),
+    )
+    st.plotly_chart(fig_ec, use_container_width=True)
 
 # --- Pessoas (matrículas) por empresa / curso ---
 dff = dff.copy()
@@ -577,7 +659,8 @@ with tab_emp:
         x="Pessoas",
         orientation="h",
         text_auto=True,
-        color_discrete_sequence=[_BAR],
+        color="nome_empresa",
+        color_discrete_sequence=_PALETTE,
         hover_data={"Turmas": True},
         labels={"nome_empresa": "Empresa"},
     )
@@ -604,7 +687,8 @@ with tab_curso:
         x="Pessoas",
         orientation="h",
         text_auto=True,
-        color_discrete_sequence=[_BAR2],
+        color="nome_curso",
+        color_discrete_sequence=_PALETTE,
         hover_data={"Turmas": True},
         labels={"nome_curso": "Curso"},
     )
