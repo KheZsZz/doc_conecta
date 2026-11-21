@@ -1,43 +1,89 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime
 
 from src.config.database import supabase
+from src.auth.permissions import exigir_permissao
+
+exigir_permissao("subir_listas")
 
 try:
     from src.utils.lista_lote import (
         gerar_template_excel,
         gerar_template_excel_chave,
-        gerar_export_turmas_excel,  
         processar_lista_lote,
         processar_lista_lote_por_chave,
-        COLUNAS_MODELO,
-        COLUNAS_MODELO_CHAVE,
     )
 except Exception as e:
     st.error(f"Erro ao carregar modulo de listas: {type(e).__name__}: {e}")
     st.stop()
 
 MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+MAX_UPLOAD_MB = 5
+MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
 
 st.title("Subir Listas")
 
+tab_id, tab_chave = st.tabs(["ID da turma", "CNPJ + Data + Unidade"])
 
-tab_id, tab_chave = st.tabs(
-    ["ID da turma", "CNPJ + Data + Unidade"]
-)
+
+def _usuario_log() -> dict:
+    u = st.session_state.get("user")
+    perfil = st.session_state.get("perfil") or {}
+    return {
+        "user_id": getattr(u, "id", None) or perfil.get("id"),
+        "email": getattr(u, "email", None) or perfil.get("email"),
+        "nome": (getattr(u, "user_metadata", None) or {}).get("nome")
+        or perfil.get("nome"),
+    }
+
+
+def _log_importacao(
+    origem: str,
+    nome_arquivo: str,
+    ok: bool,
+    alunos: int,
+    matriculas: int,
+    mensagem: str,
+) -> None:
+    meta = _usuario_log()
+    payload = {
+        "origem": origem,
+        "arquivo": (nome_arquivo or "")[:200],
+        "sucesso": bool(ok),
+        "alunos_processados": int(alunos or 0),
+        "matriculas_criadas": int(matriculas or 0),
+        "mensagem": (mensagem or "")[:500],
+        "user_id": meta.get("user_id"),
+        "user_email": meta.get("email"),
+        "created_at": datetime.utcnow().isoformat() + "Z",
+    }
+    try:
+        supabase.table("import_logs").insert(payload).execute()
+    except Exception:
+        # tabela opcional até rodar o SQL de hardening
+        pass
 
 
 def _bloco_upload_e_processar(processar_fn, key_prefix: str):
     arquivo = st.file_uploader(
-        "Arquivo Excel (.xlsx, .xls ou .xlsm)",
-        type=["xlsx", "xls", "xlsm"],
+        f"Arquivo Excel (.xlsx, máx. {MAX_UPLOAD_MB} MB)",
+        type=["xlsx"],
         key=f"upload_{key_prefix}",
     )
     if not arquivo:
         return
 
+    data = arquivo.getvalue()
+    if len(data) > MAX_UPLOAD_BYTES:
+        st.error(f"Arquivo acima do limite de {MAX_UPLOAD_MB} MB.")
+        return
+    if not (arquivo.name or "").lower().endswith(".xlsx"):
+        st.error("Envie apenas arquivos .xlsx.")
+        return
+
     try:
-        df_preview = pd.read_excel(arquivo)
+        df_preview = pd.read_excel(data, engine="openpyxl")
         st.write("Pré-visualização (primeiras linhas):")
         st.dataframe(df_preview.head(10), use_container_width=True)
         st.info(
@@ -53,9 +99,18 @@ def _bloco_upload_e_processar(processar_fn, key_prefix: str):
         ):
             with st.spinner("Processando planilha e matriculando alunos..."):
                 resultado = processar_fn(
-                    arquivo_bytes=arquivo.getvalue(),
+                    arquivo_bytes=data,
                     nome_arquivo=arquivo.name,
                 )
+
+            _log_importacao(
+                origem=f"subir_listas:{key_prefix}",
+                nome_arquivo=arquivo.name,
+                ok=bool(resultado.get("sucesso")),
+                alunos=resultado.get("alunos_processados") or 0,
+                matriculas=resultado.get("matriculas_criadas") or 0,
+                mensagem=resultado.get("mensagem") or "",
+            )
 
             if resultado["sucesso"]:
                 st.success(resultado["mensagem"])
@@ -74,12 +129,10 @@ def _bloco_upload_e_processar(processar_fn, key_prefix: str):
                     for err in resultado["erros"]:
                         st.write(f"- {err}")
     except Exception as e:
-        st.error(f"Erro ao ler o arquivo: {e}")
+        st.error("Erro ao ler o arquivo. Verifique se é um .xlsx válido.")
+        st.caption(str(e)[:200])
 
 
-# ==========================================================================
-# ID TURMA
-# ==========================================================================
 with tab_id:
     st.subheader("Vínculo pelo ID da turma")
 
@@ -100,9 +153,6 @@ with tab_id:
     _bloco_upload_e_processar(processar_lista_lote, "id_turma")
 
 
-# ==========================================================================
-# CNPJ + DATA + UNIDADE
-# ==========================================================================
 with tab_chave:
     st.subheader("Vínculo por CNPJ + data + unidade")
     st.markdown(
@@ -121,6 +171,6 @@ with tab_chave:
         )
     except Exception as e:
         st.error(f"Não foi possível gerar o modelo: {e}")
-        
+
     st.subheader("Envie a planilha")
     _bloco_upload_e_processar(processar_lista_lote_por_chave, "chave")
