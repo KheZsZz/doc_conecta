@@ -2,6 +2,8 @@ from typing import Any
 
 import streamlit as st
 
+from src.utils.checkin_token import gerar_token, montar_url_checkin
+
 from .data import fetch_turma, fetch_curso
 from .responsavel import ui_selecionar_responsavel
 from .atestado import gerar_atestado
@@ -15,6 +17,34 @@ from .carteirinhas import gerar_carteirinhas
 @st.dialog("Emitir Documentos", width="large")
 def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
     st.write(f"**Turma:** {titulo_turma}")
+
+    with st.expander("Link de check-in (alunos)", expanded=False):
+        horas = st.slider(
+            "Validade do link (horas)",
+            min_value=4,
+            max_value=168,
+            value=48,
+            step=4,
+            key=f"checkin_horas_{tid}",
+        )
+        token = gerar_token(str(tid), horas_validade=int(horas))
+        # base da URL da sessão Streamlit (quando disponível)
+        try:
+            base = st.context.headers.get("origin")  # type: ignore[attr-defined]
+        except Exception:
+            base = None
+        if not base:
+            base = st.secrets.get("APP_BASE_URL") or ""
+        if base:
+            url = montar_url_checkin(str(base), token)
+            st.code(url, language=None)
+            st.caption("Compartilhe apenas com a turma. O link expira após o prazo definido.")
+        else:
+            st.code(f"?page=checkin&t={token}", language=None)
+            st.caption(
+                "Defina APP_BASE_URL nos secrets para gerar a URL completa "
+                "(ex.: https://seu-app.streamlit.app)."
+            )
 
     turma_data = fetch_turma(tid)
     curso_data = fetch_curso(turma_data.get("curso_id"))
