@@ -81,22 +81,22 @@ else:
 
 c1, c2, c3, c4 = st.columns(4)
 with c1:
-    if st.button("Hoje", width="stretch"):
+    if st.button("Hoje", use_container_width=True):
         st.session_state["pkg_di"] = hoje
         st.session_state["pkg_df"] = hoje
         st.rerun()
 with c2:
-    if st.button("Esta semana", width="stretch"):
+    if st.button("Esta semana", use_container_width=True):
         st.session_state["pkg_di"] = inicio_semana
         st.session_state["pkg_df"] = fim_semana
         st.rerun()
 with c3:
-    if st.button("Este mês", width="stretch"):
+    if st.button("Este mês", use_container_width=True):
         st.session_state["pkg_di"] = inicio_mes
         st.session_state["pkg_df"] = fim_mes
         st.rerun()
 with c4:
-    if st.button("Este ano", width="stretch"):
+    if st.button("Este ano", use_container_width=True):
         st.session_state["pkg_di"] = date(hoje.year, 1, 1)
         st.session_state["pkg_df"] = hoje
         st.rerun()
@@ -337,7 +337,7 @@ if job and job["done"]:
             data=zip_bytes,
             file_name=job["nome_zip"],
             mime="application/zip",
-            width="stretch",
+            use_container_width=True,
             key="dl_pacote_job",
             on_click=_ao_baixar,
         )
@@ -404,7 +404,7 @@ def _novo_zip_path() -> str:
     return path
 
 
-if st.button("Gerar pacote de documentação", type="primary", width="stretch"):
+if st.button("Gerar pacote de documentação", type="primary", use_container_width=True):
     rotulo = (
         grupo_nome.replace(" ", "_")
         if escopo == "Grupo empresarial"
