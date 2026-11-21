@@ -10,6 +10,9 @@ from src.utils.turmas_lote import (
     ler_planilha_turmas,
 )
 
+MAX_UPLOAD_MB = 5
+MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
+
 
 def render_tab_lote():
     st.subheader("Cadastro de turmas em lote")
@@ -29,17 +32,15 @@ def render_tab_lote():
 | NOME EMPRESA | sim | razão social |
 | DATA TREINAMENTO | sim | **padrão brasileiro** `DD/MM/AAAA` (ex.: `15/10/2026`) |
 | SIGLA CURSO ou CURSO | sim | deve existir no cadastro |
-| INSTRUTOR | recomendado | **nome completo** igual ao cadastro (ex.: `CARLOS EDUARDO MORRONI`) |
+| INSTRUTOR | recomendado | **nome completo** igual ao cadastro |
 | ENDERECO / RESPONSAVEL / TELEFONE / EMAIL / UNIDADE | não | usados se criar empresa |
 | CARGA HORARIA / MODALIDADE / NIVEL | não | padrões: 8 Horas, In Company, Formação |
 | CT | não | senão usa o padrão da tela |
 | TITULO | não | gerado automaticamente se vazio |
 
-A data também aceita célula de data do Excel. No banco grava em ISO; na tela aparece em `DD/MM/AAAA`.
-
 **Duplicidade:** não cria turma se já existir a mesma combinação **empresa + data + curso + CT**.
 
-Formatos aceitos: **.xlsx**, **.xls**, **.xlsm**.
+Formato aceito: **.xlsx** (máx. 5 MB).
             """
         )
         st.download_button(
@@ -97,15 +98,20 @@ Formatos aceitos: **.xlsx**, **.xls**, **.xlsm**.
         ct_id = next(c["id"] for c in cts if c["name"] == ct_label)
 
     uploaded = st.file_uploader(
-        "Planilha de turmas (.xlsx, .xls ou .xlsm)",
-        type=["xlsx", "xls", "xlsm"],
+        f"Planilha de turmas (.xlsx, máx. {MAX_UPLOAD_MB} MB)",
+        type=["xlsx"],
         key="up_turmas_lote",
     )
     if not uploaded:
         st.info("Faça o upload da planilha para continuar.")
         return
 
-    linhas, erros_leitura = ler_planilha_turmas(uploaded.getvalue())
+    data = uploaded.getvalue()
+    if len(data) > MAX_UPLOAD_BYTES:
+        st.error(f"Arquivo acima do limite de {MAX_UPLOAD_MB} MB.")
+        return
+
+    linhas, erros_leitura = ler_planilha_turmas(data)
 
     if erros_leitura:
         with st.expander(f"Avisos da leitura ({len(erros_leitura)})", expanded=True):
