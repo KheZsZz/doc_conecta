@@ -3,9 +3,10 @@ from datetime import datetime
 import streamlit as st
 
 from src.config.database import supabase
+from src.utils.checkin_token import validar_token
 
-st.title("Cadastro de Presença - Centro de Treinamento")
-st.write("Selecione a turma em que você está participando hoje e preencha seus dados.")
+st.title("Check-in de presença")
+st.caption("Acesso apenas pelo link da turma fornecido pelo instrutor.")
 
 
 def formatar_data_br(data_str) -> str:
@@ -18,62 +19,51 @@ def formatar_data_br(data_str) -> str:
         return s
 
 
-turmas_dict = {}
-empresas_dict = {}
+token = st.query_params.get("t") or st.query_params.get("token")
+turma_id, erro_token = validar_token(token)
+if erro_token or not turma_id:
+    st.error(erro_token or "Link inválido.")
+    st.info(
+        "Peça ao instrutor ou ao CT um **novo link de check-in** para a turma de hoje."
+    )
+    st.stop()
 
 try:
-    turmas_res = (
+    turma_res = (
         supabase.table("turmas")
-        .select("id, titulo, data_treinamento, documento_emitido")
-        .order("data_treinamento", desc=True)
-        .limit(50)
+        .select(
+            "id, titulo, data_treinamento, documento_emitido, client_id, carga_horaria, "
+            "clients(id, name, cnpj, sigla)"
+        )
+        .eq("id", turma_id)
+        .limit(1)
         .execute()
     )
+    turma = (turma_res.data or [None])[0] if turma_res else None
+except Exception:
+    turma = None
 
-    if turmas_res and isinstance(turmas_res.data, list):
-        for t in turmas_res.data:
-            if not isinstance(t, dict):
-                continue
-            if t.get("documento_emitido"):
-                continue
-            titulo = str(t.get("titulo") or "Sem Título")
-            data_br = formatar_data_br(t.get("data_treinamento"))
-            tid = t.get("id")
-            if tid:
-                turmas_dict[f"{data_br} | {titulo}"] = tid
-
-    clients_res = supabase.table("clients").select("id, name, cnpj").execute()
-
-    if clients_res and isinstance(clients_res.data, list):
-        for c in clients_res.data:
-            if not isinstance(c, dict):
-                continue
-            cname = str(c.get("name") or "Empresa Sem Nome")
-            ccnjp = str(c.get("cnpj") or "")
-            cid = c.get("id")
-            if cid:
-                empresas_dict[f"{cname} (CNPJ: {ccnjp})"] = cid
-
-except Exception as e:
-    st.error(f"Erro de conexão ao carregar dados do banco: {e}")
-
-if not turmas_dict:
-    st.warning(
-        "Nenhuma turma pendente disponível no momento."
-    )
+if not turma:
+    st.error("Turma não encontrada para este link.")
     st.stop()
 
-if not empresas_dict:
-    st.warning(
-        "Nenhuma empresa cadastrada no sistema. Contate o administrador."
-    )
+if turma.get("documento_emitido"):
+    st.warning("Esta turma já teve a documentação emitida. Check-in encerrado.")
     st.stop()
 
-# Formulário de check-in
+cli = turma.get("clients") if isinstance(turma.get("clients"), dict) else {}
+client_id = turma.get("client_id") or cli.get("id")
+empresa_nome = (cli.get("name") or "Empresa da turma").strip()
+data_br = formatar_data_br(turma.get("data_treinamento"))
+titulo = turma.get("titulo") or "Turma"
+
+st.success(f"**Turma:** {titulo}  \n**Data:** {data_br}  \n**Empresa:** {empresa_nome}")
+
+if not client_id:
+    st.error("Turma sem empresa vinculada. Contate o administrador.")
+    st.stop()
+
 with st.form("form_checkin_aluno", clear_on_submit=True):
-    turma_rotulo = st.selectbox("Turma*", options=list(turmas_dict.keys()))
-    empresa_rotulo = st.selectbox("Empresa*", options=list(empresas_dict.keys()))
-
     col1, col2 = st.columns(2)
     with col1:
         nome = st.text_input("Nome completo*")
@@ -82,7 +72,9 @@ with st.form("form_checkin_aluno", clear_on_submit=True):
         rg = st.text_input("RG (opcional)")
         email = st.text_input("E-mail (opcional)")
 
-    enviar = st.form_submit_button("Confirmar presença", type="primary", use_container_width=True)
+    enviar = st.form_submit_button(
+        "Confirmar presença", type="primary", use_container_width=True
+    )
 
     if enviar:
         cpf_limpo = "".join(ch for ch in (cpf or "") if ch.isdigit())
@@ -92,25 +84,23 @@ with st.form("form_checkin_aluno", clear_on_submit=True):
             st.warning("CPF deve ter 11 dígitos.")
         else:
             try:
-                turma_id = turmas_dict[turma_rotulo]
-                client_id = empresas_dict[empresa_rotulo]
-
                 aluno_id = None
                 existente = (
                     supabase.table("alunos")
                     .select("id")
                     .eq("cpf", cpf_limpo)
+                    .limit(1)
                     .execute()
                 )
                 if existente and existente.data:
                     aluno_id = existente.data[0]["id"]
-                    supabase.table("alunos").update(
-                        {
-                            "name": nome.strip().upper(),
-                            "email": email.strip() if email else None,
-                            "rg": rg.strip() if rg else None,
-                        }
-                    ).eq("id", aluno_id).execute()
+                    # atualização mínima — não sobrescreve com vazio
+                    upd = {"name": nome.strip().upper()}
+                    if email and email.strip():
+                        upd["email"] = email.strip()
+                    if rg and rg.strip():
+                        upd["rg"] = rg.strip()
+                    supabase.table("alunos").update(upd).eq("id", aluno_id).execute()
                 else:
                     res = (
                         supabase.table("alunos")
@@ -126,25 +116,29 @@ with st.form("form_checkin_aluno", clear_on_submit=True):
                     )
                     aluno_id = res.data[0]["id"]
 
-                turma = (
-                    supabase.table("turmas")
-                    .select("data_treinamento, carga_horaria")
-                    .eq("id", turma_id)
-                    .single()
+                # evita matrícula duplicada
+                ja = (
+                    supabase.table("matriculas")
+                    .select("id")
+                    .eq("turma_id", turma_id)
+                    .eq("aluno_id", aluno_id)
+                    .limit(1)
                     .execute()
                 )
-                tdata = turma.data if turma else {}
-
-                supabase.table("matriculas").insert(
-                    {
-                        "aluno_id": aluno_id,
-                        "turma_id": turma_id,
-                        "client_id": client_id,
-                        "carga_horaria": (tdata or {}).get("carga_horaria") or "08 Horas",
-                        "data_treinamento": (tdata or {}).get("data_treinamento"),
-                    }
-                ).execute()
-
-                st.success("Presença registrada com sucesso!")
-            except Exception as e:
-                st.error(f"Erro ao registrar: {e}")
+                if ja and ja.data:
+                    st.info("Presença já registrada nesta turma.")
+                else:
+                    supabase.table("matriculas").insert(
+                        {
+                            "aluno_id": aluno_id,
+                            "turma_id": turma_id,
+                            "client_id": client_id,
+                            "carga_horaria": turma.get("carga_horaria") or "08 Horas",
+                            "data_treinamento": turma.get("data_treinamento"),
+                        }
+                    ).execute()
+                    st.success("Presença registrada com sucesso!")
+            except Exception:
+                st.error(
+                    "Não foi possível registrar a presença. Tente de novo ou avise o instrutor."
+                )
