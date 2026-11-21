@@ -1,7 +1,14 @@
-import streamlit as st
+from datetime import datetime
+
 import pandas as pd
+import streamlit as st
+
 from src.config.database import supabase
 from src.utils.import_helper import processar_planilha_alunos
+
+MAX_UPLOAD_MB = 5
+MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
+
 
 @st.dialog("Importar Alunos (Excel)", width="large")
 def modal_importar_excel(tid, titulo_turma, client_id, data_treinamento_str, carga_horaria_str):
@@ -9,17 +16,21 @@ def modal_importar_excel(tid, titulo_turma, client_id, data_treinamento_str, car
     st.write(f"**Turma:** {titulo_turma}")
 
     arquivo_upload = st.file_uploader(
-        "Selecione o arquivo Excel (.xlsx, .xls ou .xlsm)",
-        type=["xlsx", "xls", "xlsm"],
+        f"Arquivo Excel (.xlsx, máx. {MAX_UPLOAD_MB} MB)",
+        type=["xlsx"],
         key=f"up_excel_{tid}",
     )
 
     if not arquivo_upload:
         return
 
+    data = arquivo_upload.getvalue()
+    if len(data) > MAX_UPLOAD_BYTES:
+        st.error(f"Arquivo acima do limite de {MAX_UPLOAD_MB} MB.")
+        return
+
     try:
-        # .xlsm (macro) usa o mesmo engine openpyxl
-        df_temp = pd.read_excel(arquivo_upload, engine="openpyxl")
+        df_temp = pd.read_excel(data, engine="openpyxl")
         st.write("Pré-visualização das Colunas Encontradas:")
         st.dataframe(df_temp.head(3), use_container_width=True)
 
@@ -63,10 +74,10 @@ def modal_importar_excel(tid, titulo_turma, client_id, data_treinamento_str, car
             }
 
             with st.spinner(
-                "A analisar a planilha e matricular os alunos no sistema... (Isto pode levar alguns segundos)"
+                "A analisar a planilha e matricular os alunos no sistema..."
             ):
                 resultado = processar_planilha_alunos(
-                    arquivo_bytes=arquivo_upload.getvalue(),
+                    arquivo_bytes=data,
                     nome_arquivo=arquivo_upload.name,
                     mapeamento_colunas=mapa_colunas,
                     turma_id=tid,
@@ -75,15 +86,42 @@ def modal_importar_excel(tid, titulo_turma, client_id, data_treinamento_str, car
                     carga_horaria=carga_horaria_str,
                 )
 
+                # log opcional
+                try:
+                    u = st.session_state.get("user")
+                    supabase.table("import_logs").insert(
+                        {
+                            "origem": "turma_import_excel",
+                            "arquivo": (arquivo_upload.name or "")[:200],
+                            "sucesso": bool(resultado.get("sucesso")),
+                            "alunos_processados": int(
+                                resultado.get("alunos_processados") or 0
+                            ),
+                            "matriculas_criadas": int(
+                                resultado.get("matriculas_criadas") or 0
+                            ),
+                            "mensagem": (resultado.get("mensagem") or "")[:500],
+                            "user_email": getattr(u, "email", None),
+                            "user_id": getattr(u, "id", None),
+                            "created_at": datetime.utcnow().isoformat() + "Z",
+                        }
+                    ).execute()
+                except Exception:
+                    pass
+
                 if resultado["sucesso"]:
                     st.success(resultado["mensagem"])
 
                     col_met1, col_met2 = st.columns(2)
-                    col_met1.metric("Alunos Inseridos/Encontrados", resultado["alunos_processados"])
+                    col_met1.metric(
+                        "Alunos Inseridos/Encontrados", resultado["alunos_processados"]
+                    )
                     col_met2.metric("Novas Matrículas", resultado["matriculas_criadas"])
 
                     if resultado["erros"]:
-                        st.warning("Algumas linhas tiveram erros ou alunos já estavam matriculados:")
+                        st.warning(
+                            "Algumas linhas tiveram erros ou alunos já estavam matriculados:"
+                        )
                         for err in resultado["erros"]:
                             st.write(f"- {err}")
 
@@ -91,5 +129,5 @@ def modal_importar_excel(tid, titulo_turma, client_id, data_treinamento_str, car
                 else:
                     st.error(f"Falha no processamento: {resultado['mensagem']}")
 
-    except Exception as e:
-        st.error(f"Erro ao ler o arquivo Excel: {e}")
+    except Exception:
+        st.error("Erro ao ler o arquivo. Envie um .xlsx válido.")
