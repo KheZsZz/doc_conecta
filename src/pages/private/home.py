@@ -744,7 +744,7 @@ with st.expander("Turmas pendentes de documentação", expanded=True):
             .reset_index(name="Turmas pendentes")
             .sort_values("Turmas pendentes", ascending=False)
         )
-        with st.expander("Resumo: empresas com turmas pendentes", expanded=False):
-            st.dataframe(resumo_emp, hide_index=True, use_container_width=True)
+        st.markdown("**Resumo: empresas com turmas pendentes**")
+        st.dataframe(resumo_emp, hide_index=True, use_container_width=True)
     else:
         st.success("Nenhuma turma pendente de documentação no filtro atual.")
