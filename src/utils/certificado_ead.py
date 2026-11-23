@@ -150,6 +150,27 @@ def gerar_certificado_ead_pdf(
     nome_aluno = (aluno.get("name") or aluno.get("nome") or "").strip()
     cpf_aluno = _fmt_cpf(aluno.get("cpf"))
     rg_aluno = (aluno.get("rg") or "").strip()
+    matricula_aluno = str(aluno.get("matricula") or "").strip()
+    if matricula_aluno.lower() in ("nan", "none"):
+        matricula_aluno = ""
+    cpf_digitos = re.sub(r"\D", "", str(aluno.get("cpf") or ""))
+    if not matricula_aluno and cpf_digitos and len(cpf_digitos) not in (0, 11):
+        matricula_aluno = str(aluno.get("cpf") or cpf_digitos).strip()
+
+    if matricula_aluno:
+        label_doc = "Matrícula"
+        valor_doc = matricula_aluno
+        rg_cpf = ""
+    else:
+        label_doc = "RG/CPF"
+        rg_cpf = " / ".join([x for x in (rg_aluno, cpf_aluno) if x]) or cpf_aluno
+        valor_doc = rg_cpf
+
+    def _fmt_cnpj(cnpj) -> str:
+        d = re.sub(r"\D", "", str(cnpj or ""))
+        if len(d) == 14:
+            return f"{d[:2]}.{d[2:5]}.{d[5:8]}/{d[8:12]}-{d[12:]}"
+        return str(cnpj or "").strip()
 
     curso_nome = (
         curso.get("name")
@@ -205,12 +226,32 @@ def gerar_certificado_ead_pdf(
             ct,
         )
 
+    conteudo_raw = turma.get("conteudo_programatico") or curso.get("conteudo") or curso.get("conteudo_programatico") or ""
+    if isinstance(conteudo_raw, list):
+        conteudo = [str(x).strip() for x in conteudo_raw if str(x).strip()]
+    else:
+        conteudo = [
+            linha.strip().lstrip("\u2022*-\u2013\u2014 ").strip()
+            for linha in str(conteudo_raw).replace("\r\n", "\n").split("\n")
+            if linha.strip()
+        ]
+    titulo_conteudo = curso.get("name") or curso.get("sigla") or curso_nome
+    if carga:
+        titulo_conteudo = f"{titulo_conteudo} \u2013 {carga}"
+
     html_renderizado = template.render(
         IMAGEM_FUNDO=imagem_fundo,
+        LOGO_CT=resolver_imagem(ct.get("logo_url")),
         NOME_ALUNO=nome_aluno,
         CPF_ALUNO=cpf_aluno,
         RG_ALUNO=rg_aluno,
+        RG_CPF=rg_cpf,
+        LABEL_DOC_ALUNO=label_doc,
+        VALOR_DOC_ALUNO=valor_doc,
+        MATRICULA=matricula_aluno,
         EMPRESA=empresa.get("name") or "",
+        CNPJ=_fmt_cnpj(empresa.get("cnpj")),
+        ENDERECO=empresa.get("full_address") or "",
         CURSO_NOME=curso_nome,
         CARGA_HORARIA=carga,
         NIVEL=nivel_txt,
@@ -225,7 +266,8 @@ def gerar_certificado_ead_pdf(
         CPF_ASSINANTE=cpf_ass,
         RE_ASSINANTE=re_ass,
         LABEL_RE_ASSINANTE=rotulo_registro_profissional(formacao_ass),
-        CONTEUDO_PROGRAMATICO=turma.get("conteudo_programatico") or curso.get("conteudo") or "",
+        CONTEUDO_PROGRAMATICO=conteudo,
+        CURSO_TITULO_CONTEUDO=titulo_conteudo,
     )
 
     return html_para_pdf(html_renderizado, landscape=True)
