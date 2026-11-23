@@ -147,6 +147,12 @@
       text-transform: uppercase;
       line-height: 1.25;
     }
+    .assinatura-formacao {
+      font-size: 8pt;
+      font-style: italic;
+      color: #333;
+      line-height: 1.25;
+    }
     .assinatura-cargo {
       font-size: 8pt;
       color: #333;
@@ -291,14 +297,15 @@
           <div class="assinatura-linha"></div>
           <div class="assinatura-texto">
             <div class="assinatura-nome">{{ NOME_ASSINANTE }}</div>
-            <div class="assinatura-cargo">{{ CARGO_ASSINANTE }}</div>
-            {% if CARGO_ASSINANTE_2 %}
-            <div class="assinatura-cargo">{{ CARGO_ASSINANTE_2 }}</div>
+            {% if FORMACAO_ASSINANTE %}
+            <div class="assinatura-formacao">{{ FORMACAO_ASSINANTE }}</div>
             {% endif %}
-            <div class="assinatura-doc">
-              {% if CPF_ASSINANTE %}CPF: {{ CPF_ASSINANTE }}{% endif %}
-              {% if RE_ASSINANTE %}{% if CPF_ASSINANTE %} {% endif %}RE:{{ RE_ASSINANTE }}{% endif %}
-            </div>
+            {% if CPF_ASSINANTE %}
+            <div class="assinatura-doc">CPF: {{ CPF_ASSINANTE }}</div>
+            {% endif %}
+            {% if RE_ASSINANTE %}
+            <div class="assinatura-doc">{{ LABEL_RE_ASSINANTE or "RE" }}: {{ RE_ASSINANTE }}</div>
+            {% endif %}
           </div>
         </div>
 
