@@ -23,6 +23,7 @@ from src.pages.private.turmas.modals.emitir_documentos.data import (
     fetch_empresa,
     fetch_instrutor,
     fetch_matriculas,
+    dados_resp_de_registro,
     fetch_responsaveis,
     marcar_documento_emitido,
     resolver_cidade,
@@ -185,12 +186,52 @@ def marcar_turmas_emitidas(tids: list[str]) -> tuple[list[str], list[str]]:
     return ok, falhas
 
 
+def carregar_resolvedor_rt():
+    """Carrega RTs e vínculos curso↔RT UMA vez e devolve `resolver(turma) -> dict`.
+
+    Ordem por turma: turma.responsavel_id -> RT vinculado ao curso -> is_default
+    -> primeiro ativo. Só usa dados em memória (seguro para threads).
+    """
+    todos = fetch_responsaveis()
+    ativos = [r for r in todos if r.get("is_active", True)]
+    por_id = {str(r.get("id")): r for r in ativos}
+
+    vinculos: dict[str, list[str]] = {}
+    try:
+        res = supabase.table("responsavel_cursos").select("responsavel_id, curso_id").execute()
+        for row in (res.data or []):
+            if row.get("responsavel_id") and row.get("curso_id"):
+                vinculos.setdefault(str(row["curso_id"]), []).append(
+                    str(row["responsavel_id"])
+                )
+    except Exception:
+        vinculos = {}
+
+    padrao = next((r for r in ativos if r.get("is_default")), None) or (
+        ativos[0] if ativos else None
+    )
+
+    def resolver(turma: dict) -> dict:
+        rid = turma.get("responsavel_id")
+        if rid and str(rid) in por_id:
+            return dados_resp_de_registro(por_id[str(rid)])
+        for vid in vinculos.get(str(turma.get("curso_id") or ""), []):
+            if vid in por_id:
+                return dados_resp_de_registro(por_id[vid])
+        if padrao:
+            return dados_resp_de_registro(padrao)
+        return responsavel_padrao()
+
+    return resolver
+
+
 def gerar_docs_turma(
     *,
     grupo_nome: str,
     turma: dict,
     empresas_por_id: dict[str, dict],
-    dados_resp: dict,
+    dados_resp: dict | None = None,
+    resolver_rt=None,
     incluir_atestado: bool = True,
     incluir_cert_empresa: bool = True,
     incluir_cert_alunos: bool = True,
@@ -228,6 +269,9 @@ def gerar_docs_turma(
         or fetch_empresa(client_id)
     )
     curso = pre["curso"] if pre.get("curso") else fetch_curso(turma.get("curso_id"))
+    # RT por turma: override explícito > RT da turma/curso/padrão
+    if not dados_resp:
+        dados_resp = (resolver_rt or carregar_resolvedor_rt())(turma)
     instrutor = (
         pre["instrutor"]
         if pre.get("instrutor")
@@ -412,7 +456,7 @@ def gerar_pacote_grupo(
     incluir_lista: bool = True,
 ) -> tuple[bytes, dict[str, Any]]:
     """Versao sincrona (compat). A tela usa o modo em lotes via gerar_docs_turma."""
-    dados_resp = dados_resp or responsavel_padrao()
+    resolver_rt = None if dados_resp else carregar_resolvedor_rt()
     zip_buf = io.BytesIO()
     meta: dict[str, Any] = {
         "gerados": [],
@@ -430,6 +474,7 @@ def gerar_pacote_grupo(
                 turma=turma,
                 empresas_por_id=empresas_por_id,
                 dados_resp=dados_resp,
+                resolver_rt=resolver_rt,
                 incluir_atestado=incluir_atestado,
                 incluir_cert_empresa=incluir_cert_empresa,
                 incluir_cert_alunos=incluir_cert_alunos,

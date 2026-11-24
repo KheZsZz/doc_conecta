@@ -15,7 +15,7 @@ from src.utils.pacote_grupo import (
     listar_cts_completo,
     listar_grupos,
     marcar_turmas_emitidas,
-    responsavel_padrao,
+    carregar_resolvedor_rt,
     turmas_do_periodo,
 )
 from src.utils.imprimir_documentacao import _prefetch_maps
@@ -207,7 +207,8 @@ def _processar_lote(job: dict) -> None:
                 grupo_nome=job["grupo_nome"],
                 turma=turma,
                 empresas_por_id=job["empresas_por_id"],
-                dados_resp=job["dados_resp"],
+                dados_resp=job.get("dados_resp"),
+                resolver_rt=job.get("resolver_rt"),
                 pre=pre,
                 marcar=False,
                 **opts,
@@ -428,7 +429,8 @@ if st.button("Gerar pacote de documentação", type="primary", width="stretch"):
         "cts": listar_cts_completo(),
         "grupo_nome": grupo_nome if escopo == "Grupo empresarial" else "Todas_Empresas",
         "empresas_por_id": dict(empresas_por_id),
-        "dados_resp": responsavel_padrao(),
+        "dados_resp": None,  # RT resolvido por turma (turma → curso → padrão)
+        "resolver_rt": carregar_resolvedor_rt(),
         "opts": {
             "incluir_atestado": opt_atestado,
             "incluir_cert_empresa": opt_cert_emp,
