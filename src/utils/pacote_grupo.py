@@ -32,6 +32,7 @@ from src.utils.atestado import gerar_atestado_pdf_de_arquivo
 from src.utils.carteirinha import gerar_carteirinhas_pdf
 from src.utils.certificado import gerar_certificados_pdf, gerar_certificados_pdf_zip
 from src.utils.certificado_empresa import gerar_certificado_empresa_pdf
+from src.utils.pdf_assets import empresa_e_particular
 
 
 def _slug(texto: str) -> str:
@@ -268,6 +269,9 @@ def gerar_docs_turma(
         or pre.get("empresa")
         or fetch_empresa(client_id)
     )
+    if empresa_e_particular(empresa):
+        # Particular: só certificado do aluno e carteirinhas
+        incluir_atestado = incluir_cert_empresa = incluir_lista = False
     curso = pre["curso"] if pre.get("curso") else fetch_curso(turma.get("curso_id"))
     # RT por turma: override explícito > RT da turma/curso/padrão
     if not dados_resp:

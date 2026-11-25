@@ -24,6 +24,7 @@ from src.utils.atestado import gerar_atestado_pdf_de_arquivo
 from src.utils.carteirinha import gerar_carteirinhas_pdf
 from src.utils.certificado import gerar_certificados_pdf
 from src.utils.certificado_empresa import gerar_certificado_empresa_pdf
+from src.utils.pdf_assets import empresa_e_particular
 
 # WeasyPrint é pesado; 3 workers costuma ser o melhor custo/benefício no Streamlit Cloud
 _MAX_WORKERS = 3
@@ -286,6 +287,10 @@ def gerar_pdf_tipo(
         curso = cursos.get(str(turma.get("curso_id") or ""), {})
         instrutor = instrutores.get(str(turma.get("instrutor_id") or ""), {})
         empresa = empresas.get(str(turma.get("client_id") or ""), {})
+
+        if tipo in ("cert_empresa", "atestado") and empresa_e_particular(empresa):
+            avisos.append(f"{titulo}: empresa Particular — sem {tipo.replace('_', ' ')}, ignorada.")
+            continue
         matriculas = mats_por_turma.get(tid) or []
 
         if not matriculas:

@@ -7,6 +7,7 @@ import zipfile
 import streamlit as st
 
 from src.utils.atestado import gerar_atestado_pdf_de_arquivo
+from src.utils.pdf_assets import empresa_e_particular
 from src.utils.certificado_empresa import gerar_certificado_empresa_pdf
 from src.utils.certificado import gerar_certificados_pdf, gerar_certificados_pdf_zip
 from src.utils.carteirinha import gerar_carteirinhas_pdf
@@ -51,6 +52,11 @@ def gerar_documentacao_completa(
     dados_resp: dict,
     exige_atestado: bool,
 ) -> None:
+    # Empresa "Particular": só certificado do aluno e carteirinhas
+    particular = empresa_e_particular(fetch_empresa(client_id))
+    if particular:
+        exige_atestado = False
+
     nivel = (turma_data.get("nivel") or "").strip() or "Formação"
     modalidade = (turma_data.get("modalidade") or "").strip() or "Presencial"
     carga = (turma_data.get("carga_horaria") or "").strip() or "8 Horas"
@@ -74,16 +80,17 @@ def gerar_documentacao_completa(
     )
     cert_como_zip = formato_cert.startswith("ZIP")
 
-    incluidos = [
-        "Certificado da Empresa",
+    incluidos = [] if particular else ["Certificado da Empresa"]
+    incluidos += [
         (
             "Certificados dos alunos (ZIP interno)"
             if cert_como_zip
             else "Certificados dos alunos (PDF único)"
         ),
         "Carteirinhas (PDF)",
-        "Lista de Presença (.xlsx — layout Conecta)",
     ]
+    if not particular:
+        incluidos.append("Lista de Presença (.xlsx — layout Conecta)")
     if exige_atestado:
         incluidos.insert(0, "Atestado de Brigada")
 
@@ -222,20 +229,21 @@ def gerar_documentacao_completa(
                     except Exception as e:
                         erros.append(f"Atestado: {e}")
 
-                try:
-                    pdf_emp = gerar_certificado_empresa_pdf(
-                        turma=turma_cert,
-                        instrutor=instrutor_data,
-                        empresa=empresa_data,
-                        ct=ct_data or None,
-                        alunos=alunos_cert,
-                        normativa=normativa,
-                        cidade_data=cidade_data,
-                    )
-                    zf.writestr(f"{base}/02_certificado_empresa.pdf", pdf_emp)
-                    gerados.append("Certificado Empresa")
-                except Exception as e:
-                    erros.append(f"Certificado Empresa: {e}")
+                if not particular:
+                    try:
+                        pdf_emp = gerar_certificado_empresa_pdf(
+                            turma=turma_cert,
+                            instrutor=instrutor_data,
+                            empresa=empresa_data,
+                            ct=ct_data or None,
+                            alunos=alunos_cert,
+                            normativa=normativa,
+                            cidade_data=cidade_data,
+                        )
+                        zf.writestr(f"{base}/02_certificado_empresa.pdf", pdf_emp)
+                        gerados.append("Certificado Empresa")
+                    except Exception as e:
+                        erros.append(f"Certificado Empresa: {e}")
 
                 try:
                     kwargs_cert = dict(
@@ -278,16 +286,17 @@ def gerar_documentacao_completa(
                 except Exception as e:
                     erros.append(f"Carteirinhas: {e}")
 
-                try:
-                    xlsx_lista = gerar_lista_presenca_xlsx(
-                        alunos=alunos_lista,
-                        empresa=empresa_data,
-                        data_treinamento=data_trein,
-                    )
-                    zf.writestr(f"{base}/05_lista_presenca.xlsx", xlsx_lista)
-                    gerados.append("Lista de Presença")
-                except Exception as e:
-                    erros.append(f"Lista de Presença: {e}")
+                if not particular:
+                    try:
+                        xlsx_lista = gerar_lista_presenca_xlsx(
+                            alunos=alunos_lista,
+                            empresa=empresa_data,
+                            data_treinamento=data_trein,
+                        )
+                        zf.writestr(f"{base}/05_lista_presenca.xlsx", xlsx_lista)
+                        gerados.append("Lista de Presença")
+                    except Exception as e:
+                        erros.append(f"Lista de Presença: {e}")
 
             if not gerados:
                 st.error(

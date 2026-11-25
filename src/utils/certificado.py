@@ -39,6 +39,7 @@ def _get_template(caminho_pasta: str, nome: str = "template_certificado.html"):
 
 @lru_cache(maxsize=64)
 def _url_para_data_uri(url: str) -> str:
+    """Baixa imagem HTTP 1x e cacheia como data-URI (evita N downloads no WeasyPrint)."""
     if not url or not str(url).startswith(("http://", "https://")):
         return url or ""
     try:
@@ -143,8 +144,10 @@ def _preparar_assets(
     normativa: str,
     caminho_fundo: str | None,
 ) -> dict:
+    """Resolve fundo/assinaturas/textos 1 vez para a turma inteira."""
     ct = ct or {}
     empresa = empresa or {}
+    ocultar_empresa = empresa_e_particular(empresa)
     instrutor = instrutor or {}
     turma = turma or {}
 
@@ -175,7 +178,6 @@ def _preparar_assets(
         else:
             dizeres += "."
 
-    ocultar_empresa = empresa_e_particular(empresa)
     return {
         "imagem_fundo": imagem_fundo,
         "assinatura_instrutor": assinatura_instrutor,
@@ -200,3 +202,195 @@ def _preparar_assets(
         "label_re_resp": rotulo_registro_profissional((turma.get("formacao_resp_tecnico") or "").strip()),
         "label_re_instrutor": rotulo_registro_profissional((instrutor.get("formacao") or "").strip()),
     }
+
+
+def gerar_certificado_html(
+    aluno: dict,
+    turma: dict,
+    instrutor: dict,
+    empresa: dict | None = None,
+    ct: dict | None = None,
+    normativa: str = "",
+    cidade_data: str = "",
+    caminho_fundo: str | None = None,
+    caminho_pasta_templates: str = "src/templates",
+    _assets: dict | None = None,
+) -> str:
+    assets = _assets or _preparar_assets(
+        turma, instrutor, empresa, ct, normativa, caminho_fundo
+    )
+
+    cpf = re.sub(r"\D", "", str(aluno.get("cpf") or ""))
+    rg = (aluno.get("rg") or "").strip()
+    partes_doc = []
+    if rg:
+        partes_doc.append(f"RG: {rg}")
+    if cpf:
+        partes_doc.append(_fmt_cpf(cpf))
+    rg_cpf_str = " / ".join(partes_doc)
+
+    data_nasc_raw = (
+        aluno.get("data_nasc")
+        or aluno.get("data_nascimento")
+        or aluno.get("birth_date")
+        or ""
+    )
+    data_nasc_fmt = ""
+    if data_nasc_raw:
+        try:
+            dt = datetime.strptime(str(data_nasc_raw).split("T")[0], "%Y-%m-%d")
+            data_nasc_fmt = dt.strftime("%d/%m/%Y")
+        except Exception:
+            data_nasc_fmt = str(data_nasc_raw)
+
+    template = _get_template(caminho_pasta_templates, "template_certificado.html")
+    return template.render( # type: ignore
+        IMAGEM_FUNDO=assets["imagem_fundo"],
+        NOME_ALUNO=aluno.get("name") or "",
+        RG_CPF=rg_cpf_str,
+        DATA_NASCIMENTO=data_nasc_fmt,
+        EMPRESA=assets["empresa_nome"],
+        ENDERECO_EMPRESA=assets["endereco_empresa"],
+        NIVEL=assets["nivel"],
+        MODALIDADE=assets["modalidade"],
+        ENDERECO_CT=assets["endereco_ct"],
+        CARGA_HORARIA=assets["carga"],
+        NORMATIVA=assets["normativa"],
+        CIDADE_DATA=cidade_data or "",
+        ASSINATURA_INSTRUTOR=assets["assinatura_instrutor"],
+        NOME_INSTRUTOR=assets["nome_instrutor"],
+        FORMACAO_INSTRUTOR=assets["formacao_instrutor"],
+        CPF_INSTRUTOR=assets["cpf_instrutor"],
+        RE_INSTRUTOR=assets["re_instrutor"],
+        RESP_TECNICO=assets["resp_tecnico"],
+        FORMACAO_RESP=assets["formacao_resp"],
+        CPF_RESP=assets["cpf_resp"],
+        RE_RESP=assets["re_resp"],
+        ASSINATURA_RESP_TECNICO=assets["assinatura_resp_tecnico"],
+        CURSO_NOME=assets["curso_nome"],
+        DIZERES_CERTIFICADO=assets["dizeres"],
+        LABEL_RE_INSTRUTOR=assets["label_re_instrutor"],
+        LABEL_RE_RESP=assets["label_re_resp"],
+        
+    )
+
+
+def _html_para_pdf(html_str: str) -> bytes:
+    return HTML(string=html_str).write_pdf(stylesheets=[_CSS_LANDSCAPE]) # type: ignore
+
+
+def gerar_certificados_pdf(
+    alunos_matriculas: list[dict],
+    turma: dict,
+    instrutor: dict,
+    empresa: dict | None = None,
+    ct: dict | None = None,
+    normativa: str = "",
+    cidade_data: str = "",
+    caminho_fundo: str | None = None,
+    caminho_pasta_templates: str = "src/templates",
+) -> bytes:
+    if not alunos_matriculas:
+        raise ValueError("Nenhum aluno para gerar certificado.")
+
+    assets = _preparar_assets(
+        turma, instrutor, empresa, ct, normativa, caminho_fundo
+    )
+
+    def _um(aluno):
+        html = gerar_certificado_html(
+            aluno=aluno,
+            turma=turma,
+            instrutor=instrutor,
+            empresa=empresa,
+            ct=ct,
+            normativa=normativa,
+            cidade_data=cidade_data,
+            caminho_fundo=caminho_fundo,
+            caminho_pasta_templates=caminho_pasta_templates,
+            _assets=assets,
+        )
+        return _html_para_pdf(html)
+
+    from pypdf import PdfReader, PdfWriter
+
+    writer = PdfWriter()
+    if len(alunos_matriculas) >= 4:
+        pdfs: list[bytes | None] = [None] * len(alunos_matriculas)
+        with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as ex:
+            futs = {ex.submit(_um, a): i for i, a in enumerate(alunos_matriculas)}
+            for fut in as_completed(futs):
+                pdfs[futs[fut]] = fut.result()
+        for pdf_bytes in pdfs:
+            reader = PdfReader(io.BytesIO(pdf_bytes))  # type: ignore
+            for page in reader.pages:
+                writer.add_page(page)
+    else:
+        for aluno in alunos_matriculas:
+            reader = PdfReader(io.BytesIO(_um(aluno)))
+            for page in reader.pages:
+                writer.add_page(page)
+
+    output = io.BytesIO()
+    writer.write(output)
+    return comprimir_pdf(output.getvalue())
+
+
+def gerar_certificados_pdf_zip(
+    alunos_matriculas: list[dict],
+    turma: dict,
+    instrutor: dict,
+    empresa: dict | None = None,
+    ct: dict | None = None,
+    normativa: str = "",
+    cidade_data: str = "",
+    caminho_fundo: str | None = None,
+    caminho_pasta_templates: str = "src/templates",
+) -> bytes:
+    if not alunos_matriculas:
+        raise ValueError("Nenhum aluno para gerar certificado.")
+
+    assets = _preparar_assets(
+        turma, instrutor, empresa, ct, normativa, caminho_fundo
+    )
+
+    def _job(aluno: dict) -> tuple[str, bytes]:
+        html = gerar_certificado_html(
+            aluno=aluno,
+            turma=turma,
+            instrutor=instrutor,
+            empresa=empresa,
+            ct=ct,
+            normativa=normativa,
+            cidade_data=cidade_data,
+            caminho_fundo=caminho_fundo,
+            caminho_pasta_templates=caminho_pasta_templates,
+            _assets=assets,
+        )
+        return _nome_pdf_certificado(aluno, turma), _html_para_pdf(html)
+
+    if len(alunos_matriculas) >= 4:
+        resultados: list[tuple[str, bytes] | None] = [None] * len(alunos_matriculas)
+        with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as ex:
+            futs = {ex.submit(_job, a): i for i, a in enumerate(alunos_matriculas)}
+            for fut in as_completed(futs):
+                resultados[futs[fut]] = fut.result()
+    else:
+        resultados = [_job(a) for a in alunos_matriculas]
+
+    zip_buffer = io.BytesIO()
+    usados: set[str] = set()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        for item in resultados:
+            nome_arquivo_pdf, pdf_bytes = item  # type: ignore
+            base, ext = os.path.splitext(nome_arquivo_pdf)
+            candidato = nome_arquivo_pdf
+            n = 2
+            while candidato in usados:
+                candidato = f"{base}_{n}{ext}"
+                n += 1
+            usados.add(candidato)
+            zip_file.writestr(candidato, comprimir_pdf(pdf_bytes))
+
+    zip_buffer.seek(0)
+    return zip_buffer.getvalue()
