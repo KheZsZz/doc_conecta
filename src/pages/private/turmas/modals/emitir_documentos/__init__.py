@@ -2,7 +2,9 @@ from typing import Any
 
 import streamlit as st
 
-from .data import fetch_turma, fetch_curso
+from src.utils.pdf_assets import empresa_e_particular
+
+from .data import fetch_turma, fetch_curso, fetch_empresa
 from .responsavel import ui_selecionar_responsavel
 from .atestado import gerar_atestado
 from .certificado_empresa import gerar_certificado_empresa
@@ -19,21 +21,33 @@ def modal_emitir_documentacao(tid, titulo_turma, client_id, ct_id=None):
     turma_data = fetch_turma(tid)
     curso_data = fetch_curso(turma_data.get("curso_id"))
     exige_atestado = curso_data.get("exige_atestado", True)
+    particular = empresa_e_particular(fetch_empresa(client_id))
 
     st.markdown("Selecione o documento desejado para emissão:")
     st.markdown("---")
 
-    opcoes = [
-        "Documentação Completa (tudo em ZIP)",
-        "Certificado da Empresa",
-        "Certificados Individuais (Alunos)",
-        "Carteirinhas (Alunos)",
-        "Lista de Presença",
-    ]
-    if exige_atestado:
-        opcoes.insert(1, "Atestado de Brigada (Empresa)")
+    if particular:
+        opcoes = [
+            "Documentação Completa (tudo em ZIP)",
+            "Certificados Individuais (Alunos)",
+            "Carteirinhas (Alunos)",
+        ]
+        st.info(
+            "Empresa **Particular**: emite só certificado do aluno e carteirinha. "
+            "Os dados da empresa não aparecem no certificado."
+        )
     else:
-        st.info("Este curso está configurado para **NÃO emitir Atestado**.")
+        opcoes = [
+            "Documentação Completa (tudo em ZIP)",
+            "Certificado da Empresa",
+            "Certificados Individuais (Alunos)",
+            "Carteirinhas (Alunos)",
+            "Lista de Presença",
+        ]
+        if exige_atestado:
+            opcoes.insert(1, "Atestado de Brigada (Empresa)")
+        else:
+            st.info("Este curso está configurado para **NÃO emitir Atestado**.")
 
     tipo = st.selectbox("Tipo de Documento", opcoes)
 
