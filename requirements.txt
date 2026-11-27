@@ -10,3 +10,4 @@ plotly
 pypdf
 pikepdf
 Pillow
+qrcode[pil]

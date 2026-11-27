@@ -37,10 +37,13 @@ pagina_atual = query_params.get("page")
 login_page = st.Page(
     "src/pages/public/login.py", title="Login", icon=":material/login:"
 )
-checkin_page = st.Page(
+# Cadastro público de alunos (QR Code). Mesmo endereço /alunos da página interna:
+# deslogado (ou com ?turma=) abre o formulário público; logado abre a tela interna.
+cadastro_publico_page = st.Page(
     "src/pages/public/cadastro_aluno.py",
-    title="Check-in Aluno",
+    title="Cadastro de Aluno",
     icon=":material/how_to_reg:",
+    url_path="alunos",
 )
 
 home_page = st.Page(
@@ -160,9 +163,11 @@ def montar_navegacao_por_permissao() -> dict:
 
 
 if pagina_atual == "checkin":
-    pg = st.navigation([checkin_page])
-elif st.session_state.user is None:
-    pg = st.navigation({"Acesso": [login_page]})
+    # Link antigo (/?page=checkin): página única servida na raiz.
+    pg = st.navigation([cadastro_publico_page], position="hidden")
+elif st.session_state.user is None or query_params.get("turma"):
+    # Deslogado, ou link de QR Code (/alunos?turma=...): /alunos abre o cadastro público.
+    pg = st.navigation([login_page, cadastro_publico_page], position="hidden")
 else:
     if not st.session_state.get("role"):
         sincronizar_perfil_sessao(st.session_state.user)

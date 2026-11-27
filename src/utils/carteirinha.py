@@ -10,6 +10,7 @@ from typing import Any
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML, CSS
 
+from src.utils.cursos_helpers import eh_curso_bombeiro
 from src.utils.pdf_assets import get_template, html_para_pdf, resolver_imagem, rotulo_registro_profissional
 
 URL_LOGO_CONECTA = (
@@ -88,18 +89,7 @@ def _validade_padrao(data_conclusao: str, anos: int = 1) -> str:
 
 
 def _eh_curso_bombeiro(curso_nome: str, curso_sigla: str = "") -> bool:
-    t = f"{curso_nome or ''} {curso_sigla or ''}".lower()
-    t = re.sub(r"\s+", " ", t)
-    return any(
-        k in t
-        for k in (
-            "bombeiro",
-            "bombeiros",
-            "bc civil",
-            "bombeiro civil",
-            "bombeiro profissional",
-        )
-    ) or (curso_sigla or "").strip().upper() in ("BC", "BPC", "BPCIVIL")
+    return eh_curso_bombeiro(curso_nome, curso_sigla)
 
 
 def _eh_reciclagem(nivel: str = "", curso_nome: str = "") -> bool:
