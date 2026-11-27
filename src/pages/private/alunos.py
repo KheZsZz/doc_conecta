@@ -1,9 +1,15 @@
 import streamlit as st
-from datetime import date, datetime
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from src.config.database import supabase
 from src.auth.permissions import ct_id_atual, is_consulta
+from src.ui.styles import page_header
+from src.utils.qrcode_turma import link_cadastro_turma, qrcode_png
 
-st.title("Cadastro Individual de Alunos")
+page_header(
+    "Alunos",
+    "Gere o QR Code para a turma se cadastrar sozinha ou matricule manualmente.",
+)
 
 if is_consulta() and ct_id_atual():
     st.caption("Exibindo apenas turmas do **seu CT**.")
@@ -22,7 +28,12 @@ def formatar_data_br(data_str) -> str:
 # ==========================================
 # 1. BUSCAR TURMAS PENDENTES DO DIA (hoje)
 # ==========================================
-hoje = date.today().isoformat()  # YYYY-MM-DD
+data_sel = st.date_input(
+    "Data do treinamento",
+    value=datetime.now(ZoneInfo("America/Sao_Paulo")).date(),
+    format="DD/MM/YYYY",
+)
+hoje = data_sel.isoformat()  # YYYY-MM-DD
 turmas_dict = {}
 turmas_info_completa = {}
 
@@ -60,10 +71,10 @@ except Exception as e:
     st.error(f"Erro ao buscar turmas: {e}")
 
 if not turmas_dict:
-    st.info("Nenhuma turma pendente para hoje"+ (" neste CT." if is_consulta() else "."))
+    st.info("Nenhuma turma pendente nesta data"+ (" neste CT." if is_consulta() else "."))
     st.stop()
 
-rotulo_sel = st.selectbox("Turma (hoje, pendente)*", options=list(turmas_dict.keys()))
+rotulo_sel = st.selectbox("Turma (pendente)*", options=list(turmas_dict.keys()))
 turma_id = turmas_dict[rotulo_sel]
 turma = turmas_info_completa.get(turma_id) or {}
 
@@ -72,13 +83,40 @@ st.caption(
     f"Carga: {turma.get('carga_horaria') or '—'}"
 )
 
-with st.form("form_matricula_manual", clear_on_submit=True):
+tab_qr, tab_manual = st.tabs([":material/qr_code_2: QR Code da turma", ":material/person_add: Cadastro manual"])
+
+with tab_qr:
+    link = link_cadastro_turma(str(turma_id))
+    png = qrcode_png(link)
+    col_qr, col_info = st.columns([1, 1.3])
+    with col_qr:
+        st.image(png, width=260)
+    with col_info:
+        st.markdown(f"**{rotulo_sel}**")
+        st.caption(
+            "Os alunos escaneiam e preenchem Nome e CPF (Bombeiro Civil: Nome, CPF, RG e RE). "
+            "Não precisa de login. O cadastro fecha quando os documentos forem emitidos."
+        )
+        st.code(link, language=None)
+        st.download_button(
+            "Baixar QR Code (PNG)",
+            data=png,
+            file_name=f"qrcode_{rotulo_sel[:40].replace(' ', '_')}.png",
+            mime="image/png",
+            type="primary",
+            width="stretch",
+        )
+        st.link_button("Abrir formulário", link, width="stretch")
+
+with tab_manual, st.form("form_matricula_manual", clear_on_submit=True):
     nome = st.text_input("Nome completo*")
-    cpf = st.text_input("CPF")
-    rg = st.text_input("RG")
-    email = st.text_input("E-mail")
-    phone = st.text_input("Telefone")
-    ok = st.form_submit_button("Matricular", type="primary", use_container_width=True)
+    c1, c2 = st.columns(2)
+    cpf = c1.text_input("CPF")
+    rg = c2.text_input("RG")
+    c3, c4 = st.columns(2)
+    email = c3.text_input("E-mail")
+    phone = c4.text_input("Telefone")
+    ok = st.form_submit_button("Matricular", type="primary", width="stretch")
 
     if ok:
         if not nome.strip():
